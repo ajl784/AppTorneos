@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'auth_state.dart';
+import 'busqueda_screen.dart';
 import 'login_register_screen.dart';
 import 'perfil_screen.dart';
 
@@ -39,8 +40,18 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  void _openSearch() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const BusquedaScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    final Color selectedColor = colors.primary;
+    final Color unselectedColor = colors.onSurfaceVariant;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -72,35 +83,99 @@ class _MainShellState extends State<MainShell> {
           const CalendarioTab(),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Inicio',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.emoji_events),
-            label: 'Torneos',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: 'Estadísticas',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_month),
-            label: 'Calendario',
-          ),
-
-        ],
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: FloatingActionButton(
+        onPressed: _openSearch,
+        backgroundColor: Colors.black,
+        child: const Icon(Icons.search),
       ),
-      floatingActionButton: null,
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(
+                label: 'Inicio',
+                icon: Icons.home,
+                isSelected: _currentIndex == 0,
+                selectedColor: selectedColor,
+                unselectedColor: unselectedColor,
+                onTap: () => setState(() => _currentIndex = 0),
+              ),
+              _NavItem(
+                label: 'Torneos',
+                icon: Icons.emoji_events,
+                isSelected: _currentIndex == 1,
+                selectedColor: selectedColor,
+                unselectedColor: unselectedColor,
+                onTap: () => setState(() => _currentIndex = 1),
+              ),
+              const SizedBox(width: 48),
+              _NavItem(
+                label: 'Estadísticas',
+                icon: Icons.bar_chart,
+                isSelected: _currentIndex == 2,
+                selectedColor: selectedColor,
+                unselectedColor: unselectedColor,
+                onTap: () => setState(() => _currentIndex = 2),
+              ),
+              _NavItem(
+                label: 'Calendario',
+                icon: Icons.calendar_month,
+                isSelected: _currentIndex == 3,
+                selectedColor: selectedColor,
+                unselectedColor: unselectedColor,
+                onTap: () => setState(() => _currentIndex = 3),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.selectedColor,
+    required this.unselectedColor,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final Color selectedColor;
+  final Color unselectedColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = isSelected ? selectedColor : unselectedColor;
+
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: color, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
