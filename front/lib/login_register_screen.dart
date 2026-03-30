@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'auth_state.dart';
+
 class LoginRegisterScreen extends StatefulWidget {
   const LoginRegisterScreen({super.key});
 
@@ -54,10 +56,8 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () {
-                // Aquí iría la lógica de login o registro
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(isLogin ? 'Login' : 'Registro')),
-                );
+                AuthState.isLoggedIn.value = true;
+                Navigator.of(context).pop();
               },
               child: Text(isLogin ? 'Iniciar sesión' : 'Registrarse'),
             ),
