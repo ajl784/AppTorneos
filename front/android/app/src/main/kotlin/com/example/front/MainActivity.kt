@@ -1,4 +1,4 @@
-package com.example.torneando
+package com.example.front
 
 import io.flutter.embedding.android.FlutterActivity
 
