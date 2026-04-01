@@ -50,6 +50,7 @@ CREATE TABLE arbitro_torneo (
 CREATE TABLE jugador_individual (
 	id_jugador BIGSERIAL PRIMARY KEY,
 	id_usuario BIGINT NOT NULL UNIQUE REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+	id_equipo BIGINT REFERENCES equipo(id_equipo) ON DELETE SET NULL,
 	elo INTEGER NOT NULL DEFAULT 1200 CHECK (elo >= 0)
 );
 
