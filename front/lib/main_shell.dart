@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'auth_state.dart';
-import 'busqueda_screen.dart';
 import 'login_register_screen.dart';
 import 'perfil_screen.dart';
 
@@ -14,6 +13,8 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+
+  static const int _crearTorneoTabIndex = 4;
 
   void _goToProfile() {
     if (AuthState.isLoggedIn.value) {
@@ -40,10 +41,8 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  void _openSearch() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const BusquedaScreen()),
-    );
+  void _goToCrearTorneoTab() {
+    setState(() => _currentIndex = _crearTorneoTabIndex);
   }
 
   @override
@@ -81,13 +80,24 @@ class _MainShellState extends State<MainShell> {
           const TorneosTab(),
           const EstadisticasTab(),
           const CalendarioTab(),
+          const CrearTorneoTab(),
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openSearch,
-        backgroundColor: Colors.black,
-        child: const Icon(Icons.search),
+      floatingActionButton: SizedBox(
+        width: 70,
+        height: 70,
+        child: FloatingActionButton(
+          tooltip: 'Crear torneo',
+          onPressed: _goToCrearTorneoTab,
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          elevation: 6,
+          shape: const CircleBorder(
+            side: BorderSide(color: Colors.white24, width: 1.5),
+          ),
+          child: const Icon(Icons.add, size: 40),
+        ),
       ),
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
@@ -113,7 +123,7 @@ class _MainShellState extends State<MainShell> {
                 unselectedColor: unselectedColor,
                 onTap: () => setState(() => _currentIndex = 1),
               ),
-              const SizedBox(width: 48),
+              const SizedBox(width: 64),
               _NavItem(
                 label: 'Estadísticas',
                 icon: Icons.bar_chart,
@@ -220,6 +230,37 @@ class CalendarioTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(child: Text('Calendario'));
+  }
+}
+
+class CrearTorneoTab extends StatelessWidget {
+  const CrearTorneoTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.emoji_events, size: 48),
+            const SizedBox(height: 12),
+            Text(
+              'Crear torneo',
+              style: Theme.of(context).textTheme.headlineSmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Aquí irá el formulario para crear un torneo.',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
