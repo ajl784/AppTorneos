@@ -1,0 +1,41 @@
+{
+  "name": "Node.js + PostgreSQL Dev Environment",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "node",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ckotzbauer.vscode-pg-client"
+      ],
+      "settings": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true,
+        "eslint.validate": [
+          "javascript",
+          "javascriptreact",
+          "typescript",
+          "typescriptreact"
+        ]
+      }
+    }
+  },
+  "forwardPorts": [3000, 5432],
+  "portsAttributes": {
+    "3000": {
+      "label": "Application",
+      "onAutoForward": "notify"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "if [ -f package.json ]; then npm install; else echo 'No package.json found. Skipping npm install.'; fi",
+  "remoteEnv": {
+    "NODE_ENV": "development"
+  }
+}

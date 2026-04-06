@@ -4,6 +4,7 @@
 *.log
 *.pyc
 *.swp
+node_modules/
 .buildlog/
 .history
 .vscode/
