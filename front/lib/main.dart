@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'main_shell.dart';
+import 'package:front/screens/main_shell/main_shell.dart';
 
 void main() {
   runApp(const MyApp());
@@ -36,4 +36,5 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
 

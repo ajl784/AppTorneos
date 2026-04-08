@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'auth_state.dart';
+import 'package:front/state/auth_state.dart';
 
 class LoginRegisterScreen extends StatefulWidget {
   const LoginRegisterScreen({super.key});
@@ -67,7 +67,11 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
                   isLogin = !isLogin;
                 });
               },
-              child: Text(isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'),
+              child: Text(
+                isLogin
+                    ? '¿No tienes cuenta? Regístrate'
+                    : '¿Ya tienes cuenta? Inicia sesión',
+              ),
             ),
           ],
         ),
