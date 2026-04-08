@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'auth_state.dart';
-import 'login_register_screen.dart';
-import 'perfil_screen.dart';
+import 'package:front/screens/login_register/login_register_screen.dart';
+import 'package:front/screens/perfil/perfil_screen.dart';
+import 'package:front/state/auth_state.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -24,12 +24,6 @@ class _MainShellState extends State<MainShell> {
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const LoginRegisterScreen()),
-    );
-  }
-
-  void _goToLogin() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const LoginRegisterScreen()),
     );
@@ -263,12 +257,3 @@ class CrearTorneoTab extends StatelessWidget {
     );
   }
 }
-
-
-
-
-
-
-
-
-
