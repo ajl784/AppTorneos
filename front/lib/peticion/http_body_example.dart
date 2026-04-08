@@ -1,67 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-
-class Torneo {
-  final int id;
-  final String nombre;
-
-  const Torneo({
-    required this.id,
-    required this.nombre,
-  });
-
-  factory Torneo.fromJson(Map<String, dynamic> json) {
-    return Torneo(
-      id: (json['id'] as num).toInt(),
-      nombre: (json['nombre'] as String?) ?? '',
-    );
-  }
-}
-
-class TorneosApi {
-  final String baseUrl;
-  final http.Client _client;
-
-  TorneosApi({
-    required this.baseUrl,
-    http.Client? client,
-  }) : _client = client ?? http.Client();
-
-  Future<List<Torneo>> fetchTorneos() async {
-    final uri = Uri.parse('$baseUrl/torneos');
-    final response = await _client.get(
-      uri,
-      headers: const {
-        'Accept': 'application/json',
-      },
-    );
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode}: ${response.body}');
-    }
-
-    final decoded = jsonDecode(response.body);
-
-    if (decoded is List) {
-      return decoded
-          .whereType<Map<String, dynamic>>()
-          .map(Torneo.fromJson)
-          .toList(growable: false);
-    }
-
-    if (decoded is Map<String, dynamic> && decoded['items'] is List) {
-      final items = decoded['items'] as List;
-      return items
-          .whereType<Map<String, dynamic>>()
-          .map(Torneo.fromJson)
-          .toList(growable: false);
-    }
-
-    throw const FormatException('Respuesta JSON inesperada');
-  }
-}
+import 'package:front/features/torneos/data/torneos_api.dart';
+import 'package:front/features/torneos/domain/torneo.dart';
 
 class TorneosScreenExample extends StatefulWidget {
   const TorneosScreenExample({super.key});
@@ -104,7 +43,10 @@ class _TorneosScreenExampleState extends State<TorneosScreenExample> {
 
           return ListView.separated(
             itemCount: torneos.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, separatorIndex) => Divider(
+              key: ValueKey(separatorIndex),
+              height: 1,
+            ),
             itemBuilder: (context, index) {
               final torneo = torneos[index];
               return ListTile(
