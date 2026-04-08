@@ -149,23 +149,3 @@ CREATE TABLE historial_elo (
 	creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- =====================================================
--- Índices útiles
--- =====================================================
-
-CREATE INDEX idx_categoria_tipo_categoria ON categoria_tipo_torneo(id_categoria);
-CREATE INDEX idx_categoria_tipo_tipo ON categoria_tipo_torneo(id_tipo_torneo);
-CREATE INDEX idx_torneo_categoria ON torneo(id_categoria);
-CREATE INDEX idx_torneo_tipo ON torneo(id_tipo_torneo);
-CREATE INDEX idx_torneo_organizador ON torneo(id_organizador);
-CREATE INDEX idx_pte_torneo ON participacion_torneo_equipo(id_torneo);
-CREATE INDEX idx_pte_equipo ON participacion_torneo_equipo(id_equipo);
-CREATE INDEX idx_partido_torneo ON partido(id_torneo);
-CREATE INDEX idx_pp_partido ON participacion_partido(id_partido);
-CREATE INDEX idx_pp_equipo ON participacion_partido(id_participacion_equipo);
-CREATE INDEX idx_pertenece_usuario ON pertenece(id_usuario);
-CREATE INDEX idx_pertenece_equipo ON pertenece(id_equipo);
-CREATE INDEX idx_entrenador_usuario ON entrenador_equipo(id_usuario);
-CREATE INDEX idx_entrenador_equipo ON entrenador_equipo(id_equipo);
-CREATE INDEX idx_historial_elo_equipo ON historial_elo(id_equipo);
-
