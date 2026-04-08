@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'package:front/screens/login_register/login_register_screen.dart';
+import 'package:front/screens/main_shell/tabs/calendario_tab.dart';
+import 'package:front/screens/main_shell/tabs/crear_torneo_tab.dart';
+import 'package:front/screens/main_shell/tabs/estadisticas_tab.dart';
+import 'package:front/screens/main_shell/tabs/inicio_tab.dart';
+import 'package:front/screens/main_shell/tabs/torneos_tab.dart';
 import 'package:front/screens/perfil/perfil_screen.dart';
 import 'package:front/state/auth_state.dart';
 
@@ -176,80 +181,6 @@ class _NavItem extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: color, fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class InicioTab extends StatelessWidget {
-  const InicioTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text('Bienvenido a Torneando!'),
-        ],
-      ),
-    );
-  }
-}
-
-class TorneosTab extends StatelessWidget {
-  const TorneosTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Torneos'));
-  }
-}
-
-class EstadisticasTab extends StatelessWidget {
-  const EstadisticasTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Estadísticas'));
-  }
-}
-
-class CalendarioTab extends StatelessWidget {
-  const CalendarioTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Calendario'));
-  }
-}
-
-class CrearTorneoTab extends StatelessWidget {
-  const CrearTorneoTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.emoji_events, size: 48),
-            const SizedBox(height: 12),
-            Text(
-              'Crear torneo',
-              style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Aquí irá el formulario para crear un torneo.',
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
             ),
           ],
         ),
