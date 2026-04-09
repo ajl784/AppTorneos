@@ -24,6 +24,7 @@ services:
       - "3000:3000"
     volumes:
       - .:/workspace
+      - /workspace/node_modules
     environment:
       NODE_ENV: development
       PORT: 3000
