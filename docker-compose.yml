@@ -11,6 +11,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./Backend/BD/bdr:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./Backend/BD/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d app_db"]
       interval: 10s
@@ -24,6 +25,7 @@ services:
       - "3000:3000"
     volumes:
       - .:/workspace
+      - /workspace/node_modules
     environment:
       NODE_ENV: development
       PORT: 3000

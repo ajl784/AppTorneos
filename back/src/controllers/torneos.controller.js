@@ -100,6 +100,24 @@ const updateFormularioTorneo = asyncHandler(async (req, res) => {
   });
 });
 
+const generarEnfrentamientos = asyncHandler(async (req, res) => {
+  const idTorneo = parsePositiveInt(req.params.idTorneo, "idTorneo");
+  const data = await torneosService.generarEnfrentamientos(idTorneo);
+  created(res, data);
+});
+
+const generarBracketEliminacion = asyncHandler(async (req, res) => {
+  const idTorneo = parsePositiveInt(req.params.idTorneo, "idTorneo");
+  const data = await torneosService.generarEliminacion(idTorneo);
+  created(res, data);
+});
+
+const avanzarRondaEliminacion = asyncHandler(async (req, res) => {
+  const idTorneo = parsePositiveInt(req.params.idTorneo, "idTorneo");
+  const data = await torneosService.avanzarRondaEliminacion(idTorneo);
+  created(res, data);
+});
+
 module.exports = {
   listTorneos,
   getTorneoById,
@@ -108,4 +126,7 @@ module.exports = {
   deleteTorneo,
   getFormularioTorneo,
   updateFormularioTorneo,
+  generarEnfrentamientos,
+  generarBracketEliminacion,
+  avanzarRondaEliminacion,
 };

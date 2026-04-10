@@ -87,14 +87,16 @@ CREATE TABLE torneo (
 	descripcion TEXT,
 	fecha_inicio TIMESTAMPTZ,
 	fecha_fin TIMESTAMPTZ,
-	estado VARCHAR(20) NOT NULL DEFAULT 'planificado',
+	estado VARCHAR(20) NOT NULL DEFAULT 'inscripcion_abierta',
+	
 	id_categoria BIGINT NOT NULL,
 	id_tipo_torneo BIGINT NOT NULL,
 	id_organizador BIGINT REFERENCES usuario(id_usuario) ON DELETE SET NULL,
 	encuesta JSONB,
 	norma_puntuacion TEXT,
 	preferencia_horario JSONB,
-	CHECK (estado IN ('planificado', 'en_curso', 'acabado', 'cancelado')),
+	CHECK (estado IN ('inscripcion_abierta', 'inscripcion_terminada','en_curso', 'acabado', 'cancelado')),
+	
 	CHECK (fecha_fin IS NULL OR fecha_inicio IS NULL OR fecha_fin >= fecha_inicio),
 	UNIQUE (nombre, id_categoria, id_tipo_torneo),
 	FOREIGN KEY (id_categoria) REFERENCES categoria(id_categoria),
@@ -121,8 +123,21 @@ CREATE TABLE partido (
 	fecha_hora TIMESTAMPTZ NOT NULL,
 	lugar VARCHAR(180),
 	estado VARCHAR(20) NOT NULL DEFAULT 'planificado',
-	CHECK (estado IN ('planificado', 'en_curso', 'acabado', 'cancelado'))
+	jornada INTEGER,
+	ronda INTEGER,
+	orden_ronda INTEGER,
+	id_partido_siguiente BIGINT REFERENCES partido(id_partido) ON DELETE SET NULL,
+	ganador_id_participacion_equipo BIGINT REFERENCES participacion_torneo_equipo(id_participacion_equipo) ON DELETE SET NULL,
+	CHECK (estado IN ('planificado', 'en_curso', 'acabado', 'cancelado')),
+	CHECK (jornada IS NULL OR jornada > 0),
+	CHECK (ronda IS NULL OR ronda > 0),
+	CHECK (orden_ronda IS NULL OR orden_ronda > 0)
 );
+
+-- Evita duplicados en bracket (solo cuando hay ronda)
+CREATE UNIQUE INDEX uq_partido_torneo_ronda_orden
+ON partido (id_torneo, ronda, orden_ronda)
+WHERE ronda IS NOT NULL AND orden_ronda IS NOT NULL;
 
 CREATE TABLE participacion_partido (
 	id_participacion_partido BIGSERIAL PRIMARY KEY,
@@ -148,4 +163,5 @@ CREATE TABLE historial_elo (
 	descripcion TEXT,
 	creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
 
