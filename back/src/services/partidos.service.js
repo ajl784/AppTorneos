@@ -1,6 +1,22 @@
 const { pool } = require("../db/pool");
 const { AppError } = require("../utils/errors");
 
+const ELO_K_FACTOR = 32;
+
+const expectedScore = (eloA, eloB) => 1 / (1 + 10 ** ((eloB - eloA) / 400));
+
+const scoreFromPoints = (pointsA, pointsB) => {
+  if (pointsA > pointsB) {
+    return 1;
+  }
+
+  if (pointsA < pointsB) {
+    return 0;
+  }
+
+  return 0.5;
+};
+
 const listPartidos = async ({ limit, offset, torneoId, estado }) => {
   const values = [limit, offset];
   const filters = [];
@@ -121,6 +137,25 @@ const registrarPuntuacionesArbitro = async ({
   idArbitroTorneo,
   acta,
 }) => {
+  if (puntuaciones.length < 2) {
+    throw new AppError(400, "Debe haber al menos 2 puntuaciones para registrar el partido");
+  }
+
+  if (puntuaciones.length > 2) {
+    throw new AppError(
+      400,
+      "Funcionalidad en desarrollo: ELO para partidos con mas de 2 equipos",
+    );
+  }
+
+  const idsParticipacion = puntuaciones.map((item) => item.id_participacion_equipo);
+  if (new Set(idsParticipacion).size !== 2) {
+    throw new AppError(
+      400,
+      "Las puntuaciones 1v1 deben pertenecer a dos participaciones distintas",
+    );
+  }
+
   const client = await pool.connect();
 
   try {
@@ -140,6 +175,7 @@ const registrarPuntuacionesArbitro = async ({
 
     const idTorneo = partidoResult.rows[0].id_torneo;
     const actualizadas = [];
+    const puntosPorParticipacion = new Map();
 
     for (const item of puntuaciones) {
       const idParticipacionEquipo = item.id_participacion_equipo;
@@ -194,11 +230,115 @@ const registrarPuntuacionesArbitro = async ({
         [total, idParticipacionEquipo],
       );
 
+      puntosPorParticipacion.set(idParticipacionEquipo, punto);
+
       actualizadas.push({
         id_participacion_equipo: idParticipacionEquipo,
         punto_partido: punto,
         puntuacion_torneo: total,
       });
+    }
+
+    const eloRows = await client.query(
+      `SELECT pte.id_participacion_equipo, pte.id_equipo, e.elo, e.nombre
+       FROM participacion_torneo_equipo pte
+       JOIN equipo e ON e.id_equipo = pte.id_equipo
+       WHERE pte.id_participacion_equipo = ANY($1::bigint[])
+         AND pte.id_torneo = $2`,
+      [idsParticipacion, idTorneo],
+    );
+
+    if (eloRows.rowCount !== 2) {
+      throw new AppError(
+        400,
+        "No se pudieron resolver los dos equipos del partido para calcular ELO",
+      );
+    }
+
+    const historialPartido = await client.query(
+      `SELECT id_equipo
+       FROM historial_elo
+       WHERE descripcion = $1
+         AND id_equipo = ANY($2::bigint[])`,
+      [
+        `partido:${idPartido}`,
+        eloRows.rows.map((row) => row.id_equipo),
+      ],
+    );
+
+    let eloActualizado = [];
+    let eloAplicado = false;
+
+    if (historialPartido.rowCount === 2) {
+      eloActualizado = eloRows.rows.map((row) => ({
+        id_equipo: row.id_equipo,
+        equipo_nombre: row.nombre,
+        elo_anterior: row.elo,
+        elo_nuevo: row.elo,
+      }));
+    } else {
+      const [teamA, teamB] = eloRows.rows;
+      const puntosA = puntosPorParticipacion.get(teamA.id_participacion_equipo) ?? 0;
+      const puntosB = puntosPorParticipacion.get(teamB.id_participacion_equipo) ?? 0;
+
+      const resultadoA = scoreFromPoints(puntosA, puntosB);
+      const resultadoB = 1 - resultadoA;
+
+      const esperadoA = expectedScore(teamA.elo, teamB.elo);
+      const esperadoB = expectedScore(teamB.elo, teamA.elo);
+
+      const deltaA = Math.round(ELO_K_FACTOR * (resultadoA - esperadoA));
+      const deltaB = Math.round(ELO_K_FACTOR * (resultadoB - esperadoB));
+
+      const nuevoEloA = Math.max(0, teamA.elo + deltaA);
+      const nuevoEloB = Math.max(0, teamB.elo + deltaB);
+
+      await client.query(
+        `UPDATE equipo
+         SET elo = $1
+         WHERE id_equipo = $2`,
+        [nuevoEloA, teamA.id_equipo],
+      );
+
+      await client.query(
+        `UPDATE equipo
+         SET elo = $1
+         WHERE id_equipo = $2`,
+        [nuevoEloB, teamB.id_equipo],
+      );
+
+      await client.query(
+        `INSERT INTO historial_elo (id_equipo, elo_anterior, elo_nuevo, descripcion)
+         VALUES ($1, $2, $3, $4), ($5, $6, $7, $8)`,
+        [
+          teamA.id_equipo,
+          teamA.elo,
+          nuevoEloA,
+          `partido:${idPartido}`,
+          teamB.id_equipo,
+          teamB.elo,
+          nuevoEloB,
+          `partido:${idPartido}`,
+        ],
+      );
+
+      eloActualizado = [
+        {
+          id_equipo: teamA.id_equipo,
+          equipo_nombre: teamA.nombre,
+          elo_anterior: teamA.elo,
+          elo_nuevo: nuevoEloA,
+          delta: nuevoEloA - teamA.elo,
+        },
+        {
+          id_equipo: teamB.id_equipo,
+          equipo_nombre: teamB.nombre,
+          elo_anterior: teamB.elo,
+          elo_nuevo: nuevoEloB,
+          delta: nuevoEloB - teamB.elo,
+        },
+      ];
+      eloAplicado = true;
     }
 
     if (idArbitroTorneo) {
@@ -218,6 +358,8 @@ const registrarPuntuacionesArbitro = async ({
       id_torneo: idTorneo,
       puntuaciones_actualizadas: actualizadas,
       id_arbitro_torneo: idArbitroTorneo || null,
+      elo_aplicado: eloAplicado,
+      elo_actualizado: eloActualizado,
     };
   } catch (error) {
     await client.query("ROLLBACK");

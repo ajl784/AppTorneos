@@ -49,7 +49,7 @@ SELECT
 	'Torneo de prueba para ver datos en la UI',
 	NOW() + INTERVAL '7 days',
 	NOW() + INTERVAL '37 days',
-	'planificado',
+	'inscripcion_abierta',
 	c.id_categoria,
 	tt.id_tipo_torneo,
 	u.id_usuario,
@@ -117,3 +117,54 @@ JOIN tipo_torneo tt ON tt.nombre = 'Liga'
 JOIN usuario u ON u.correo = 'admin@app.com'
 WHERE c.nombre = 'Baloncesto 5'
 ON CONFLICT (nombre, id_categoria, id_tipo_torneo) DO NOTHING;
+
+-- Equipos de fútbol para Liga Primavera
+INSERT INTO equipo (nombre, descripcion, elo)
+VALUES
+    ('Atlético Aurora', 'Equipo ficticio de barrio', 1200),
+    ('Deportivo Central', 'Plantel de prueba', 1200),
+    ('Unión del Parque', 'Equipo amateur', 1200),
+    ('Sporting del Norte', 'Club inventado', 1200),
+    ('Rápidos FC', 'Equipo de fútbol 11', 1200),
+    ('Estrella Roja', 'Equipo de competición', 1200),
+    ('Titanes FC', 'Equipo ficticio', 1200),
+    ('Club Horizonte', 'Plantel de ejemplo', 1200),
+    ('Los Leones', 'Equipo de barrio', 1200),
+    ('Nueva Generación', 'Equipo juvenil ficticio', 1200)
+ON CONFLICT (nombre) DO NOTHING;
+
+-- Inscripción de equipos al torneo Liga Primavera
+INSERT INTO participacion_torneo_equipo (
+    id_torneo,
+    id_equipo,
+    fecha,
+    respuesta,
+    estado,
+    puntuacion
+)
+SELECT
+    t.id_torneo,
+    e.id_equipo,
+    NOW(),
+    NULL,
+    'jugando',
+    0
+FROM torneo t
+JOIN categoria c ON c.id_categoria = t.id_categoria
+JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
+JOIN equipo e ON e.nombre IN (
+    'Atlético Aurora',
+    'Deportivo Central',
+    'Unión del Parque',
+    'Sporting del Norte',
+    'Rápidos FC',
+    'Estrella Roja',
+    'Titanes FC',
+    'Club Horizonte',
+    'Los Leones',
+    'Nueva Generación'
+)
+WHERE t.nombre = 'Liga Primavera'
+  AND c.nombre = 'Fútbol 11'
+  AND tt.nombre = 'Liga'
+ON CONFLICT (id_torneo, id_equipo) DO NOTHING;

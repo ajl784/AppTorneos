@@ -100,6 +100,36 @@ const updateFormularioTorneo = asyncHandler(async (req, res) => {
   });
 });
 
+async function generarEnfrentamientos(req, res, next) {
+  try {
+    const idTorneo = Number(req.params.idTorneo);
+    const result = await torneosService.generarEnfrentamientosLiga(idTorneo);
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function generarBracketEliminacion(req, res, next) {
+  try {
+    const idTorneo = Number(req.params.idTorneo);
+    const data = await torneosService.generarBracketEliminacion(idTorneo);
+    res.status(201).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function avanzarRondaEliminacion(req, res, next) {
+  try {
+    const idTorneo = Number(req.params.idTorneo);
+    const data = await torneosService.avanzarRondaEliminacion(idTorneo);
+    res.status(201).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listTorneos,
   getTorneoById,
@@ -108,4 +138,7 @@ module.exports = {
   deleteTorneo,
   getFormularioTorneo,
   updateFormularioTorneo,
+  generarEnfrentamientos,
+  generarBracketEliminacion,
+  avanzarRondaEliminacion,
 };
