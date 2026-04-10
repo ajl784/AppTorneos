@@ -10,6 +10,10 @@ class Torneo {
   final int? tipoTorneoId;
   final String? tipoTorneoNombre;
   final int? organizadorId;
+  final int? participantesPorPartido;
+  final Object? encuesta;
+  final String? normaPuntuacion;
+  final Object? preferenciaHorario;
 
   const Torneo({
     required this.id,
@@ -23,6 +27,10 @@ class Torneo {
     this.tipoTorneoId,
     this.tipoTorneoNombre,
     this.organizadorId,
+    this.participantesPorPartido,
+    this.encuesta,
+    this.normaPuntuacion,
+    this.preferenciaHorario,
   });
 
   static int? _intOrNull(dynamic value) {
@@ -60,7 +68,102 @@ class Torneo {
       tipoTorneoNombre: _stringOrNull(
         json['tipo_torneo_nombre'] ?? json['tipoTorneoNombre'],
       ),
-      organizadorId: _intOrNull(json['id_organizador'] ?? json['organizadorId']),
+      organizadorId: _intOrNull(
+        json['id_organizador'] ?? json['organizadorId'],
+      ),
+      participantesPorPartido: _intOrNull(
+        json['participantes_por_partido'] ?? json['participantesPorPartido'],
+      ),
+      encuesta: json['encuesta'],
+      normaPuntuacion: _stringOrNull(
+        json['norma_puntuacion'] ?? json['normaPuntuacion'],
+      ),
+      preferenciaHorario:
+          json['preferencia_horario'] ?? json['preferenciaHorario'],
     );
   }
+}
+
+class TorneoCreate {
+  final String nombre;
+  final String? descripcion;
+  final String? fechaInicio;
+  final String? fechaFin;
+  final String? estado;
+  final int idCategoria;
+  final int idTipoTorneo;
+  final int? idOrganizador;
+  final Object? encuesta;
+  final String? normaPuntuacion;
+  final Object? preferenciaHorario;
+
+  const TorneoCreate({
+    required this.nombre,
+    required this.idCategoria,
+    required this.idTipoTorneo,
+    this.descripcion,
+    this.fechaInicio,
+    this.fechaFin,
+    this.estado,
+    this.idOrganizador,
+    this.encuesta,
+    this.normaPuntuacion,
+    this.preferenciaHorario,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'nombre': nombre,
+    if (descripcion != null) 'descripcion': descripcion,
+    if (fechaInicio != null) 'fecha_inicio': fechaInicio,
+    if (fechaFin != null) 'fecha_fin': fechaFin,
+    if (estado != null) 'estado': estado,
+    'id_categoria': idCategoria,
+    'id_tipo_torneo': idTipoTorneo,
+    if (idOrganizador != null) 'id_organizador': idOrganizador,
+    if (encuesta != null) 'encuesta': encuesta,
+    if (normaPuntuacion != null) 'norma_puntuacion': normaPuntuacion,
+    if (preferenciaHorario != null) 'preferencia_horario': preferenciaHorario,
+  };
+}
+
+class TorneoUpdate {
+  final String? nombre;
+  final String? descripcion;
+  final String? fechaInicio;
+  final String? fechaFin;
+  final String? estado;
+  final int? idCategoria;
+  final int? idTipoTorneo;
+  final int? idOrganizador;
+  final Object? encuesta;
+  final String? normaPuntuacion;
+  final Object? preferenciaHorario;
+
+  const TorneoUpdate({
+    this.nombre,
+    this.descripcion,
+    this.fechaInicio,
+    this.fechaFin,
+    this.estado,
+    this.idCategoria,
+    this.idTipoTorneo,
+    this.idOrganizador,
+    this.encuesta,
+    this.normaPuntuacion,
+    this.preferenciaHorario,
+  });
+
+  Map<String, dynamic> toJson() => {
+    if (nombre != null) 'nombre': nombre,
+    if (descripcion != null) 'descripcion': descripcion,
+    if (fechaInicio != null) 'fecha_inicio': fechaInicio,
+    if (fechaFin != null) 'fecha_fin': fechaFin,
+    if (estado != null) 'estado': estado,
+    if (idCategoria != null) 'id_categoria': idCategoria,
+    if (idTipoTorneo != null) 'id_tipo_torneo': idTipoTorneo,
+    if (idOrganizador != null) 'id_organizador': idOrganizador,
+    if (encuesta != null) 'encuesta': encuesta,
+    if (normaPuntuacion != null) 'norma_puntuacion': normaPuntuacion,
+    if (preferenciaHorario != null) 'preferencia_horario': preferenciaHorario,
+  };
 }
