@@ -1,5 +1,5 @@
 -- =====================================================
--- AppTorneos - Esquema PostgreSQL
+-- AppTorneos - Esquema PostgreSQL (modelo modificado)
 -- =====================================================
 
 -- Opcional: crear base de datos desde postgres
@@ -26,8 +26,16 @@ CREATE TABLE categoria (
 	descripcion TEXT
 );
 
+-- Restricción opcional de disponibilidad entre categoría y tipo de torneo.
+CREATE TABLE categoria_tipo_torneo (
+	id_categoria_tipo_torneo BIGSERIAL PRIMARY KEY,
+	id_categoria BIGINT NOT NULL REFERENCES categoria(id_categoria) ON DELETE CASCADE,
+	id_tipo_torneo BIGINT NOT NULL REFERENCES tipo_torneo(id_tipo_torneo) ON DELETE CASCADE,
+	UNIQUE (id_categoria, id_tipo_torneo)
+);
+
 -- =====================================================
--- Identidad y perfiles
+-- Identidad y roles
 -- =====================================================
 
 CREATE TABLE usuario (
@@ -37,28 +45,21 @@ CREATE TABLE usuario (
 	password_hash TEXT NOT NULL
 );
 
-CREATE TABLE organizador (
-	id_organizador BIGSERIAL PRIMARY KEY,
-	id_usuario BIGINT NOT NULL UNIQUE REFERENCES usuario(id_usuario) ON DELETE CASCADE
-);
-
-CREATE TABLE arbitro_torneo (
-	id_arbitro_torneo BIGSERIAL PRIMARY KEY,
-	id_usuario BIGINT NOT NULL UNIQUE REFERENCES usuario(id_usuario) ON DELETE CASCADE
-);
-
-CREATE TABLE jugador_individual (
-	id_jugador BIGSERIAL PRIMARY KEY,
-	id_usuario BIGINT NOT NULL UNIQUE REFERENCES usuario(id_usuario) ON DELETE CASCADE,
-	id_equipo BIGINT REFERENCES equipo(id_equipo) ON DELETE SET NULL,
-	elo INTEGER NOT NULL DEFAULT 1200 CHECK (elo >= 0)
-);
-
 CREATE TABLE equipo (
 	id_equipo BIGSERIAL PRIMARY KEY,
 	nombre VARCHAR(120) NOT NULL UNIQUE,
 	descripcion TEXT,
 	elo INTEGER NOT NULL DEFAULT 1200 CHECK (elo >= 0)
+);
+
+CREATE TABLE pertenece (
+	id_pertenece BIGSERIAL PRIMARY KEY,
+	id_usuario BIGINT NOT NULL REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+	id_equipo BIGINT NOT NULL REFERENCES equipo(id_equipo) ON DELETE CASCADE,
+	fecha_inicio DATE NOT NULL,
+	fecha_fin DATE,
+	CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio),
+	UNIQUE (id_usuario, id_equipo, fecha_inicio)
 );
 
 CREATE TABLE entrenador_equipo (
@@ -67,7 +68,13 @@ CREATE TABLE entrenador_equipo (
 	id_equipo BIGINT NOT NULL REFERENCES equipo(id_equipo) ON DELETE CASCADE,
 	fecha_inicio DATE NOT NULL,
 	fecha_fin DATE,
-	CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio)
+	CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio),
+	UNIQUE (id_usuario, id_equipo, fecha_inicio)
+);
+
+CREATE TABLE arbitro_torneo (
+	id_arbitro_torneo BIGSERIAL PRIMARY KEY,
+	id_usuario BIGINT NOT NULL UNIQUE REFERENCES usuario(id_usuario) ON DELETE CASCADE
 );
 
 -- =====================================================
@@ -78,22 +85,25 @@ CREATE TABLE torneo (
 	id_torneo BIGSERIAL PRIMARY KEY,
 	nombre VARCHAR(140) NOT NULL,
 	descripcion TEXT,
-	id_categoria BIGINT NOT NULL REFERENCES categoria(id_categoria),
-	id_tipo_torneo BIGINT NOT NULL REFERENCES tipo_torneo(id_tipo_torneo),
-	id_organizador BIGINT REFERENCES organizador(id_organizador),
-	UNIQUE (nombre, id_categoria, id_tipo_torneo)
-);
-
-CREATE TABLE participacion_torneo_individual (
-	id_participacion_individual BIGSERIAL PRIMARY KEY,
-	id_torneo BIGINT NOT NULL REFERENCES torneo(id_torneo) ON DELETE CASCADE,
-	id_jugador BIGINT NOT NULL REFERENCES jugador_individual(id_jugador) ON DELETE CASCADE,
-	fecha TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-	respuesta JSONB,
-	estado VARCHAR(30) NOT NULL DEFAULT 'inscrito',
-	CHECK (estado IN ('inscrito', 'rechazado', 'aprobado')),
-	puntuacion NUMERIC(8,2) NOT NULL DEFAULT 0,
-	UNIQUE (id_torneo, id_jugador)
+	fecha_inicio TIMESTAMPTZ,
+	fecha_fin TIMESTAMPTZ,
+	estado VARCHAR(20) NOT NULL DEFAULT 'inscripcion_abierta',
+	limite_equipos INTEGER CHECK (limite_equipos IS NULL OR limite_equipos > 0),
+	
+	id_categoria BIGINT NOT NULL,
+	id_tipo_torneo BIGINT NOT NULL,
+	id_organizador BIGINT REFERENCES usuario(id_usuario) ON DELETE SET NULL,
+	encuesta JSONB,
+	norma_puntuacion TEXT,
+	preferencia_horario JSONB,
+	CHECK (estado IN ('inscripcion_abierta', 'inscripcion_terminada','en_curso', 'acabado', 'cancelado')),
+	
+	CHECK (fecha_fin IS NULL OR fecha_inicio IS NULL OR fecha_fin >= fecha_inicio),
+	UNIQUE (nombre, id_categoria, id_tipo_torneo),
+	FOREIGN KEY (id_categoria) REFERENCES categoria(id_categoria),
+	FOREIGN KEY (id_tipo_torneo) REFERENCES tipo_torneo(id_tipo_torneo),
+	FOREIGN KEY (id_categoria, id_tipo_torneo)
+		REFERENCES categoria_tipo_torneo(id_categoria, id_tipo_torneo)
 );
 
 CREATE TABLE participacion_torneo_equipo (
@@ -102,23 +112,11 @@ CREATE TABLE participacion_torneo_equipo (
 	id_equipo BIGINT NOT NULL REFERENCES equipo(id_equipo) ON DELETE CASCADE,
 	fecha TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	respuesta JSONB,
-	estado VARCHAR(30) NOT NULL DEFAULT 'inscrito',
-	CHECK (estado IN ('inscrito', 'rechazado', 'aprobado')),
+	estado VARCHAR(30) NOT NULL DEFAULT 'pendiente',
 	puntuacion NUMERIC(8,2) NOT NULL DEFAULT 0,
+	CHECK (estado IN ('jugando', 'suspendido', 'pendiente', 'eliminado')),
 	UNIQUE (id_torneo, id_equipo)
 );
-
-CREATE TABLE encuesta (
-	id_encuesta BIGSERIAL PRIMARY KEY,
-	id_organizador BIGINT REFERENCES organizador(id_organizador) ON DELETE SET NULL,
-	id_torneo BIGINT REFERENCES torneo(id_torneo) ON DELETE CASCADE,
-	fecha TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-	configuracion JSONB NOT NULL
-);
-
--- =====================================================
--- Partidos, convocatoria y arbitraje
--- =====================================================
 
 CREATE TABLE partido (
 	id_partido BIGSERIAL PRIMARY KEY,
@@ -126,7 +124,28 @@ CREATE TABLE partido (
 	fecha_hora TIMESTAMPTZ NOT NULL,
 	lugar VARCHAR(180),
 	estado VARCHAR(20) NOT NULL DEFAULT 'planificado',
-	CHECK (estado IN ('planificado', 'en_curso', 'acabado', 'cancelado'))
+	jornada INTEGER,
+	ronda INTEGER,
+	orden_ronda INTEGER,
+	id_partido_siguiente BIGINT REFERENCES partido(id_partido) ON DELETE SET NULL,
+	ganador_id_participacion_equipo BIGINT REFERENCES participacion_torneo_equipo(id_participacion_equipo) ON DELETE SET NULL,
+	CHECK (estado IN ('planificado', 'en_curso', 'acabado', 'cancelado')),
+	CHECK (jornada IS NULL OR jornada > 0),
+	CHECK (ronda IS NULL OR ronda > 0),
+	CHECK (orden_ronda IS NULL OR orden_ronda > 0)
+);
+
+-- Evita duplicados en bracket (solo cuando hay ronda)
+CREATE UNIQUE INDEX uq_partido_torneo_ronda_orden
+ON partido (id_torneo, ronda, orden_ronda)
+WHERE ronda IS NOT NULL AND orden_ronda IS NOT NULL;
+
+CREATE TABLE participacion_partido (
+	id_participacion_partido BIGSERIAL PRIMARY KEY,
+	id_partido BIGINT NOT NULL REFERENCES partido(id_partido) ON DELETE CASCADE,
+	id_participacion_equipo BIGINT NOT NULL REFERENCES participacion_torneo_equipo(id_participacion_equipo) ON DELETE CASCADE,
+	punto INTEGER NOT NULL DEFAULT 0,
+	UNIQUE (id_partido, id_participacion_equipo)
 );
 
 CREATE TABLE arbitro_partido (
@@ -137,48 +156,13 @@ CREATE TABLE arbitro_partido (
 	UNIQUE (id_partido, id_arbitro_torneo)
 );
 
-CREATE TABLE participacion_partido (
-	id_participacion_partido BIGSERIAL PRIMARY KEY,
-	id_partido BIGINT NOT NULL REFERENCES partido(id_partido) ON DELETE CASCADE,
-	id_participacion_individual BIGINT REFERENCES participacion_torneo_individual(id_participacion_individual) ON DELETE CASCADE,
-	id_participacion_equipo BIGINT REFERENCES participacion_torneo_equipo(id_participacion_equipo) ON DELETE CASCADE,
-	punto INTEGER NOT NULL DEFAULT 0,
-	CHECK (
-		(
-			id_participacion_individual IS NOT NULL
-			AND id_participacion_equipo IS NULL
-		)
-		OR
-		(
-			id_participacion_individual IS NULL
-			AND id_participacion_equipo IS NOT NULL
-		)
-	)
-);
-
-CREATE TABLE convocatoria (
-	id_convocatoria BIGSERIAL PRIMARY KEY,
-	id_participacion_partido BIGINT NOT NULL REFERENCES participacion_partido(id_participacion_partido) ON DELETE CASCADE,
+CREATE TABLE historial_elo (
+	id_historial_elo BIGSERIAL PRIMARY KEY,
+	id_equipo BIGINT NOT NULL REFERENCES equipo(id_equipo) ON DELETE CASCADE,
+	elo_anterior INTEGER NOT NULL CHECK (elo_anterior >= 0),
+	elo_nuevo INTEGER NOT NULL CHECK (elo_nuevo >= 0),
+	descripcion TEXT,
 	creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE jugador_convocatoria (
-	id_jugador_convocatoria BIGSERIAL PRIMARY KEY,
-	id_convocatoria BIGINT NOT NULL REFERENCES convocatoria(id_convocatoria) ON DELETE CASCADE,
-	id_jugador BIGINT NOT NULL REFERENCES jugador_individual(id_jugador) ON DELETE CASCADE,
-	UNIQUE (id_convocatoria, id_jugador)
-);
-
--- =====================================================
--- Índices útiles
--- =====================================================
-
-CREATE INDEX idx_torneo_categoria ON torneo(id_categoria);
-CREATE INDEX idx_torneo_tipo ON torneo(id_tipo_torneo);
-CREATE INDEX idx_partido_torneo ON partido(id_torneo);
-CREATE INDEX idx_pp_partido ON participacion_partido(id_partido);
-CREATE INDEX idx_pp_individual ON participacion_partido(id_participacion_individual);
-CREATE INDEX idx_pp_equipo ON participacion_partido(id_participacion_equipo);
-CREATE INDEX idx_pte_torneo ON participacion_torneo_equipo(id_torneo);
-CREATE INDEX idx_pti_torneo ON participacion_torneo_individual(id_torneo);
 
