@@ -35,6 +35,14 @@ class Categoria {
       participantesPorPartida: participantes,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is Categoria && other.idCategoria == idCategoria;
+  }
+
+  @override
+  int get hashCode => idCategoria.hashCode;
 }
 
 class CategoriaCreate {

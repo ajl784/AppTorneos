@@ -27,7 +27,7 @@ SELECT c.id_categoria, tt.id_tipo_torneo
 FROM categoria c
 JOIN tipo_torneo tt ON (
 	(c.nombre = 'Fútbol 11' AND tt.nombre IN ('Liga', 'Eliminación directa'))
-	OR (c.nombre = 'Baloncesto 5' AND tt.nombre = 'Liga')
+	OR (c.nombre = 'Baloncesto 5' AND tt.nombre IN ('Liga', 'Eliminación directa'))
 	OR (
 		c.nombre = 'Atletismo'
 		AND tt.nombre IN ('Liga', 'Serie + final (con tiempos)', 'Eliminatorias por rondas', 'Eliminación progresiva')

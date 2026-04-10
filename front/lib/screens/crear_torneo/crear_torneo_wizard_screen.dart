@@ -481,27 +481,29 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
   Widget _stepsHeader(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
-    Widget stepCircle(int idx) {
+    Widget stepCircle(int idx, {required double size}) {
       final isCurrent = idx == _stepIndex;
       final isDone = idx < _stepIndex;
+
+      final canTap = !_loading && idx < _stepIndex;
 
       final bg = isCurrent
           ? colors.primary
           : isDone
-              ? colors.primaryContainer
+              ? colors.tertiary
               : colors.surfaceVariant;
       final fg = isCurrent
           ? colors.onPrimary
           : isDone
-              ? colors.onPrimaryContainer
+              ? colors.onTertiary
               : colors.onSurfaceVariant;
 
       return InkWell(
         customBorder: const CircleBorder(),
-        onTap: _loading ? null : () => setState(() => _stepIndex = idx),
+        onTap: canTap ? () => setState(() => _stepIndex = idx) : null,
         child: Container(
-          width: 34,
-          height: 34,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
             color: bg,
             shape: BoxShape.circle,
@@ -513,34 +515,110 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
           alignment: Alignment.center,
           child: Text(
             '${idx + 1}',
-            style: TextStyle(color: fg, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              color: fg,
+              fontWeight: FontWeight.w700,
+              fontSize: size * 0.42,
+            ),
           ),
         ),
       );
     }
 
-    Widget arrow() {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Icon(
-          Icons.arrow_forward_ios,
-          size: 14,
-          color: colors.onSurfaceVariant,
+    Widget connector({required bool done, required bool active}) {
+      final lineColor = done ? colors.tertiary : colors.outlineVariant;
+      final iconColor = done
+          ? colors.tertiary
+          : (active ? colors.primary : colors.onSurfaceVariant);
+
+      return Expanded(
+        child: SizedBox(
+          height: 34,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Align(
+                alignment: Alignment.center,
+                child: Container(
+                  height: 2,
+                  decoration: BoxDecoration(
+                    color: lineColor,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  size: 22,
+                  color: iconColor,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (int i = 0; i < _totalSteps; i++) ...[
-            stepCircle(i),
-            if (i != _totalSteps - 1) arrow(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final available = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : (MediaQuery.of(context).size.width);
+
+        const double maxCircle = 36;
+        const double minCircle = 26;
+        const double minConnector = 14;
+        final connectors = (_totalSteps - 1).clamp(0, 9999);
+
+        double circleSize = maxCircle;
+        final neededAtMax = (circleSize * _totalSteps) + (minConnector * connectors);
+        if (neededAtMax > available) {
+          circleSize = ((available - (minConnector * connectors)) / _totalSteps)
+              .clamp(minCircle, maxCircle);
+        }
+
+        final neededAtMin = (circleSize * _totalSteps) + (minConnector * connectors);
+        if (neededAtMin > available) {
+          // Pantallas extremadamente estrechas: dejamos scroll.
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (int i = 0; i < _totalSteps; i++) ...[
+                  stepCircle(i, size: circleSize),
+                  if (i != _totalSteps - 1)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          );
+        }
+
+        return Row(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            for (int i = 0; i < _totalSteps; i++) ...[
+              stepCircle(i, size: circleSize),
+              if (i != _totalSteps - 1)
+                connector(done: i < _stepIndex, active: i == _stepIndex),
+            ],
           ],
-        ],
-      ),
+        );
+      },
     );
   }
 
