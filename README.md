@@ -186,6 +186,99 @@ Al guardar:
 - se actualiza `participacion_partido.punto` (puntos de ese partido),
 - se recalcula `participacion_torneo_equipo.puntuacion` (acumulado del torneo),
 - se guarda el acta en `arbitro_partido` si se envia `id_arbitro_torneo`.
+- si el partido tiene varios equipos, se ajusta el Elo de cada uno comparando su posición esperada frente a la posición real.
+- la respuesta incluye `elo_actualizado` con `posicion_esperada`, `posicion_real`, `score_esperado` y `score_real` por equipo.
+
+### 4.5 Flujo organizador: generacion de enfrentamientos
+
+Endpoint principal:
+
+- `POST /torneos/:idTorneo/generar-enfrentamientos`
+
+Comportamiento por tipo de torneo:
+
+- Liga:
+  - usa `categoria.participantes_por_partida`,
+  - guarda `partido.jornada` para organizar calendario,
+  - si participantes por partido = 2, genera round robin con ida y vuelta,
+  - si participantes por partido > 2, genera jornadas por grupos rotativos de tamano N,
+  - usa `torneo.preferencia_horario.dias` para asignar fechas,
+  - en el modelo actual los partidos de liga no usan `ronda`.
+- Eliminacion directa:
+  - genera un bracket inicial (ronda 1),
+  - cada avance crea la siguiente ronda hasta final,
+  - usa `partido.ronda`, `partido.orden_ronda` y `partido.id_partido_siguiente`.
+- Serie + final (con tiempos):
+  - genera series en ronda 1 con `participantes_por_partido`,
+  - al avanzar, clasifica a final segun `norma_puntuacion`,
+  - permite criterio por tiempo (`criterio=asc`) o por puntos (`criterio=desc`).
+- Eliminatorias por rondas:
+  - genera ronda 1 por series,
+  - en cada avance clasifica por serie y opcionalmente mejores globales,
+  - crea nuevas rondas hasta final.
+- Eliminación progresiva:
+  - genera ronda 1 por grupos,
+  - en cada avance elimina un porcentaje de peores,
+  - continua hasta quedar un campeon.
+
+Endpoints adicionales de eliminacion:
+
+- `POST /torneos/:idTorneo/bracket/eliminacion/generar`
+- `POST /torneos/:idTorneo/bracket/eliminacion/avanzar`
+
+Regla actual para avanzar en eliminacion:
+
+- todos los partidos de la ronda actual deben estar en estado `acabado`.
+
+Parametros soportados en `norma_puntuacion` para eliminaciones multi-participante:
+
+- `criterio=asc|desc`:
+  - `asc`: menor punto/tiempo es mejor.
+  - `desc`: mayor punto es mejor.
+- `clasifican_por_serie=N`: clasificados directos por serie.
+- `mejores_tiempos=N`: cupos extra por ranking global de no clasificados.
+- `finalistas=N`: tamano de final para "Serie + final (con tiempos)".
+- `porcentaje_eliminacion=N`: porcentaje eliminado por ronda en "Eliminación progresiva".
+
+### 4.6 Reglas de negocio de categorias y puntuacion (importante)
+
+La app esta pensada para categorias generales, no solo futbol.
+
+Campos clave en base de datos:
+
+- `categoria.participantes_por_partida`: cuantos participantes compiten en un partido/evento.
+- `torneo.norma_puntuacion`: regla de puntos del torneo (win/draw/loss u otras variantes).
+- `partido.jornada`: numero de jornada para calendario de liga.
+
+Criterio funcional objetivo:
+
+- la generacion de enfrentamientos debe considerar `participantes_por_partida`.
+- para categorias de mas de 2 participantes por partido (ejemplo: atletismo con 8),
+  la asignacion de participantes debe formar grupos de tamano N por partido.
+- `norma_puntuacion` define como se asignan puntos en `participacion_torneo_equipo.puntuacion`.
+
+Estado actual de implementacion (v1):
+
+- la carga de resultados y calculo ELO en backend esta implementada para 1v1,
+- partidos con mas de 2 participaciones para ELO no estan soportados aun,
+- en eliminacion actual se exige cantidad de equipos potencia de 2,
+- en liga con mas de 2 participantes por partido se usa agrupacion rotativa por jornada (primera version).
+
+Convencion recomendada para `norma_puntuacion`:
+
+- usar formato textual estable para poder parsear luego en backend,
+- ejemplo simple para liga: `3-1-0` (ganar-empatar-perder),
+- para formatos de ranking (mas de 2 participantes), definir una convención explicita.
+
+Ejemplo sugerido para ranking:
+
+- `rank:8,6,4,3,2,1,0,0`
+  - indica puntuacion por posicion final en un evento de 8 participantes.
+
+Nota tecnica:
+
+- conviene mantener `norma_puntuacion` como texto por ahora,
+- y centralizar su parser en backend cuando se implemente soporte multi-participante.
 
 ## 5) Ejemplos cortos para tests de front
 
