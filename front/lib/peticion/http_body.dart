@@ -15,6 +15,13 @@ class _TorneosBodyState extends State<TorneosBody> {
   static String _prettyEstado(String value) {
     final normalized = value.trim().toLowerCase();
     switch (normalized) {
+              case 'inscripcion_abierta':
+      case 'inscripción_abierta':
+        return 'Inscripción abierta';
+      case 'inscripcion_terminada':
+      case 'inscripción_terminada':
+        return 'Inscripción terminada';
+
       case 'planificado':
         return 'Planificado';
       case 'en_curso':

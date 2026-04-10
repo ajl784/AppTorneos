@@ -27,7 +27,7 @@ SELECT c.id_categoria, tt.id_tipo_torneo
 FROM categoria c
 JOIN tipo_torneo tt ON (
 	(c.nombre = 'Fútbol 11' AND tt.nombre IN ('Liga', 'Eliminación directa'))
-	OR (c.nombre = 'Baloncesto 5' AND tt.nombre = 'Liga')
+	OR (c.nombre = 'Baloncesto 5' AND tt.nombre IN ('Liga', 'Eliminación directa'))
 	OR (
 		c.nombre = 'Atletismo'
 		AND tt.nombre IN ('Liga', 'Serie + final (con tiempos)', 'Eliminatorias por rondas', 'Eliminación progresiva')
@@ -62,6 +62,7 @@ INSERT INTO torneo (
 	fecha_inicio,
 	fecha_fin,
 	estado,
+	limite_equipos,
 	id_categoria,
 	id_tipo_torneo,
 	id_organizador,
@@ -75,6 +76,7 @@ SELECT
 	NOW() + INTERVAL '7 days',
 	NOW() + INTERVAL '37 days',
 	'inscripcion_abierta',
+	16,
 	c.id_categoria,
 	tt.id_tipo_torneo,
 	u.id_usuario,
@@ -93,6 +95,7 @@ INSERT INTO torneo (
 	fecha_inicio,
 	fecha_fin,
 	estado,
+	limite_equipos,
 	id_categoria,
 	id_tipo_torneo,
 	id_organizador,
@@ -106,6 +109,7 @@ SELECT
 	NOW() + INTERVAL '2 days',
 	NOW() + INTERVAL '9 days',
 	'en_curso',
+	8,
 	c.id_categoria,
 	tt.id_tipo_torneo,
 	u.id_usuario,
@@ -124,6 +128,7 @@ INSERT INTO torneo (
 	fecha_inicio,
 	fecha_fin,
 	estado,
+	limite_equipos,
 	id_categoria,
 	id_tipo_torneo,
 	id_organizador
@@ -134,6 +139,7 @@ SELECT
 	NOW() - INTERVAL '15 days',
 	NOW() - INTERVAL '1 days',
 	'acabado',
+	12,
 	c.id_categoria,
 	tt.id_tipo_torneo,
 	u.id_usuario

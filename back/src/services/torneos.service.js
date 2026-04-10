@@ -41,6 +41,7 @@ const listTorneos = async ({
       t.fecha_inicio,
       t.fecha_fin,
       t.estado,
+      t.limite_equipos,
       t.id_categoria,
       c.nombre AS categoria_nombre,
       t.id_tipo_torneo,
@@ -68,6 +69,7 @@ const getTorneoById = async (idTorneo) => {
       t.fecha_inicio,
       t.fecha_fin,
       t.estado,
+      t.limite_equipos,
       t.id_categoria,
       c.nombre AS categoria_nombre,
       t.id_tipo_torneo,
@@ -91,10 +93,11 @@ const createTorneo = async (payload) => {
   const result = await pool.query(
     `INSERT INTO torneo (
       nombre, descripcion, fecha_inicio, fecha_fin, estado,
+      limite_equipos,
       id_categoria, id_tipo_torneo, id_organizador,
       encuesta, norma_puntuacion, preferencia_horario
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11::jsonb)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12::jsonb)
      RETURNING id_torneo`,
     [
       payload.nombre,
@@ -102,6 +105,7 @@ const createTorneo = async (payload) => {
       payload.fecha_inicio || null,
       payload.fecha_fin || null,
       payload.estado || "inscripcion_abierta",
+      payload.limite_equipos ?? null,
       payload.id_categoria,
       payload.id_tipo_torneo,
       payload.id_organizador || null,
@@ -123,6 +127,7 @@ const updateTorneo = async (idTorneo, payload) => {
     fecha_inicio: "fecha_inicio",
     fecha_fin: "fecha_fin",
     estado: "estado",
+    limite_equipos: "limite_equipos",
     id_categoria: "id_categoria",
     id_tipo_torneo: "id_tipo_torneo",
     id_organizador: "id_organizador",
