@@ -100,35 +100,23 @@ const updateFormularioTorneo = asyncHandler(async (req, res) => {
   });
 });
 
-async function generarEnfrentamientos(req, res, next) {
-  try {
-    const idTorneo = Number(req.params.idTorneo);
-    const result = await torneosService.generarEnfrentamientosLiga(idTorneo);
-    res.status(201).json(result);
-  } catch (err) {
-    next(err);
-  }
-}
+const generarEnfrentamientos = asyncHandler(async (req, res) => {
+  const idTorneo = parsePositiveInt(req.params.idTorneo, "idTorneo");
+  const data = await torneosService.generarEnfrentamientos(idTorneo);
+  created(res, data);
+});
 
-async function generarBracketEliminacion(req, res, next) {
-  try {
-    const idTorneo = Number(req.params.idTorneo);
-    const data = await torneosService.generarBracketEliminacion(idTorneo);
-    res.status(201).json(data);
-  } catch (err) {
-    next(err);
-  }
-}
+const generarBracketEliminacion = asyncHandler(async (req, res) => {
+  const idTorneo = parsePositiveInt(req.params.idTorneo, "idTorneo");
+  const data = await torneosService.generarEliminacion(idTorneo);
+  created(res, data);
+});
 
-async function avanzarRondaEliminacion(req, res, next) {
-  try {
-    const idTorneo = Number(req.params.idTorneo);
-    const data = await torneosService.avanzarRondaEliminacion(idTorneo);
-    res.status(201).json(data);
-  } catch (err) {
-    next(err);
-  }
-}
+const avanzarRondaEliminacion = asyncHandler(async (req, res) => {
+  const idTorneo = parsePositiveInt(req.params.idTorneo, "idTorneo");
+  const data = await torneosService.avanzarRondaEliminacion(idTorneo);
+  created(res, data);
+});
 
 module.exports = {
   listTorneos,

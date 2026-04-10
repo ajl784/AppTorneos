@@ -168,3 +168,37 @@ WHERE t.nombre = 'Liga Primavera'
   AND c.nombre = 'Fútbol 11'
   AND tt.nombre = 'Liga'
 ON CONFLICT (id_torneo, id_equipo) DO NOTHING;
+
+-- Inscripción de equipos al torneo Copa Relámpago (8 equipos para bracket)
+INSERT INTO participacion_torneo_equipo (
+	id_torneo,
+	id_equipo,
+	fecha,
+	respuesta,
+	estado,
+	puntuacion
+)
+SELECT
+	t.id_torneo,
+	e.id_equipo,
+	NOW(),
+	NULL,
+	'jugando',
+	0
+FROM torneo t
+JOIN categoria c ON c.id_categoria = t.id_categoria
+JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
+JOIN equipo e ON e.nombre IN (
+	'Atlético Aurora',
+	'Deportivo Central',
+	'Unión del Parque',
+	'Sporting del Norte',
+	'Rápidos FC',
+	'Estrella Roja',
+	'Titanes FC',
+	'Club Horizonte'
+)
+WHERE t.nombre = 'Copa Relámpago'
+  AND c.nombre = 'Fútbol 11'
+  AND tt.nombre = 'Eliminación directa'
+ON CONFLICT (id_torneo, id_equipo) DO NOTHING;
