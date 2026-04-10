@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:front/features/torneos/data/torneos_api.dart';
+import 'package:front/peticion/api_config.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
 
 class TorneosBody extends StatefulWidget {
@@ -14,12 +15,13 @@ class _TorneosBodyState extends State<TorneosBody> {
   static String _prettyEstado(String value) {
     final normalized = value.trim().toLowerCase();
     switch (normalized) {
-      case 'inscripcion_abierta':
+              case 'inscripcion_abierta':
       case 'inscripción_abierta':
         return 'Inscripción abierta';
       case 'inscripcion_terminada':
       case 'inscripción_terminada':
         return 'Inscripción terminada';
+
       case 'planificado':
         return 'Planificado';
       case 'en_curso':
@@ -50,17 +52,8 @@ class _TorneosBodyState extends State<TorneosBody> {
     return '${two(parsed.day)}/${two(parsed.month)}/${parsed.year} ${two(parsed.hour)}:${two(parsed.minute)}';
   }
 
-  static String _defaultApiBaseUrl() {
-    if (kIsWeb) {
-      final host = (Uri.base.host.isNotEmpty) ? Uri.base.host : 'localhost';
-      return 'http://$host:3000/api/v1';
-    }
-
-    return 'http://10.0.2.2:3000/api/v1';
-  }
-
   late final TorneosApi _api = TorneosApi(
-    baseUrl: _defaultApiBaseUrl(),
+    baseUrl: ApiConfig.baseUrl,
   );
 
   late final Future<List<Torneo>> _future = _api.fetchTorneos();

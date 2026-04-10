@@ -17,6 +17,43 @@ const scoreFromPoints = (pointsA, pointsB) => {
   return 0.5;
 };
 
+const computePairwisePlacementScore = (team, rivals, scoreFn) => {
+  if (!rivals.length) {
+    return 0.5;
+  }
+
+  const total = rivals.reduce((accumulator, rival) => {
+    return accumulator + scoreFn(team, rival);
+  }, 0);
+
+  return total / rivals.length;
+};
+
+const getMultiTeamEloAdjustment = (team, rivals) => {
+  const scoreEsperado = computePairwisePlacementScore(
+    team,
+    rivals,
+    (currentTeam, rival) => expectedScore(currentTeam.elo, rival.elo),
+  );
+  const scoreReal = computePairwisePlacementScore(
+    team,
+    rivals,
+    (currentTeam, rival) => scoreFromPoints(currentTeam.punto, rival.punto),
+  );
+  const totalEquipos = rivals.length + 1;
+  const posicionEsperada = 1 + (totalEquipos - 1) * (1 - scoreEsperado);
+  const posicionReal = 1 + (totalEquipos - 1) * (1 - scoreReal);
+  const delta = Math.round(ELO_K_FACTOR * (scoreReal - scoreEsperado));
+
+  return {
+    scoreEsperado,
+    scoreReal,
+    posicionEsperada,
+    posicionReal,
+    delta,
+  };
+};
+
 const listPartidos = async ({ limit, offset, torneoId, estado }) => {
   const values = [limit, offset];
   const filters = [];
@@ -141,18 +178,11 @@ const registrarPuntuacionesArbitro = async ({
     throw new AppError(400, "Debe haber al menos 2 puntuaciones para registrar el partido");
   }
 
-  if (puntuaciones.length > 2) {
-    throw new AppError(
-      400,
-      "Funcionalidad en desarrollo: ELO para partidos con mas de 2 equipos",
-    );
-  }
-
   const idsParticipacion = puntuaciones.map((item) => item.id_participacion_equipo);
-  if (new Set(idsParticipacion).size !== 2) {
+  if (new Set(idsParticipacion).size !== idsParticipacion.length) {
     throw new AppError(
       400,
-      "Las puntuaciones 1v1 deben pertenecer a dos participaciones distintas",
+      "Las puntuaciones deben pertenecer a participaciones distintas",
     );
   }
 
@@ -248,10 +278,10 @@ const registrarPuntuacionesArbitro = async ({
       [idsParticipacion, idTorneo],
     );
 
-    if (eloRows.rowCount !== 2) {
+    if (eloRows.rowCount !== idsParticipacion.length) {
       throw new AppError(
         400,
-        "No se pudieron resolver los dos equipos del partido para calcular ELO",
+        "No se pudieron resolver todos los equipos del partido para calcular ELO",
       );
     }
 
@@ -269,75 +299,64 @@ const registrarPuntuacionesArbitro = async ({
     let eloActualizado = [];
     let eloAplicado = false;
 
-    if (historialPartido.rowCount === 2) {
+    if (historialPartido.rowCount === eloRows.rowCount) {
       eloActualizado = eloRows.rows.map((row) => ({
         id_equipo: row.id_equipo,
         equipo_nombre: row.nombre,
         elo_anterior: row.elo,
         elo_nuevo: row.elo,
+        delta: 0,
       }));
     } else {
-      const [teamA, teamB] = eloRows.rows;
-      const puntosA = puntosPorParticipacion.get(teamA.id_participacion_equipo) ?? 0;
-      const puntosB = puntosPorParticipacion.get(teamB.id_participacion_equipo) ?? 0;
+      const equiposConPunto = eloRows.rows.map((row) => ({
+        ...row,
+        punto: puntosPorParticipacion.get(row.id_participacion_equipo) ?? 0,
+      }));
 
-      const resultadoA = scoreFromPoints(puntosA, puntosB);
-      const resultadoB = 1 - resultadoA;
+      const actualizaciones = equiposConPunto.map((team) => {
+        const rivals = equiposConPunto.filter(
+          (candidate) => candidate.id_equipo !== team.id_equipo,
+        );
 
-      const esperadoA = expectedScore(teamA.elo, teamB.elo);
-      const esperadoB = expectedScore(teamB.elo, teamA.elo);
+        return {
+          ...team,
+          ...getMultiTeamEloAdjustment(team, rivals),
+        };
+      });
 
-      const deltaA = Math.round(ELO_K_FACTOR * (resultadoA - esperadoA));
-      const deltaB = Math.round(ELO_K_FACTOR * (resultadoB - esperadoB));
+      for (const update of actualizaciones) {
+        const nuevoElo = Math.max(0, update.elo + update.delta);
 
-      const nuevoEloA = Math.max(0, teamA.elo + deltaA);
-      const nuevoEloB = Math.max(0, teamB.elo + deltaB);
+        await client.query(
+          `UPDATE equipo
+           SET elo = $1
+           WHERE id_equipo = $2`,
+          [nuevoElo, update.id_equipo],
+        );
 
-      await client.query(
-        `UPDATE equipo
-         SET elo = $1
-         WHERE id_equipo = $2`,
-        [nuevoEloA, teamA.id_equipo],
-      );
+        await client.query(
+          `INSERT INTO historial_elo (id_equipo, elo_anterior, elo_nuevo, descripcion)
+           VALUES ($1, $2, $3, $4)`,
+          [
+            update.id_equipo,
+            update.elo,
+            nuevoElo,
+            `partido:${idPartido}`,
+          ],
+        );
 
-      await client.query(
-        `UPDATE equipo
-         SET elo = $1
-         WHERE id_equipo = $2`,
-        [nuevoEloB, teamB.id_equipo],
-      );
-
-      await client.query(
-        `INSERT INTO historial_elo (id_equipo, elo_anterior, elo_nuevo, descripcion)
-         VALUES ($1, $2, $3, $4), ($5, $6, $7, $8)`,
-        [
-          teamA.id_equipo,
-          teamA.elo,
-          nuevoEloA,
-          `partido:${idPartido}`,
-          teamB.id_equipo,
-          teamB.elo,
-          nuevoEloB,
-          `partido:${idPartido}`,
-        ],
-      );
-
-      eloActualizado = [
-        {
-          id_equipo: teamA.id_equipo,
-          equipo_nombre: teamA.nombre,
-          elo_anterior: teamA.elo,
-          elo_nuevo: nuevoEloA,
-          delta: nuevoEloA - teamA.elo,
-        },
-        {
-          id_equipo: teamB.id_equipo,
-          equipo_nombre: teamB.nombre,
-          elo_anterior: teamB.elo,
-          elo_nuevo: nuevoEloB,
-          delta: nuevoEloB - teamB.elo,
-        },
-      ];
+        eloActualizado.push({
+          id_equipo: update.id_equipo,
+          equipo_nombre: update.nombre,
+          elo_anterior: update.elo,
+          elo_nuevo: nuevoElo,
+          delta: nuevoElo - update.elo,
+          posicion_esperada: Number(update.posicionEsperada.toFixed(2)),
+          posicion_real: Number(update.posicionReal.toFixed(2)),
+          score_esperado: Number(update.scoreEsperado.toFixed(4)),
+          score_real: Number(update.scoreReal.toFixed(4)),
+        });
+      }
       eloAplicado = true;
     }
 
