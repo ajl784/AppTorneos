@@ -46,6 +46,7 @@ const listTorneos = async ({
       t.id_tipo_torneo,
       tt.nombre AS tipo_torneo_nombre,
       t.id_organizador
+      , t.participantes_por_partido
      FROM torneo t
      JOIN categoria c ON c.id_categoria = t.id_categoria
      JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
@@ -72,6 +73,7 @@ const getTorneoById = async (idTorneo) => {
       t.id_tipo_torneo,
       tt.nombre AS tipo_torneo_nombre,
       t.id_organizador,
+      t.participantes_por_partido,
       t.encuesta,
       t.norma_puntuacion,
       t.preferencia_horario
@@ -90,9 +92,9 @@ const createTorneo = async (payload) => {
     `INSERT INTO torneo (
       nombre, descripcion, fecha_inicio, fecha_fin, estado,
       id_categoria, id_tipo_torneo, id_organizador,
-      encuesta, norma_puntuacion, preferencia_horario
+      encuesta, norma_puntuacion, preferencia_horario, participantes_por_partido
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11::jsonb)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11::jsonb, $12)
      RETURNING id_torneo`,
     [
       payload.nombre,
@@ -108,6 +110,7 @@ const createTorneo = async (payload) => {
       payload.preferencia_horario
         ? JSON.stringify(payload.preferencia_horario)
         : null,
+      payload.participantes_por_partido || null,
     ],
   );
 
@@ -125,6 +128,7 @@ const updateTorneo = async (idTorneo, payload) => {
     id_tipo_torneo: "id_tipo_torneo",
     id_organizador: "id_organizador",
     norma_puntuacion: "norma_puntuacion",
+    participantes_por_partido: "participantes_por_partido",
   };
 
   const fields = [];
@@ -242,12 +246,19 @@ function isPowerOfTwo(n) {
 async function getTorneo(client, idTorneo) {
   const q = await client.query(
     `
-    SELECT t.id_torneo, t.fecha_inicio, t.preferencia_horario, tt.nombre AS tipo
+    SELECT
+      t.id_torneo,
+      t.fecha_inicio,
+      t.preferencia_horario,
+      t.norma_puntuacion,
+      tt.nombre AS tipo,
+      COALESCE(t.participantes_por_partido, c.participantes_por_partida) AS participantes_por_partido
     FROM torneo t
     JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
+    JOIN categoria c ON c.id_categoria = t.id_categoria
     WHERE t.id_torneo = $1
     `,
-    [idTorneo]
+    [idTorneo],
   );
   if (!q.rowCount) throw new Error("Torneo no encontrado");
   return q.rows[0];
@@ -261,31 +272,111 @@ async function getParticipacionesJugando(client, idTorneo) {
     WHERE id_torneo = $1 AND estado = 'jugando'
     ORDER BY fecha ASC, id_participacion_equipo ASC
     `,
-    [idTorneo]
+    [idTorneo],
   );
   return q.rows;
 }
 
-async function crearPartido(client, { idTorneo, fecha, ronda = null, orden = null }) {
+async function crearPartido(
+  client,
+  { idTorneo, fecha, ronda = null, orden = null },
+) {
   const q = await client.query(
     `
-    INSERT INTO partido (id_torneo, fecha_hora, estado, ronda, orden_ronda)
-    VALUES ($1, $2, 'planificado', $3, $4)
+    INSERT INTO partido (id_torneo, fecha_hora, estado, jornada, ronda, orden_ronda)
+    VALUES ($1, $2, 'planificado', $3, $4, $5)
     RETURNING id_partido
     `,
-    [idTorneo, fecha, ronda, orden]
+    [idTorneo, fecha, null, ronda, orden],
   );
   return q.rows[0].id_partido;
 }
 
-async function insertarParticipacionesPartido(client, idPartido, p1, p2) {
+async function crearPartidoLiga(client, { idTorneo, fecha, jornada }) {
+  const q = await client.query(
+    `
+    INSERT INTO partido (id_torneo, fecha_hora, estado, jornada, ronda, orden_ronda)
+    VALUES ($1, $2, 'planificado', $3, NULL, NULL)
+    RETURNING id_partido
+    `,
+    [idTorneo, fecha, jornada],
+  );
+  return q.rows[0].id_partido;
+}
+
+async function insertarParticipacionesPartido(
+  client,
+  idPartido,
+  participaciones,
+) {
+  const placeholders = participaciones
+    .map((_, idx) => `($1, $${idx + 2})`)
+    .join(", ");
+
   await client.query(
     `
     INSERT INTO participacion_partido (id_partido, id_participacion_equipo)
-    VALUES ($1, $2), ($1, $3)
+    VALUES ${placeholders}
     `,
-    [idPartido, p1, p2]
+    [idPartido, ...participaciones],
   );
+}
+
+function construirJornadasDuelo(participaciones, dobleVuelta = true) {
+  const equipos = participaciones.slice();
+  if (equipos.length < 2) return [];
+
+  const esImpar = equipos.length % 2 !== 0;
+  if (esImpar) equipos.push(null);
+
+  const total = equipos.length;
+  const rondas = total - 1;
+  const jornadasIda = [];
+  let rot = equipos.slice();
+
+  for (let r = 0; r < rondas; r++) {
+    const partidos = [];
+    for (let i = 0; i < total / 2; i++) {
+      const a = rot[i];
+      const b = rot[total - 1 - i];
+      if (a && b)
+        partidos.push([a.id_participacion_equipo, b.id_participacion_equipo]);
+    }
+    jornadasIda.push(partidos);
+    rot = [rot[0], rot[total - 1], ...rot.slice(1, total - 1)];
+  }
+
+  if (!dobleVuelta) return jornadasIda;
+  const jornadasVuelta = jornadasIda.map((j) => j.map(([a, b]) => [b, a]));
+  return [...jornadasIda, ...jornadasVuelta];
+}
+
+function construirJornadasMulti(participaciones, participantesPorPartido) {
+  const totalJornadas = participaciones.length;
+  const jornadas = [];
+
+  for (let j = 0; j < totalJornadas; j++) {
+    const rotadas = participaciones
+      .slice(j)
+      .concat(participaciones.slice(0, j));
+    const partidos = [];
+
+    for (
+      let i = 0;
+      i + participantesPorPartido <= rotadas.length;
+      i += participantesPorPartido
+    ) {
+      partidos.push(
+        rotadas
+          .slice(i, i + participantesPorPartido)
+          .map((p) => p.id_participacion_equipo),
+      );
+    }
+
+    if (partidos.length) jornadas.push(partidos);
+  }
+
+  return jornadas;
 }
 
 async function generarLiga(idTorneo) {
@@ -298,49 +389,69 @@ async function generarLiga(idTorneo) {
 
     const existe = await client.query(
       `SELECT 1 FROM partido WHERE id_torneo = $1 LIMIT 1`,
-      [idTorneo]
+      [idTorneo],
     );
-    if (existe.rowCount) throw new Error("Este torneo ya tiene partidos generados");
+    if (existe.rowCount)
+      throw new Error("Este torneo ya tiene partidos generados");
 
     const dias = Array.isArray(torneo.preferencia_horario?.dias)
       ? torneo.preferencia_horario.dias
       : [];
-    if (!dias.length) throw new Error("preferencia_horario.dias es obligatorio");
+    if (!dias.length)
+      throw new Error("preferencia_horario.dias es obligatorio");
 
     const participaciones = await getParticipacionesJugando(client, idTorneo);
-    if (participaciones.length < 2) throw new Error("Se requieren al menos 2 equipos");
+    if (participaciones.length < 2)
+      throw new Error("Se requieren al menos 2 equipos");
 
-    let cursor = torneo.fecha_inicio ? new Date(torneo.fecha_inicio) : new Date();
+    const participantesPorPartido = Number(
+      torneo.participantes_por_partido || 2,
+    );
+    if (
+      !Number.isInteger(participantesPorPartido) ||
+      participantesPorPartido < 2
+    ) {
+      throw new Error("participantes_por_partido debe ser un entero >= 2");
+    }
+    if (participaciones.length < participantesPorPartido) {
+      throw new Error(
+        "No hay suficientes equipos para el tamano de partido configurado",
+      );
+    }
+
+    let cursor = torneo.fecha_inicio
+      ? new Date(torneo.fecha_inicio)
+      : new Date();
     let idxDia = 0;
     let total = 0;
 
-    const ida = [];
-    for (let i = 0; i < participaciones.length; i++) {
-      for (let j = i + 1; j < participaciones.length; j++) {
-        ida.push([participaciones[i], participaciones[j]]);
-      }
-    }
+    const jornadas =
+      participantesPorPartido === 2
+        ? construirJornadasDuelo(participaciones, true)
+        : construirJornadasMulti(participaciones, participantesPorPartido);
 
-    const vuelta = ida.map(([a, b]) => [b, a]);
-
-    for (const [a, b] of [...ida, ...vuelta]) {
-      const fecha = nextPreferredDate(cursor, dias[idxDia % dias.length]);
-      cursor = new Date(fecha.getTime() + 24 * 60 * 60 * 1000);
+    for (let idxJornada = 0; idxJornada < jornadas.length; idxJornada++) {
+      const fechaJornada = nextPreferredDate(
+        cursor,
+        dias[idxDia % dias.length],
+      );
+      cursor = new Date(fechaJornada.getTime() + 24 * 60 * 60 * 1000);
       idxDia++;
 
-      const idPartido = await crearPartido(client, {
-        idTorneo,
-        fecha,
-        ronda: null,
-        orden: null,
-      });
-      await insertarParticipacionesPartido(
-        client,
-        idPartido,
-        a.id_participacion_equipo,
-        b.id_participacion_equipo
-      );
-      total++;
+      const jornada = idxJornada + 1;
+      for (const participantesDelPartido of jornadas[idxJornada]) {
+        const idPartido = await crearPartidoLiga(client, {
+          idTorneo,
+          fecha: fechaJornada,
+          jornada,
+        });
+        await insertarParticipacionesPartido(
+          client,
+          idPartido,
+          participantesDelPartido,
+        );
+        total++;
+      }
     }
 
     await client.query("COMMIT");
@@ -365,21 +476,25 @@ async function generarEliminacion(idTorneo) {
 
     const existe = await client.query(
       `SELECT 1 FROM partido WHERE id_torneo = $1 LIMIT 1`,
-      [idTorneo]
+      [idTorneo],
     );
-    if (existe.rowCount) throw new Error("Este torneo ya tiene partidos generados");
+    if (existe.rowCount)
+      throw new Error("Este torneo ya tiene partidos generados");
 
     const dias = Array.isArray(torneo.preferencia_horario?.dias)
       ? torneo.preferencia_horario.dias
       : [];
-    if (!dias.length) throw new Error("preferencia_horario.dias es obligatorio");
+    if (!dias.length)
+      throw new Error("preferencia_horario.dias es obligatorio");
 
     const participaciones = await getParticipacionesJugando(client, idTorneo);
     if (!isPowerOfTwo(participaciones.length)) {
       throw new Error("En eliminación directa, equipos debe ser potencia de 2");
     }
 
-    let cursor = torneo.fecha_inicio ? new Date(torneo.fecha_inicio) : new Date();
+    let cursor = torneo.fecha_inicio
+      ? new Date(torneo.fecha_inicio)
+      : new Date();
     let idxDia = 0;
     let orden = 1;
 
@@ -396,12 +511,10 @@ async function generarEliminacion(idTorneo) {
         ronda: 1,
         orden,
       });
-      await insertarParticipacionesPartido(
-        client,
-        idPartido,
+      await insertarParticipacionesPartido(client, idPartido, [
         a.id_participacion_equipo,
-        b.id_participacion_equipo
-      );
+        b.id_participacion_equipo,
+      ]);
       orden++;
     }
 
@@ -427,7 +540,7 @@ async function avanzarRondaEliminacion(idTorneo) {
 
     const maxRondaQ = await client.query(
       `SELECT MAX(ronda) AS max_ronda FROM partido WHERE id_torneo = $1`,
-      [idTorneo]
+      [idTorneo],
     );
     const rondaActual = Number(maxRondaQ.rows[0].max_ronda || 0);
     if (!rondaActual) throw new Error("No hay bracket generado");
@@ -439,11 +552,13 @@ async function avanzarRondaEliminacion(idTorneo) {
       WHERE id_torneo = $1 AND ronda = $2
       ORDER BY orden_ronda
       `,
-      [idTorneo, rondaActual]
+      [idTorneo, rondaActual],
     );
     const partidos = partidosQ.rows;
     if (partidos.some((p) => p.estado !== "acabado")) {
-      throw new Error("Todos los partidos de la ronda actual deben estar acabados");
+      throw new Error(
+        "Todos los partidos de la ronda actual deben estar acabados",
+      );
     }
 
     const ganadores = [];
@@ -454,7 +569,7 @@ async function avanzarRondaEliminacion(idTorneo) {
         FROM partido
         WHERE id_partido = $1
         `,
-        [p.id_partido]
+        [p.id_partido],
       );
 
       let ganador = ganadorSet.rows[0].ganador_id_participacion_equipo;
@@ -466,17 +581,20 @@ async function avanzarRondaEliminacion(idTorneo) {
           WHERE id_partido = $1
           ORDER BY punto DESC, id_participacion_equipo ASC
           `,
-          [p.id_partido]
+          [p.id_partido],
         );
-        if (pp.rowCount !== 2) throw new Error(`Partido ${p.id_partido} inválido`);
+        if (pp.rowCount !== 2)
+          throw new Error(`Partido ${p.id_partido} inválido`);
         if (Number(pp.rows[0].punto) === Number(pp.rows[1].punto)) {
-          throw new Error(`Empate en partido ${p.id_partido}; define ganador manualmente`);
+          throw new Error(
+            `Empate en partido ${p.id_partido}; define ganador manualmente`,
+          );
         }
         ganador = pp.rows[0].id_participacion_equipo;
 
         await client.query(
           `UPDATE partido SET ganador_id_participacion_equipo = $1 WHERE id_partido = $2`,
-          [ganador, p.id_partido]
+          [ganador, p.id_partido],
         );
       }
 
@@ -498,11 +616,12 @@ async function avanzarRondaEliminacion(idTorneo) {
     const dias = Array.isArray(torneo.preferencia_horario?.dias)
       ? torneo.preferencia_horario.dias
       : [];
-    if (!dias.length) throw new Error("preferencia_horario.dias es obligatorio");
+    if (!dias.length)
+      throw new Error("preferencia_horario.dias es obligatorio");
 
     const ultimaFechaQ = await client.query(
       `SELECT MAX(fecha_hora) AS max_fecha FROM partido WHERE id_torneo = $1 AND ronda = $2`,
-      [idTorneo, rondaActual]
+      [idTorneo, rondaActual],
     );
     let cursor = ultimaFechaQ.rows[0].max_fecha
       ? new Date(ultimaFechaQ.rows[0].max_fecha)
@@ -526,12 +645,10 @@ async function avanzarRondaEliminacion(idTorneo) {
         orden,
       });
 
-      await insertarParticipacionesPartido(
-        client,
-        idPartidoNuevo,
+      await insertarParticipacionesPartido(client, idPartidoNuevo, [
         g1.id_participacion_equipo,
-        g2.id_participacion_equipo
-      );
+        g2.id_participacion_equipo,
+      ]);
 
       await client.query(
         `
@@ -539,7 +656,7 @@ async function avanzarRondaEliminacion(idTorneo) {
         SET id_partido_siguiente = $1
         WHERE id_partido IN ($2, $3)
         `,
-        [idPartidoNuevo, g1.id_partido_origen, g2.id_partido_origen]
+        [idPartidoNuevo, g1.id_partido_origen, g2.id_partido_origen],
       );
 
       orden++;
@@ -560,13 +677,13 @@ async function generarEnfrentamientos(idTorneo) {
   try {
     const torneo = await getTorneo(client, idTorneo);
     if (torneo.tipo === "Liga") return await generarLiga(idTorneo);
-    if (torneo.tipo === "Eliminación directa") return await generarEliminacion(idTorneo);
+    if (torneo.tipo === "Eliminación directa")
+      return await generarEliminacion(idTorneo);
     throw new Error(`Tipo de torneo no soportado: ${torneo.tipo}`);
   } finally {
     client.release();
   }
 }
-
 
 module.exports = {
   listTorneos,
