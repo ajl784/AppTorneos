@@ -196,7 +196,7 @@ Endpoint principal:
 Comportamiento por tipo de torneo:
 
 - Liga:
-  - usa `torneo.participantes_por_partido` (si es `NULL`, usa `categoria.participantes_por_partida`),
+  - usa `categoria.participantes_por_partida`,
   - guarda `partido.jornada` para organizar calendario,
   - si participantes por partido = 2, genera round robin con ida y vuelta,
   - si participantes por partido > 2, genera jornadas por grupos rotativos de tamano N,
@@ -206,6 +206,18 @@ Comportamiento por tipo de torneo:
   - genera un bracket inicial (ronda 1),
   - cada avance crea la siguiente ronda hasta final,
   - usa `partido.ronda`, `partido.orden_ronda` y `partido.id_partido_siguiente`.
+- Serie + final (con tiempos):
+  - genera series en ronda 1 con `participantes_por_partido`,
+  - al avanzar, clasifica a final segun `norma_puntuacion`,
+  - permite criterio por tiempo (`criterio=asc`) o por puntos (`criterio=desc`).
+- Eliminatorias por rondas:
+  - genera ronda 1 por series,
+  - en cada avance clasifica por serie y opcionalmente mejores globales,
+  - crea nuevas rondas hasta final.
+- Eliminación progresiva:
+  - genera ronda 1 por grupos,
+  - en cada avance elimina un porcentaje de peores,
+  - continua hasta quedar un campeon.
 
 Endpoints adicionales de eliminacion:
 
@@ -216,6 +228,16 @@ Regla actual para avanzar en eliminacion:
 
 - todos los partidos de la ronda actual deben estar en estado `acabado`.
 
+Parametros soportados en `norma_puntuacion` para eliminaciones multi-participante:
+
+- `criterio=asc|desc`:
+  - `asc`: menor punto/tiempo es mejor.
+  - `desc`: mayor punto es mejor.
+- `clasifican_por_serie=N`: clasificados directos por serie.
+- `mejores_tiempos=N`: cupos extra por ranking global de no clasificados.
+- `finalistas=N`: tamano de final para "Serie + final (con tiempos)".
+- `porcentaje_eliminacion=N`: porcentaje eliminado por ronda en "Eliminación progresiva".
+
 ### 4.6 Reglas de negocio de categorias y puntuacion (importante)
 
 La app esta pensada para categorias generales, no solo futbol.
@@ -223,7 +245,6 @@ La app esta pensada para categorias generales, no solo futbol.
 Campos clave en base de datos:
 
 - `categoria.participantes_por_partida`: cuantos participantes compiten en un partido/evento.
-- `torneo.participantes_por_partido`: override opcional por torneo para definir el tamano de partido.
 - `torneo.norma_puntuacion`: regla de puntos del torneo (win/draw/loss u otras variantes).
 - `partido.jornada`: numero de jornada para calendario de liga.
 

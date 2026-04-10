@@ -46,7 +46,7 @@ const listTorneos = async ({
       t.id_tipo_torneo,
       tt.nombre AS tipo_torneo_nombre,
       t.id_organizador
-      , t.participantes_por_partido
+        , c.participantes_por_partida AS participantes_por_partido
      FROM torneo t
      JOIN categoria c ON c.id_categoria = t.id_categoria
      JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
@@ -73,7 +73,7 @@ const getTorneoById = async (idTorneo) => {
       t.id_tipo_torneo,
       tt.nombre AS tipo_torneo_nombre,
       t.id_organizador,
-      t.participantes_por_partido,
+      c.participantes_por_partida AS participantes_por_partido,
       t.encuesta,
       t.norma_puntuacion,
       t.preferencia_horario
@@ -92,9 +92,9 @@ const createTorneo = async (payload) => {
     `INSERT INTO torneo (
       nombre, descripcion, fecha_inicio, fecha_fin, estado,
       id_categoria, id_tipo_torneo, id_organizador,
-      encuesta, norma_puntuacion, preferencia_horario, participantes_por_partido
+      encuesta, norma_puntuacion, preferencia_horario
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11::jsonb, $12)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11::jsonb)
      RETURNING id_torneo`,
     [
       payload.nombre,
@@ -110,7 +110,6 @@ const createTorneo = async (payload) => {
       payload.preferencia_horario
         ? JSON.stringify(payload.preferencia_horario)
         : null,
-      payload.participantes_por_partido || null,
     ],
   );
 
@@ -128,7 +127,6 @@ const updateTorneo = async (idTorneo, payload) => {
     id_tipo_torneo: "id_tipo_torneo",
     id_organizador: "id_organizador",
     norma_puntuacion: "norma_puntuacion",
-    participantes_por_partido: "participantes_por_partido",
   };
 
   const fields = [];
@@ -243,6 +241,50 @@ function isPowerOfTwo(n) {
   return n > 1 && (n & (n - 1)) === 0;
 }
 
+function parseNormaConfig(norma) {
+  if (!norma || typeof norma !== "string") return {};
+
+  const config = {};
+  const parts = norma
+    .split(/[;,]/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  for (const part of parts) {
+    const sep = part.includes("=") ? "=" : part.includes(":") ? ":" : null;
+    if (!sep) continue;
+    const [k, v] = part.split(sep).map((x) => x.trim());
+    if (!k || !v) continue;
+    const maybeNumber = Number(v);
+    config[k] = Number.isNaN(maybeNumber) ? v : maybeNumber;
+  }
+
+  return config;
+}
+
+function ordenarPorPunto(rows, asc = false) {
+  return rows.slice().sort((a, b) => {
+    const diff = asc ? Number(a.punto) - Number(b.punto) : Number(b.punto) - Number(a.punto);
+    if (diff !== 0) return diff;
+    return Number(a.id_participacion_equipo) - Number(b.id_participacion_equipo);
+  });
+}
+
+function agruparParticipantes(ids, tamGrupo) {
+  const grupos = [];
+  for (let i = 0; i < ids.length; i += tamGrupo) {
+    grupos.push(ids.slice(i, i + tamGrupo));
+  }
+
+  // Evitar grupos invalidos de 1 participante.
+  if (grupos.length > 1 && grupos[grupos.length - 1].length === 1) {
+    const ultimo = grupos.pop()[0];
+    grupos[grupos.length - 1].push(ultimo);
+  }
+
+  return grupos.filter((g) => g.length >= 2);
+}
+
 async function getTorneo(client, idTorneo) {
   const q = await client.query(
     `
@@ -252,7 +294,7 @@ async function getTorneo(client, idTorneo) {
       t.preferencia_horario,
       t.norma_puntuacion,
       tt.nombre AS tipo,
-      COALESCE(t.participantes_por_partido, c.participantes_por_partida) AS participantes_por_partido
+      c.participantes_por_partida AS participantes_por_partido
     FROM torneo t
     JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
     JOIN categoria c ON c.id_categoria = t.id_categoria
@@ -528,14 +570,95 @@ async function generarEliminacion(idTorneo) {
   }
 }
 
+async function generarEliminacionMultiInicio(idTorneo, tipoEsperado) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const torneo = await getTorneo(client, idTorneo);
+    if (torneo.tipo !== tipoEsperado) {
+      throw new Error(`El torneo no es de tipo ${tipoEsperado}`);
+    }
+
+    const existe = await client.query(
+      `SELECT 1 FROM partido WHERE id_torneo = $1 LIMIT 1`,
+      [idTorneo],
+    );
+    if (existe.rowCount) {
+      throw new Error("Este torneo ya tiene partidos generados");
+    }
+
+    const dias = Array.isArray(torneo.preferencia_horario?.dias)
+      ? torneo.preferencia_horario.dias
+      : [];
+    if (!dias.length) {
+      throw new Error("preferencia_horario.dias es obligatorio");
+    }
+
+    const participaciones = await getParticipacionesJugando(client, idTorneo);
+    const tamGrupo = Number(torneo.participantes_por_partido || 2);
+    if (!Number.isInteger(tamGrupo) || tamGrupo < 2) {
+      throw new Error("participantes_por_partido debe ser un entero >= 2");
+    }
+    if (participaciones.length < 2) {
+      throw new Error("Se requieren al menos 2 participantes para generar eliminacion");
+    }
+
+    const ids = participaciones.map((p) => p.id_participacion_equipo);
+    const grupos = agruparParticipantes(ids, tamGrupo);
+    if (!grupos.length) {
+      throw new Error("No se pudieron formar series validas para la primera ronda");
+    }
+
+    let cursor = torneo.fecha_inicio ? new Date(torneo.fecha_inicio) : new Date();
+    let idxDia = 0;
+    let orden = 1;
+
+    for (const grupo of grupos) {
+      const fecha = nextPreferredDate(cursor, dias[idxDia % dias.length]);
+      cursor = new Date(fecha.getTime() + 24 * 60 * 60 * 1000);
+      idxDia++;
+
+      const idPartido = await crearPartido(client, {
+        idTorneo,
+        fecha,
+        ronda: 1,
+        orden,
+      });
+
+      await insertarParticipacionesPartido(client, idPartido, grupo);
+      orden++;
+    }
+
+    await client.query("COMMIT");
+    return {
+      ok: true,
+      tipo: tipoEsperado,
+      rondaGenerada: 1,
+      partidosGenerados: grupos.length,
+    };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 async function avanzarRondaEliminacion(idTorneo) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
     const torneo = await getTorneo(client, idTorneo);
-    if (torneo.tipo !== "Eliminación directa") {
-      throw new Error("El torneo no es de eliminación directa");
+    const tiposSoportados = [
+      "Eliminación directa",
+      "Serie + final (con tiempos)",
+      "Eliminatorias por rondas",
+      "Eliminación progresiva",
+    ];
+    if (!tiposSoportados.includes(torneo.tipo)) {
+      throw new Error("El torneo no es de un tipo de eliminación soportado");
     }
 
     const maxRondaQ = await client.query(
@@ -561,6 +684,11 @@ async function avanzarRondaEliminacion(idTorneo) {
       );
     }
 
+    const normaConfig = parseNormaConfig(torneo.norma_puntuacion);
+    const criterioAsc = String(normaConfig.criterio || "desc").toLowerCase() === "asc";
+    const tamGrupo = Number(torneo.participantes_por_partido || 2);
+
+    const rankingRonda = [];
     const ganadores = [];
     for (const p of partidos) {
       const ganadorSet = await client.query(
@@ -573,43 +701,127 @@ async function avanzarRondaEliminacion(idTorneo) {
       );
 
       let ganador = ganadorSet.rows[0].ganador_id_participacion_equipo;
-      if (!ganador) {
-        const pp = await client.query(
-          `
-          SELECT id_participacion_equipo, punto
-          FROM participacion_partido
-          WHERE id_partido = $1
-          ORDER BY punto DESC, id_participacion_equipo ASC
-          `,
-          [p.id_partido],
-        );
-        if (pp.rowCount !== 2)
-          throw new Error(`Partido ${p.id_partido} inválido`);
-        if (Number(pp.rows[0].punto) === Number(pp.rows[1].punto)) {
-          throw new Error(
-            `Empate en partido ${p.id_partido}; define ganador manualmente`,
-          );
-        }
-        ganador = pp.rows[0].id_participacion_equipo;
+      const pp = await client.query(
+        `
+        SELECT id_participacion_equipo, punto
+        FROM participacion_partido
+        WHERE id_partido = $1
+        `,
+        [p.id_partido],
+      );
 
+      if (pp.rowCount < 2) {
+        throw new Error(`Partido ${p.id_partido} inválido: faltan resultados`);
+      }
+
+      const ordenados = ordenarPorPunto(pp.rows, criterioAsc);
+      if (!ganador) {
+        ganador = ordenados[0].id_participacion_equipo;
         await client.query(
           `UPDATE partido SET ganador_id_participacion_equipo = $1 WHERE id_partido = $2`,
           [ganador, p.id_partido],
         );
       }
 
+      rankingRonda.push({
+        id_partido: p.id_partido,
+        ranking: ordenados.map((r, idx) => ({
+          id_participacion_equipo: Number(r.id_participacion_equipo),
+          punto: Number(r.punto),
+          posicion: idx + 1,
+        })),
+      });
+
       ganadores.push({
         id_partido_origen: p.id_partido,
-        id_participacion_equipo: Number(ganador),
+        id_participacion_equipo: Number(ordenados[0].id_participacion_equipo),
       });
     }
 
-    if (ganadores.length === 1) {
+    let clasificados = [];
+    if (torneo.tipo === "Eliminación directa") {
+      clasificados = ganadores.map((g) => g.id_participacion_equipo);
+    } else if (torneo.tipo === "Serie + final (con tiempos)") {
+      if (rondaActual >= 2) {
+        await client.query("COMMIT");
+        return {
+          ok: true,
+          torneoFinalizado: true,
+          campeonIdParticipacionEquipo: ganadores[0].id_participacion_equipo,
+        };
+      }
+
+      const porSerie = Number(normaConfig.clasifican_por_serie || 1);
+      const finalistasObjetivo = Number(normaConfig.finalistas || tamGrupo || 8);
+
+      const directos = [];
+      const resto = [];
+      for (const serie of rankingRonda) {
+        directos.push(...serie.ranking.slice(0, porSerie));
+        resto.push(...serie.ranking.slice(porSerie));
+      }
+      const ordenResto = criterioAsc
+        ? resto.sort((a, b) => a.punto - b.punto || a.id_participacion_equipo - b.id_participacion_equipo)
+        : resto.sort((a, b) => b.punto - a.punto || a.id_participacion_equipo - b.id_participacion_equipo);
+
+      clasificados = [
+        ...directos.map((x) => x.id_participacion_equipo),
+        ...ordenResto.map((x) => x.id_participacion_equipo),
+      ].slice(0, Math.max(2, finalistasObjetivo));
+    } else if (torneo.tipo === "Eliminatorias por rondas") {
+      const porSerie = Number(normaConfig.clasifican_por_serie || 2);
+      const mejoresGlobales = Number(normaConfig.mejores_tiempos || 0);
+
+      const directos = [];
+      const resto = [];
+      for (const serie of rankingRonda) {
+        directos.push(...serie.ranking.slice(0, porSerie));
+        resto.push(...serie.ranking.slice(porSerie));
+      }
+      const ordenResto = criterioAsc
+        ? resto.sort((a, b) => a.punto - b.punto || a.id_participacion_equipo - b.id_participacion_equipo)
+        : resto.sort((a, b) => b.punto - a.punto || a.id_participacion_equipo - b.id_participacion_equipo);
+
+      clasificados = [
+        ...directos.map((x) => x.id_participacion_equipo),
+        ...ordenResto.slice(0, Math.max(0, mejoresGlobales)).map((x) => x.id_participacion_equipo),
+      ];
+    } else if (torneo.tipo === "Eliminación progresiva") {
+      const porcentaje = Math.min(95, Math.max(1, Number(normaConfig.porcentaje_eliminacion || 50)));
+      const rankingGlobal = rankingRonda
+        .flatMap((x) => x.ranking)
+        .sort((a, b) => {
+          if (criterioAsc) {
+            return a.punto - b.punto || a.id_participacion_equipo - b.id_participacion_equipo;
+          }
+          return b.punto - a.punto || a.id_participacion_equipo - b.id_participacion_equipo;
+        });
+
+      const supervivientes = Math.max(
+        1,
+        Math.ceil(rankingGlobal.length * (100 - porcentaje) / 100),
+      );
+      clasificados = rankingGlobal.slice(0, supervivientes).map((x) => x.id_participacion_equipo);
+    }
+
+    const clasificadosSet = new Set(clasificados);
+    const todosParticipantesActual = rankingRonda.flatMap((x) =>
+      x.ranking.map((r) => r.id_participacion_equipo),
+    );
+    const eliminados = todosParticipantesActual.filter((id) => !clasificadosSet.has(id));
+    if (eliminados.length) {
+      await client.query(
+        `UPDATE participacion_torneo_equipo SET estado = 'eliminado' WHERE id_participacion_equipo = ANY($1::bigint[])`,
+        [eliminados],
+      );
+    }
+
+    if (clasificados.length <= 1) {
       await client.query("COMMIT");
       return {
         ok: true,
         torneoFinalizado: true,
-        campeonIdParticipacionEquipo: ganadores[0].id_participacion_equipo,
+        campeonIdParticipacionEquipo: clasificados[0] || null,
       };
     }
 
@@ -628,12 +840,15 @@ async function avanzarRondaEliminacion(idTorneo) {
       : new Date();
     let idxDia = 0;
     const nuevaRonda = rondaActual + 1;
+    const tamSiguiente = torneo.tipo === "Eliminación directa" ? 2 : Math.max(2, tamGrupo);
+    const gruposSiguiente =
+      clasificados.length <= tamSiguiente
+        ? [clasificados]
+        : agruparParticipantes(clasificados, tamSiguiente);
+
     let orden = 1;
-
-    for (let i = 0; i < ganadores.length; i += 2) {
-      const g1 = ganadores[i];
-      const g2 = ganadores[i + 1];
-
+    const nuevosPartidos = [];
+    for (const grupo of gruposSiguiente) {
       const fecha = nextPreferredDate(cursor, dias[idxDia % dias.length]);
       cursor = new Date(fecha.getTime() + 24 * 60 * 60 * 1000);
       idxDia++;
@@ -644,26 +859,31 @@ async function avanzarRondaEliminacion(idTorneo) {
         ronda: nuevaRonda,
         orden,
       });
-
-      await insertarParticipacionesPartido(client, idPartidoNuevo, [
-        g1.id_participacion_equipo,
-        g2.id_participacion_equipo,
-      ]);
-
-      await client.query(
-        `
-        UPDATE partido
-        SET id_partido_siguiente = $1
-        WHERE id_partido IN ($2, $3)
-        `,
-        [idPartidoNuevo, g1.id_partido_origen, g2.id_partido_origen],
-      );
-
+      await insertarParticipacionesPartido(client, idPartidoNuevo, grupo);
+      nuevosPartidos.push(idPartidoNuevo);
       orden++;
     }
 
+    if (torneo.tipo === "Eliminación directa" && partidos.length * 2 === clasificados.length * 2) {
+      // Mantener trazabilidad en el caso clasico 1v1.
+      for (let i = 0; i < partidos.length; i += 2) {
+        const target = nuevosPartidos[Math.floor(i / 2)];
+        if (!target) continue;
+        await client.query(
+          `UPDATE partido SET id_partido_siguiente = $1 WHERE id_partido IN ($2, $3)`,
+          [target, partidos[i].id_partido, partidos[i + 1].id_partido],
+        );
+      }
+    }
+
     await client.query("COMMIT");
-    return { ok: true, torneoFinalizado: false, rondaGenerada: nuevaRonda };
+    return {
+      ok: true,
+      torneoFinalizado: false,
+      rondaGenerada: nuevaRonda,
+      partidosGenerados: nuevosPartidos.length,
+      clasificados: clasificados.length,
+    };
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
@@ -679,6 +899,24 @@ async function generarEnfrentamientos(idTorneo) {
     if (torneo.tipo === "Liga") return await generarLiga(idTorneo);
     if (torneo.tipo === "Eliminación directa")
       return await generarEliminacion(idTorneo);
+    if (torneo.tipo === "Serie + final (con tiempos)") {
+      return await generarEliminacionMultiInicio(
+        idTorneo,
+        "Serie + final (con tiempos)",
+      );
+    }
+    if (torneo.tipo === "Eliminatorias por rondas") {
+      return await generarEliminacionMultiInicio(
+        idTorneo,
+        "Eliminatorias por rondas",
+      );
+    }
+    if (torneo.tipo === "Eliminación progresiva") {
+      return await generarEliminacionMultiInicio(
+        idTorneo,
+        "Eliminación progresiva",
+      );
+    }
     throw new Error(`Tipo de torneo no soportado: ${torneo.tipo}`);
   } finally {
     client.release();

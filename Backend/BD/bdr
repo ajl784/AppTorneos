@@ -88,7 +88,7 @@ CREATE TABLE torneo (
 	fecha_inicio TIMESTAMPTZ,
 	fecha_fin TIMESTAMPTZ,
 	estado VARCHAR(20) NOT NULL DEFAULT 'inscripcion_abierta',
-	participantes_por_partido INTEGER,
+	
 	id_categoria BIGINT NOT NULL,
 	id_tipo_torneo BIGINT NOT NULL,
 	id_organizador BIGINT REFERENCES usuario(id_usuario) ON DELETE SET NULL,
@@ -96,7 +96,7 @@ CREATE TABLE torneo (
 	norma_puntuacion TEXT,
 	preferencia_horario JSONB,
 	CHECK (estado IN ('inscripcion_abierta', 'inscripcion_terminada','en_curso', 'acabado', 'cancelado')),
-	CHECK (participantes_por_partido IS NULL OR participantes_por_partido > 1),
+	
 	CHECK (fecha_fin IS NULL OR fecha_inicio IS NULL OR fecha_fin >= fecha_inicio),
 	UNIQUE (nombre, id_categoria, id_tipo_torneo),
 	FOREIGN KEY (id_categoria) REFERENCES categoria(id_categoria),
