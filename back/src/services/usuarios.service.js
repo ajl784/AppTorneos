@@ -43,6 +43,16 @@ const createUsuario = async ({ correo, nombre_usuario, password }) => {
   return result.rows[0];
 };
 
+const loginUsuario = async ({ correo, password }) => {
+  const result = await pool.query(
+    `SELECT id_usuario, correo, nombre_usuario
+     FROM usuario
+     WHERE correo = $1 AND password_hash = crypt($2, password_hash)`,
+    [correo, password]
+  );
+  return result.rows[0] || null;
+};
+
 const updateUsuario = async (idUsuario, payload) => {
   const fields = [];
   const values = [];
@@ -94,6 +104,7 @@ module.exports = {
   listUsuarios,
   getUsuarioById,
   createUsuario,
+  loginUsuario,
   updateUsuario,
   deleteUsuario,
 };

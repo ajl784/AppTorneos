@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:front/peticion/api_config.dart';
 
 import 'package:front/features/torneos/domain/torneo.dart';
 
@@ -12,9 +13,10 @@ class TorneosApi {
   Map<String, dynamic>? lastMeta;
 
   TorneosApi({
-    required this.baseUrl,
+    String? baseUrl,
     http.Client? client,
-  }) : _client = client ?? http.Client();
+  })  : baseUrl = baseUrl ?? ApiConfig.baseUrl,
+        _client = client ?? http.Client();
 
   String get _normalizedBaseUrl => baseUrl.replaceAll(RegExp(r'/+$'), '');
 
