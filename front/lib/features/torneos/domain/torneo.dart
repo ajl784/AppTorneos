@@ -5,6 +5,7 @@ class Torneo {
   final String? fechaInicio;
   final String? fechaFin;
   final String? estado;
+  final int? limiteEquipos;
   final int? categoriaId;
   final String? categoriaNombre;
   final int? tipoTorneoId;
@@ -22,6 +23,7 @@ class Torneo {
     this.fechaInicio,
     this.fechaFin,
     this.estado,
+    this.limiteEquipos,
     this.categoriaId,
     this.categoriaNombre,
     this.tipoTorneoId,
@@ -60,6 +62,9 @@ class Torneo {
       fechaInicio: _stringOrNull(json['fecha_inicio'] ?? json['fechaInicio']),
       fechaFin: _stringOrNull(json['fecha_fin'] ?? json['fechaFin']),
       estado: _stringOrNull(json['estado']),
+      limiteEquipos: _intOrNull(
+        json['limite_equipos'] ?? json['limiteEquipos'],
+      ),
       categoriaId: _intOrNull(json['id_categoria'] ?? json['categoriaId']),
       categoriaNombre: _stringOrNull(
         json['categoria_nombre'] ?? json['categoriaNombre'],
@@ -90,6 +95,7 @@ class TorneoCreate {
   final String? fechaInicio;
   final String? fechaFin;
   final String? estado;
+  final int? limiteEquipos;
   final int idCategoria;
   final int idTipoTorneo;
   final int? idOrganizador;
@@ -105,6 +111,7 @@ class TorneoCreate {
     this.fechaInicio,
     this.fechaFin,
     this.estado,
+    this.limiteEquipos,
     this.idOrganizador,
     this.encuesta,
     this.normaPuntuacion,
@@ -117,6 +124,7 @@ class TorneoCreate {
     if (fechaInicio != null) 'fecha_inicio': fechaInicio,
     if (fechaFin != null) 'fecha_fin': fechaFin,
     if (estado != null) 'estado': estado,
+    if (limiteEquipos != null) 'limite_equipos': limiteEquipos,
     'id_categoria': idCategoria,
     'id_tipo_torneo': idTipoTorneo,
     if (idOrganizador != null) 'id_organizador': idOrganizador,
@@ -132,6 +140,7 @@ class TorneoUpdate {
   final String? fechaInicio;
   final String? fechaFin;
   final String? estado;
+  final int? limiteEquipos;
   final int? idCategoria;
   final int? idTipoTorneo;
   final int? idOrganizador;
@@ -145,6 +154,7 @@ class TorneoUpdate {
     this.fechaInicio,
     this.fechaFin,
     this.estado,
+    this.limiteEquipos,
     this.idCategoria,
     this.idTipoTorneo,
     this.idOrganizador,
@@ -159,6 +169,7 @@ class TorneoUpdate {
     if (fechaInicio != null) 'fecha_inicio': fechaInicio,
     if (fechaFin != null) 'fecha_fin': fechaFin,
     if (estado != null) 'estado': estado,
+    if (limiteEquipos != null) 'limite_equipos': limiteEquipos,
     if (idCategoria != null) 'id_categoria': idCategoria,
     if (idTipoTorneo != null) 'id_tipo_torneo': idTipoTorneo,
     if (idOrganizador != null) 'id_organizador': idOrganizador,

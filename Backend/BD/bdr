@@ -88,6 +88,7 @@ CREATE TABLE torneo (
 	fecha_inicio TIMESTAMPTZ,
 	fecha_fin TIMESTAMPTZ,
 	estado VARCHAR(20) NOT NULL DEFAULT 'inscripcion_abierta',
+	limite_equipos INTEGER CHECK (limite_equipos IS NULL OR limite_equipos > 0),
 	
 	id_categoria BIGINT NOT NULL,
 	id_tipo_torneo BIGINT NOT NULL,

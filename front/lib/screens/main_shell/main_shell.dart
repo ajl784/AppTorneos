@@ -6,6 +6,7 @@ import 'package:front/screens/main_shell/tabs/crear_torneo_tab.dart';
 import 'package:front/screens/main_shell/tabs/estadisticas_tab.dart';
 import 'package:front/screens/main_shell/tabs/inicio_tab.dart';
 import 'package:front/screens/main_shell/tabs/torneos_tab.dart';
+import 'package:front/screens/crear_torneo/crear_torneo_wizard_screen.dart';
 import 'package:front/screens/perfil/perfil_screen.dart';
 import 'package:front/state/auth_state.dart';
 
@@ -18,8 +19,6 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
-
-  static const int _crearTorneoTabIndex = 4;
 
   void _goToProfile() {
     if (AuthState.isLoggedIn.value) {
@@ -38,10 +37,6 @@ class _MainShellState extends State<MainShell> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Notificaciones')),
     );
-  }
-
-  void _goToCrearTorneoTab() {
-    setState(() => _currentIndex = _crearTorneoTabIndex);
   }
 
   @override
@@ -88,7 +83,13 @@ class _MainShellState extends State<MainShell> {
         height: 70,
         child: FloatingActionButton(
           tooltip: 'Crear torneo',
-          onPressed: _goToCrearTorneoTab,
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const CrearTorneoWizardScreen(),
+              ),
+            );
+          },
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
           elevation: 6,
