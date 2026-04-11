@@ -38,6 +38,8 @@ dependencies:
   http: ^1.2.2
   shared_preferences: ^2.5.5
 
+  table_calendar: ^3.0.9
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
