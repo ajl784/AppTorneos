@@ -7,6 +7,7 @@ import 'package:front/screens/main_shell/tabs/estadisticas_tab.dart';
 import 'package:front/screens/main_shell/tabs/inicio_tab.dart';
 import 'package:front/screens/main_shell/tabs/torneos_tab.dart';
 import 'package:front/screens/crear_torneo/crear_torneo_wizard_screen.dart';
+import 'package:front/screens/main_shell/_speed_dial_fab.dart';
 import 'package:front/screens/perfil/perfil_screen.dart';
 import 'package:front/state/auth_state.dart';
 
@@ -78,27 +79,7 @@ class _MainShellState extends State<MainShell> {
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: SizedBox(
-        width: 70,
-        height: 70,
-        child: FloatingActionButton(
-          tooltip: 'Crear torneo',
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const CrearTorneoWizardScreen(),
-              ),
-            );
-          },
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          elevation: 6,
-          shape: const CircleBorder(
-            side: BorderSide(color: Colors.white24, width: 1.5),
-          ),
-          child: const Icon(Icons.add, size: 40),
-        ),
-      ),
+      floatingActionButton: SpeedDialFab(),
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8,

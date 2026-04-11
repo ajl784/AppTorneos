@@ -7,6 +7,7 @@ import 'package:front/features/categorias/domain/categoria.dart';
 import 'package:front/features/tipos_torneo/domain/tipo_torneo.dart';
 import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
+import 'package:front/state/jwt_storage.dart';
 
 class CrearTorneoWizardScreen extends StatefulWidget {
   const CrearTorneoWizardScreen({super.key});
@@ -54,6 +55,7 @@ class _PreguntaDraft {
 }
 
 class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
+    int? _idOrganizador;
   static String _defaultApiBaseUrl() {
     if (kIsWeb) {
       final host = (Uri.base.host.isNotEmpty) ? Uri.base.host : 'localhost';
@@ -108,6 +110,29 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
   void initState() {
     super.initState();
     _loadCategorias();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final userMap = await JwtStorage.getUser();
+    final dynamic idRaw = userMap != null
+        ? (userMap['id_usuario'] ?? userMap['idUsuario'] ?? userMap['id'])
+        : null;
+    final int? id =
+        idRaw is int ? idRaw : (idRaw != null ? int.tryParse(idRaw.toString()) : null);
+    if (userMap == null || id == null) {
+      // Si no hay usuario, cerrar el wizard y mostrar aviso
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Debes iniciar sesión para crear un torneo.')),
+        );
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+    setState(() {
+      _idOrganizador = id;
+    });
   }
 
   @override
@@ -370,6 +395,10 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
 
   Future<void> _handleNext() async {
     if (_loading) return;
+    if (_idOrganizador == null) {
+      _snack('Debes iniciar sesión para crear un torneo.');
+      return;
+    }
 
     if (_stepIndex == 0) {
       if (!_validateStep0()) return;
@@ -457,6 +486,7 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
       normaPuntuacion: _buildNormaPuntuacion(),
       preferenciaHorario: _buildPreferenciaHorario(),
       encuesta: _buildEncuesta(),
+      idOrganizador: _idOrganizador,
     );
 
     setState(() => _loading = true);
