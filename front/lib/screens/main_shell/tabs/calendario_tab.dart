@@ -5,6 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:front/features/calendario/data/calendario_api.dart';
 import 'package:front/features/calendario/domain/calendario_models.dart';
 import 'package:front/peticion/api_config.dart';
+import 'package:front/state/auth_state.dart';
 import 'package:front/state/jwt_storage.dart';
 
 class CalendarioTab extends StatefulWidget {
@@ -16,6 +17,8 @@ class CalendarioTab extends StatefulWidget {
 
 class _CalendarioTabState extends State<CalendarioTab> {
   final CalendarioApi _api = CalendarioApi(baseUrl: ApiConfig.baseUrl);
+
+  late final VoidCallback _authListener;
 
   bool _loading = true;
   String? _error;
@@ -30,7 +33,37 @@ class _CalendarioTabState extends State<CalendarioTab> {
   @override
   void initState() {
     super.initState();
-    _loadInitial();
+
+    _authListener = () {
+      if (!mounted) return;
+      if (AuthState.isLoggedIn.value) {
+        _loadInitial();
+      } else {
+        setState(() {
+          _idUsuario = null;
+          _error = null;
+          _loading = false;
+          _selectedDay = null;
+          _eventsByDay.clear();
+          _loadedMonthKey = null;
+          _focusedDay = DateTime.now();
+        });
+      }
+    };
+
+    AuthState.isLoggedIn.addListener(_authListener);
+
+    if (AuthState.isLoggedIn.value) {
+      _loadInitial();
+    } else {
+      _loading = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    AuthState.isLoggedIn.removeListener(_authListener);
+    super.dispose();
   }
 
   static DateTime _dayKey(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -143,8 +176,55 @@ class _CalendarioTabState extends State<CalendarioTab> {
     return _eventsByDay[_dayKey(day)] ?? const <CalendarioPartido>[];
   }
 
+  Future<void> _showPartidosDiaDialog(
+    BuildContext context, {
+    required DateTime day,
+    required List<CalendarioPartido> partidos,
+  }) async {
+    final d = _dayKey(day);
+    final title = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year.toString().padLeft(4, '0')}';
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text('Partidos · $title'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: partidos.isEmpty
+                ? const Text('Sin partidos para este día.')
+                : ListView(
+                    shrinkWrap: true,
+                    children: partidos
+                        .map((p) => _PartidoItem(partido: p))
+                        .toList(growable: false),
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!AuthState.isLoggedIn.value) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'Inicia sesión para ver tu calendario.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -171,9 +251,6 @@ class _CalendarioTabState extends State<CalendarioTab> {
       );
     }
 
-    final selected = _selectedDay;
-    final eventsSelected = selected == null ? const <CalendarioPartido>[] : _eventsForDay(selected);
-
     return RefreshIndicator(
       onRefresh: () async {
         _loadedMonthKey = null;
@@ -195,13 +272,23 @@ class _CalendarioTabState extends State<CalendarioTab> {
                 lastDay: DateTime.utc(2100, 12, 31),
                 focusedDay: _focusedDay,
                 startingDayOfWeek: StartingDayOfWeek.monday,
-                selectedDayPredicate: (day) => selected != null && isSameDay(selected, day),
+                selectedDayPredicate: (day) => _selectedDay != null && isSameDay(_selectedDay, day),
                 eventLoader: _eventsForDay,
                 onDaySelected: (selectedDay, focusedDay) {
+                  final events = _eventsForDay(selectedDay);
                   setState(() {
                     _selectedDay = _dayKey(selectedDay);
                     _focusedDay = focusedDay;
                   });
+
+                  // Solo abre el pop-up si el día tiene partidos (punto).
+                  if (events.isNotEmpty) {
+                    _showPartidosDiaDialog(
+                      context,
+                      day: selectedDay,
+                      partidos: events,
+                    );
+                  }
                 },
                 onPageChanged: (focusedDay) async {
                   setState(() {
@@ -230,18 +317,6 @@ class _CalendarioTabState extends State<CalendarioTab> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Partidos del día',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          if (selected == null)
-            const Text('Selecciona un día para ver partidos.')
-          else if (eventsSelected.isEmpty)
-            const Text('Sin partidos para este día.')
-          else
-            ...eventsSelected.map((p) => _PartidoItem(partido: p)).toList(growable: false),
           const SizedBox(height: 8),
         ],
       ),

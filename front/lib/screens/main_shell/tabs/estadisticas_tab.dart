@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:front/features/estadisticas/data/estadisticas_api.dart';
 import 'package:front/features/estadisticas/domain/estadisticas_models.dart';
 import 'package:front/peticion/api_config.dart';
+import 'package:front/state/auth_state.dart';
 import 'package:front/state/jwt_storage.dart';
 
 class EstadisticasTab extends StatefulWidget {
@@ -16,6 +17,8 @@ class EstadisticasTab extends StatefulWidget {
 
 class _EstadisticasTabState extends State<EstadisticasTab> {
   final EstadisticasApi _api = EstadisticasApi(baseUrl: ApiConfig.baseUrl);
+
+  late final VoidCallback _authListener;
 
   int? _idUsuario;
   bool _loading = true;
@@ -30,7 +33,37 @@ class _EstadisticasTabState extends State<EstadisticasTab> {
   @override
   void initState() {
     super.initState();
-    _loadInitial();
+
+    _authListener = () {
+      if (!mounted) return;
+      if (AuthState.isLoggedIn.value) {
+        _loadInitial();
+      } else {
+        setState(() {
+          _idUsuario = null;
+          _equipos = const [];
+          _selectedEquipoId = null;
+          _eloResponse = null;
+          _rankingResponse = null;
+          _error = null;
+          _loading = false;
+        });
+      }
+    };
+
+    AuthState.isLoggedIn.addListener(_authListener);
+
+    if (AuthState.isLoggedIn.value) {
+      _loadInitial();
+    } else {
+      _loading = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    AuthState.isLoggedIn.removeListener(_authListener);
+    super.dispose();
   }
 
   Future<void> _loadInitial() async {
@@ -114,6 +147,18 @@ class _EstadisticasTabState extends State<EstadisticasTab> {
 
   @override
   Widget build(BuildContext context) {
+    if (!AuthState.isLoggedIn.value) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'Inicia sesión para ver tus estadísticas.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
