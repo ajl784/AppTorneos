@@ -9,6 +9,22 @@ const {
 } = require("../utils/http");
 const { AppError } = require("../utils/errors");
 
+const parseDateYmdOrNull = (value, fieldName) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new AppError(400, `${fieldName} debe ser un string YYYY-MM-DD`);
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new AppError(400, `${fieldName} debe tener formato YYYY-MM-DD`);
+  }
+
+  return value;
+};
+
 const listUsuarios = asyncHandler(async (req, res) => {
   const { limit, offset } = parsePagination(req.query);
   const data = await usuariosService.listUsuarios({
@@ -57,6 +73,37 @@ const deleteUsuario = asyncHandler(async (req, res) => {
   }
 
   ok(res, { deleted: true });
+});
+
+// Calendario de partidos del usuario (por equipos actuales)
+const getCalendarioUsuario = asyncHandler(async (req, res) => {
+  const idUsuario = parsePositiveInt(req.params.idUsuario, "idUsuario");
+  const { limit, offset } = parsePagination(req.query);
+
+  const desde = parseDateYmdOrNull(req.query.desde, "desde");
+  const hasta = parseDateYmdOrNull(req.query.hasta, "hasta");
+  const estado = req.query.estado ? String(req.query.estado) : null;
+
+  const partidos = await usuariosService.getCalendarioUsuario({
+    idUsuario,
+    desde,
+    hasta,
+    estado,
+    limit,
+    offset,
+  });
+
+  ok(
+    res,
+    {
+      usuario_id: idUsuario,
+      desde,
+      hasta,
+      partidos,
+      total: partidos.length,
+    },
+    { limit, offset, count: partidos.length },
+  );
 });
 
 // Registro de usuario (alias de createUsuario, pero ruta /register)
@@ -118,4 +165,5 @@ module.exports = {
   loginUsuario,
   pruebajwteliminarluego,
   modifyPsswd,
+  getCalendarioUsuario,
 };

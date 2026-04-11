@@ -1,5 +1,91 @@
 const { pool } = require("../db/pool");
 
+const getCalendarioUsuario = async ({
+  idUsuario,
+  desde,
+  hasta,
+  estado,
+  limit,
+  offset,
+}) => {
+  const values = [idUsuario, limit, offset];
+  const filters = [];
+
+  if (desde) {
+    values.push(desde);
+    filters.push(`p.fecha_hora >= $${values.length}::date`);
+  }
+
+  if (hasta) {
+    values.push(hasta);
+    filters.push(`p.fecha_hora < ($${values.length}::date + INTERVAL '1 day')`);
+  }
+
+  if (estado) {
+    values.push(estado);
+    filters.push(`p.estado = $${values.length}`);
+  }
+
+  const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+
+  const result = await pool.query(
+    `WITH my_teams AS (
+      SELECT pe.id_equipo
+      FROM pertenece pe
+      WHERE pe.id_usuario = $1
+        AND pe.fecha_fin IS NULL
+    ),
+    my_partidos AS (
+      SELECT DISTINCT pp.id_partido
+      FROM participacion_partido pp
+      JOIN participacion_torneo_equipo pte
+        ON pte.id_participacion_equipo = pp.id_participacion_equipo
+      WHERE pte.id_equipo IN (SELECT id_equipo FROM my_teams)
+    )
+    SELECT
+      p.id_partido,
+      p.id_torneo,
+      t.nombre AS torneo_nombre,
+      p.fecha_hora,
+      p.lugar,
+      p.estado,
+      p.jornada,
+      p.ronda,
+      p.orden_ronda,
+      json_agg(
+        json_build_object(
+          'id_equipo', e.id_equipo,
+          'nombre', e.nombre,
+          'es_mi_equipo', (e.id_equipo IN (SELECT id_equipo FROM my_teams))
+        )
+        ORDER BY e.nombre
+      ) AS equipos
+    FROM my_partidos mp
+    JOIN partido p ON p.id_partido = mp.id_partido
+    JOIN torneo t ON t.id_torneo = p.id_torneo
+    JOIN participacion_partido pp_all ON pp_all.id_partido = p.id_partido
+    JOIN participacion_torneo_equipo pte_all
+      ON pte_all.id_participacion_equipo = pp_all.id_participacion_equipo
+    JOIN equipo e ON e.id_equipo = pte_all.id_equipo
+    ${where}
+    GROUP BY
+      p.id_partido,
+      p.id_torneo,
+      t.nombre,
+      p.fecha_hora,
+      p.lugar,
+      p.estado,
+      p.jornada,
+      p.ronda,
+      p.orden_ronda
+    ORDER BY p.fecha_hora ASC
+    LIMIT $2 OFFSET $3`,
+    values,
+  );
+
+  return result.rows;
+};
+
 const listUsuarios = async ({ limit, offset, q }) => {
   const values = [limit, offset];
   let where = "";
@@ -105,6 +191,7 @@ module.exports = {
   getUsuarioById,
   createUsuario,
   loginUsuario,
+  getCalendarioUsuario,
   updateUsuario,
   deleteUsuario,
 };

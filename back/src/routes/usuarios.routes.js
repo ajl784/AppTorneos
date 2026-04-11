@@ -15,6 +15,9 @@ router.post("/modifyPsswd", authJwt, controller.modifyPsswd);
 router.post("/register", controller.registerUsuario);
 router.post("/login", controller.loginUsuario);
 
+// Calendario de partidos del usuario (por equipos actuales)
+router.get("/:idUsuario/calendario", controller.getCalendarioUsuario);
+
 router.get("/", controller.listUsuarios);
 router.get("/:id", controller.getUsuarioById);
 router.post("/", controller.createUsuario);
