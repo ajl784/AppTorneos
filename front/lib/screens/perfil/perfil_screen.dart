@@ -24,6 +24,9 @@ import 'package:file_picker/file_picker.dart';
 import 'modificar_perfil_screen.dart';
 import 'cambiar_contrasena_screen.dart';
 import 'equipo_info.dart';
+import 'package:front/features/torneos/data/torneos_api.dart';
+import 'package:front/features/torneos/domain/torneo.dart';
+import 'mitorneo_info.dart';
 
 class PerfilScreen extends StatefulWidget {
   const PerfilScreen({Key? key}) : super(key: key);
@@ -37,6 +40,7 @@ class _PerfilScreenState extends State<PerfilScreen> with SingleTickerProviderSt
   Usuario? _usuario;
   ImageProvider? _profileImage;
   List<Equipo> _misEquipos = [];
+  List<Torneo> _misTorneos = [];
   bool _loading = true;
   String? _error;
   TabController? _tabController;
@@ -51,6 +55,7 @@ class _PerfilScreenState extends State<PerfilScreen> with SingleTickerProviderSt
     _tabController = TabController(length: 2, vsync: this);
     _loadAll();
   }
+
 
   Future<void> _loadAll() async {
     setState(() {
@@ -88,11 +93,17 @@ class _PerfilScreenState extends State<PerfilScreen> with SingleTickerProviderSt
       final equiposResp = await equiposApi.getEquiposByUsuario(idUsuario);
       final misEquipos = equiposResp.data;
 
+      // Mis torneos: usar la API /api/v1/torneos?organizadorId=<idUsuario>
+      final torneosApi = TorneosApi(baseUrl: ApiConfig.baseUrl);
+      final torneosResp = await torneosApi.listTorneos(organizadorId: idUsuario);
+      final misTorneos = torneosResp.data;
+
       setState(() {
         _jwtUser = jwtUser;
         _usuario = userResp;
         _profileImage = profileImage;
         _misEquipos = misEquipos;
+        _misTorneos = misTorneos;
         _hasProfilePic = hasProfilePic;
         _loading = false;
       });
@@ -177,6 +188,30 @@ class _PerfilScreenState extends State<PerfilScreen> with SingleTickerProviderSt
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       setState(() { _profilePicLoading = false; });
+    }
+  }
+
+  String _formatoFechasTorneo(String? inicio, String? fin) {
+    if (inicio == null && fin == null) return '-';
+    String? fechaIni = _formatoFechaCorta(inicio);
+    String? fechaFin = _formatoFechaCorta(fin);
+    if (fechaIni != null && fechaFin != null) {
+      return '$fechaIni - $fechaFin';
+    } else if (fechaIni != null) {
+      return fechaIni;
+    } else if (fechaFin != null) {
+      return fechaFin;
+    }
+    return '-';
+  }
+
+  String? _formatoFechaCorta(String? fechaIso) {
+    if (fechaIso == null) return null;
+    try {
+      final dt = DateTime.parse(fechaIso);
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } catch (_) {
+      return null;
     }
   }
 
@@ -294,6 +329,102 @@ class _PerfilScreenState extends State<PerfilScreen> with SingleTickerProviderSt
                         icon: const Icon(Icons.lock),
                         label: const Text('Cambiar contraseña'),
                       ),
+                      const SizedBox(height: 32),
+                      // Mis torneos
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('Mis torneos', style: theme.textTheme.titleMedium),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_misTorneos.isEmpty)
+                        const Text('No has creado ningún torneo.')
+                      else
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            // Calcula el número de columnas según el ancho disponible
+                            int crossAxisCount = (constraints.maxWidth / 200).floor();
+                            if (crossAxisCount < 1) crossAxisCount = 1;
+                            return GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 16,
+                                childAspectRatio: 2.0,
+                              ),
+                              itemCount: _misTorneos.length,
+                              itemBuilder: (ctx, i) {
+                                final torneo = _misTorneos[i];
+                                IconData icono;
+                                switch (torneo.categoriaId) {
+                                  case 1:
+                                    icono = Icons.sports_soccer;
+                                    break;
+                                  case 2:
+                                    icono = Icons.sports_basketball;
+                                    break;
+                                  case 3:
+                                    icono = Icons.directions_run;
+                                    break;
+                                  case 4:
+                                    icono = Icons.casino;
+                                    break;
+                                  default:
+                                    icono = Icons.emoji_events;
+                                }
+                                return GestureDetector(
+                                  onTap: () async {
+                                    final updated = await Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (ctx) => MiTorneoInfoScreen(
+                                          torneo: torneo,
+                                          onTorneoUpdated: _loadAll,
+                                        ),
+                                      ),
+                                    );
+                                    if (updated == true) await _loadAll();
+                                  },
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.surfaceVariant,
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black12,
+                                          blurRadius: 4,
+                                          offset: Offset(0,2),
+                                        ),
+                                      ],
+                                    ),
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        Icon(icono, size: 32, color: theme.colorScheme.primary),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          torneo.nombre,
+                                          style: theme.textTheme.bodyMedium,
+                                          textAlign: TextAlign.center,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _formatoFechasTorneo(torneo.fechaInicio, torneo.fechaFin),
+                                          style: theme.textTheme.bodySmall,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
                       const SizedBox(height: 32),
                       // Mis equipos
                       Align(

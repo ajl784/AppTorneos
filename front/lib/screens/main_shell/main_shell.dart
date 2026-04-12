@@ -10,6 +10,9 @@ import 'package:front/screens/crear_torneo/crear_torneo_wizard_screen.dart';
 import 'package:front/screens/main_shell/_speed_dial_fab.dart';
 import 'package:front/screens/perfil/perfil_screen.dart';
 import 'package:front/state/auth_state.dart';
+import 'package:front/state/jwt_storage.dart';
+import 'package:front/peticion/api_config.dart';
+import 'package:front/features/usuarios/data/usuarios_api.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -18,17 +21,68 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
+
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+  ImageProvider? _profileImage;
+  bool _loadingProfileImage = false;
 
-  void _goToProfile() {
-    if (AuthState.isLoggedIn.value) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const PerfilScreen()),
-      );
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileImage();
+    AuthState.isLoggedIn.addListener(_loadProfileImage);
+  }
+
+  @override
+  void dispose() {
+    AuthState.isLoggedIn.removeListener(_loadProfileImage);
+    super.dispose();
+  }
+
+  Future<void> _loadProfileImage() async {
+    if (!AuthState.isLoggedIn.value) {
+      setState(() {
+        _profileImage = null;
+      });
       return;
     }
+    setState(() { _loadingProfileImage = true; });
+    try {
+      // Obtener el usuario logueado y su foto de perfil
+      final jwtUser = await JwtStorage.getUser();
+      if (jwtUser == null) throw Exception('No hay usuario logueado');
+      final int idUsuario = int.parse(jwtUser['id_usuario'].toString());
+      final usuariosApi = UsuariosApi(baseUrl: ApiConfig.baseUrl);
+      final userResp = await usuariosApi.getUsuarioById(idUsuario);
+      ImageProvider? profileImage;
+      if (userResp.fotoperfil != null) {
+        final url = ApiConfig.baseUrl.replaceAll('/api/v1', '') + '/api/v1/usuarios/$idUsuario/profile-pic';
+        profileImage = NetworkImage(url);
+      } else {
+        profileImage = null;
+      }
+      setState(() {
+        _profileImage = profileImage;
+      });
+    } catch (_) {
+      setState(() {
+        _profileImage = null;
+      });
+    } finally {
+      setState(() { _loadingProfileImage = false; });
+    }
+  }
 
+  void _goToProfile() async {
+    if (AuthState.isLoggedIn.value) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const PerfilScreen()),
+      );
+      // Al volver del perfil, recarga la imagen
+      _loadProfileImage();
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const LoginRegisterScreen()),
     );
@@ -61,8 +115,9 @@ class _MainShellState extends State<MainShell> {
             child: InkWell(
               onTap: _goToProfile,
               customBorder: const CircleBorder(),
-              child: const CircleAvatar(
-                child: Icon(Icons.person),
+              child: CircleAvatar(
+                backgroundImage: _profileImage,
+                child: _profileImage == null ? const Icon(Icons.person) : null,
               ),
             ),
           ),

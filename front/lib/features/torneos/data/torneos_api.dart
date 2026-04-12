@@ -159,6 +159,25 @@ class TorneosApi {
     );
   }
 
+  /// Envía una solicitud de unión a un torneo
+  Future<Map<String, dynamic>> enviarSolicitudUnirse({
+    required int idTorneo,
+    required int idEquipo,
+    Map<String, dynamic>? respuesta,
+  }) async {
+    final res = await _api.postRaw(
+      '/torneos/$idTorneo/solicitudes',
+      body: {
+        'id_equipo': idEquipo,
+        'respuesta': respuesta,
+      },
+    );
+    if (res.data is Map<String, dynamic>) {
+      return res.data as Map<String, dynamic>;
+    }
+    throw const FormatException('Respuesta inesperada al enviar solicitud');
+  }
+
   Future<TorneoEnfrentamientosResult> generarBracketEliminacion(
     int idTorneo,
   ) async {
