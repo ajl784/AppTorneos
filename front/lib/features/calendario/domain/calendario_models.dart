@@ -53,6 +53,9 @@ class CalendarioPartido {
   final int? ronda;
   final int? ordenRonda;
   final List<CalendarioEquipo> equipos;
+  final bool esJugador;
+  final bool esArbitro;
+  final String? arbitroNombre;
 
   const CalendarioPartido({
     required this.idPartido,
@@ -65,6 +68,9 @@ class CalendarioPartido {
     this.jornada,
     this.ronda,
     this.ordenRonda,
+    this.esJugador = false,
+    this.esArbitro = false,
+    this.arbitroNombre,
   });
 
   static int? _intOrNull(dynamic value) {
@@ -73,6 +79,16 @@ class CalendarioPartido {
     if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value);
     return null;
+  }
+
+  static bool _boolOrFalse(dynamic value) {
+    if (value is bool) return value;
+    if (value is String) {
+      if (value.toLowerCase() == 'true') return true;
+      if (value.toLowerCase() == 'false') return false;
+    }
+    if (value is num) return value != 0;
+    return false;
   }
 
   static DateTime _parseDateTime(dynamic value) {
@@ -122,6 +138,9 @@ class CalendarioPartido {
       ronda: _intOrNull(json['ronda']),
       ordenRonda: _intOrNull(json['orden_ronda'] ?? json['ordenRonda']),
       equipos: equipos,
+      esJugador: _boolOrFalse(json['es_jugador'] ?? json['esJugador']),
+      esArbitro: _boolOrFalse(json['es_arbitro'] ?? json['esArbitro']),
+      arbitroNombre: (json['arbitro_nombre'] ?? json['arbitroNombre'])?.toString(),
     );
   }
 }

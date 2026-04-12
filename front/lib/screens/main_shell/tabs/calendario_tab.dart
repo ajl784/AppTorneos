@@ -1,10 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
-import '../../../features/torneos/domain/torneo.dart';
-import '../../../features/torneos/data/torneos_api.dart';
-import '../../../peticion/api_config.dart';
-
-import 'package:table_calendar/table_calendar.dart';
 
 import 'package:front/features/calendario/data/calendario_api.dart';
 import 'package:front/features/calendario/domain/calendario_models.dart';
@@ -341,6 +336,7 @@ class _PartidoItem extends StatelessWidget {
 
     final misEquipos = partido.equipos.where((e) => e.esMiEquipo).map((e) => e.nombre).toList(growable: false);
     final rivales = partido.equipos.where((e) => !e.esMiEquipo).map((e) => e.nombre).toList(growable: false);
+    final equiposLabel = partido.equipos.map((e) => e.nombre).toList(growable: false);
 
     final torneo = (partido.torneoNombre == null || partido.torneoNombre!.trim().isEmpty)
         ? 'Torneo #${partido.idTorneo}'
@@ -348,6 +344,9 @@ class _PartidoItem extends StatelessWidget {
 
     final estado = partido.estado ?? '—';
     final lugar = partido.lugar;
+    final arbitroNombre = (partido.arbitroNombre == null || partido.arbitroNombre!.trim().isEmpty)
+      ? null
+      : partido.arbitroNombre!.trim();
 
     final roundLabel = (partido.jornada != null)
       ? 'Jornada ${partido.jornada}'
@@ -374,16 +373,44 @@ class _PartidoItem extends StatelessWidget {
                 ),
               ],
             ),
+            if (partido.esArbitro || partido.esJugador) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: -8,
+                children: [
+                  if (partido.esArbitro)
+                    const Chip(
+                      label: Text('Arbitras'),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    )
+                  else
+                    const Chip(
+                      label: Text('Juegas'),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                ],
+              ),
+            ],
             const SizedBox(height: 6),
+            Text('Partido #${partido.idPartido}', style: theme.textTheme.bodyMedium),
             Text('Estado: $estado', style: theme.textTheme.bodyMedium),
             if (roundLabel != null)
               Text(roundLabel, style: theme.textTheme.bodyMedium),
             if (lugar != null && lugar.trim().isNotEmpty)
               Text('Lugar: $lugar', style: theme.textTheme.bodyMedium),
+            Text(
+              'Árbitro: ${arbitroNombre ?? '—'}',
+              style: theme.textTheme.bodyMedium,
+            ),
             const SizedBox(height: 6),
+            if (equiposLabel.isNotEmpty)
+              Text('Equipos: ${equiposLabel.join(' · ')}', style: theme.textTheme.bodySmall),
             if (misEquipos.isNotEmpty)
               Text('Mis equipos: ${misEquipos.join(' · ')}', style: theme.textTheme.bodySmall),
-            if (rivales.isNotEmpty)
+            if (misEquipos.isNotEmpty && rivales.isNotEmpty)
               Text('Rivales: ${rivales.join(' · ')}', style: theme.textTheme.bodySmall),
           ],
         ),

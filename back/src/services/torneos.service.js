@@ -383,7 +383,7 @@ async function getArbitrosTorneo(client, idTorneo) {
         `
         SELECT id_arbitro_torneo
         FROM arbitro_torneo
-        WHERE id_torneo = $1
+        WHERE id_torneo = $1 OR id_torneo IS NULL
         ORDER BY id_arbitro_torneo ASC
         `,
         [idTorneo],
@@ -408,6 +408,56 @@ async function asignarArbitroPartido(client, { idPartido, idArbitroTorneo }) {
     DO NOTHING
     `,
     [idPartido, idArbitroTorneo],
+  );
+}
+
+async function arbitroParticipaEnPartido(client, { idArbitroTorneo, idPartido }) {
+  // Un árbitro NO debe arbitrar si juega el partido (pertenece a un equipo participante
+  // en la fecha del partido). Esta lógica funciona tanto para partidos 1v1 como multi.
+  const q = await client.query(
+    `
+    SELECT 1
+    FROM arbitro_torneo at
+    JOIN pertenece pe ON pe.id_usuario = at.id_usuario
+    JOIN partido pa ON pa.id_partido = $2
+    JOIN participacion_partido pp ON pp.id_partido = pa.id_partido
+    JOIN participacion_torneo_equipo pte
+      ON pte.id_participacion_equipo = pp.id_participacion_equipo
+     AND pte.id_equipo = pe.id_equipo
+    WHERE at.id_arbitro_torneo = $1
+      AND (pa.fecha_hora::date >= pe.fecha_inicio)
+      AND (pe.fecha_fin IS NULL OR pa.fecha_hora::date <= pe.fecha_fin)
+    LIMIT 1
+    `,
+    [idArbitroTorneo, idPartido],
+  );
+  return Boolean(q.rowCount);
+}
+
+async function elegirArbitroDisponible(client, {
+  arbitros,
+  startIndex,
+  idPartido,
+}) {
+  if (!arbitros.length) {
+    throw new Error("Se requiere al menos 1 árbitro para generar enfrentamientos");
+  }
+
+  for (let offset = 0; offset < arbitros.length; offset++) {
+    const idx = (startIndex + offset) % arbitros.length;
+    const idArbitroTorneo = arbitros[idx];
+
+    const participa = await arbitroParticipaEnPartido(client, {
+      idArbitroTorneo,
+      idPartido,
+    });
+    if (!participa) {
+      return { idArbitroTorneo, nextIndex: idx + 1 };
+    }
+  }
+
+  throw new Error(
+    "No hay árbitros disponibles que no participen en el partido (conflicto árbitro/jugador)",
   );
 }
 
@@ -548,11 +598,16 @@ async function generarLiga(idTorneo) {
           participantesDelPartido,
         );
 
+        const picked = await elegirArbitroDisponible(client, {
+          arbitros,
+          startIndex: idxArbitro,
+          idPartido,
+        });
         await asignarArbitroPartido(client, {
           idPartido,
-          idArbitroTorneo: arbitros[idxArbitro % arbitros.length],
+          idArbitroTorneo: picked.idArbitroTorneo,
         });
-        idxArbitro++;
+        idxArbitro = picked.nextIndex;
         total++;
       }
     }
@@ -627,11 +682,16 @@ async function generarEliminacion(idTorneo) {
         b.id_participacion_equipo,
       ]);
 
+      const picked = await elegirArbitroDisponible(client, {
+        arbitros,
+        startIndex: idxArbitro,
+        idPartido,
+      });
       await asignarArbitroPartido(client, {
         idPartido,
-        idArbitroTorneo: arbitros[idxArbitro % arbitros.length],
+        idArbitroTorneo: picked.idArbitroTorneo,
       });
-      idxArbitro++;
+      idxArbitro = picked.nextIndex;
       orden++;
     }
 
@@ -711,11 +771,16 @@ async function generarEliminacionMultiInicio(idTorneo, tipoEsperado) {
 
       await insertarParticipacionesPartido(client, idPartido, grupo);
 
+      const picked = await elegirArbitroDisponible(client, {
+        arbitros,
+        startIndex: idxArbitro,
+        idPartido,
+      });
       await asignarArbitroPartido(client, {
         idPartido,
-        idArbitroTorneo: arbitros[idxArbitro % arbitros.length],
+        idArbitroTorneo: picked.idArbitroTorneo,
       });
-      idxArbitro++;
+      idxArbitro = picked.nextIndex;
       orden++;
     }
 
@@ -958,11 +1023,16 @@ async function avanzarRondaEliminacion(idTorneo) {
       });
       await insertarParticipacionesPartido(client, idPartidoNuevo, grupo);
 
+      const picked = await elegirArbitroDisponible(client, {
+        arbitros,
+        startIndex: idxArbitro,
+        idPartido: idPartidoNuevo,
+      });
       await asignarArbitroPartido(client, {
         idPartido: idPartidoNuevo,
-        idArbitroTorneo: arbitros[idxArbitro % arbitros.length],
+        idArbitroTorneo: picked.idArbitroTorneo,
       });
-      idxArbitro++;
+      idxArbitro = picked.nextIndex;
       nuevosPartidos.push(idPartidoNuevo);
       orden++;
     }

@@ -2,11 +2,12 @@
 -- AppTorneos - Dataset Calendario (DEV)
 --
 -- Inserta un set para probar la pestaña Calendario:
--- - 4 torneos: 2 de Liga + 2 de Eliminación directa
+-- - 2 torneos: ambos de Liga
 -- - Equipos para cada torneo
 -- - 2 usuarios:
---   - Usuario A pertenece a equipos en 2 torneos
---   - Usuario B pertenece a un equipo en 1 torneo
+--   - Usuario A arbitra partidos del Torneo 01
+--   - Usuario A juega como jugador (pertenece a un equipo) en el Torneo 02
+--   - Usuario B pertenece a un equipo en el Torneo 01 (para poblar rivales)
 --
 -- Nota: NO crea partidos (se generarán automáticamente después).
 -- Idempotente: limpia SOLO recursos prefijados con CAL- y correos cal_*
@@ -15,6 +16,76 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- -----------------------------------------------------
+-- 0.5) Compatibilidad: árbitros por torneo
+--
+-- En algunos esquemas antiguos, arbitro_torneo era “global” (sin id_torneo)
+-- y con UNIQUE(id_usuario). Para poder tener árbitros distintos por torneo,
+-- añadimos id_torneo y cambiamos la unicidad a (id_usuario, id_torneo).
+-- -----------------------------------------------------
+DO $$
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1
+		FROM information_schema.columns
+		WHERE table_schema = current_schema()
+			AND table_name = 'arbitro_torneo'
+			AND column_name = 'id_torneo'
+	) THEN
+		ALTER TABLE arbitro_torneo ADD COLUMN id_torneo BIGINT;
+	END IF;
+
+	-- Drop UNIQUE(id_usuario) si existe (nombre puede variar)
+	IF EXISTS (
+		SELECT 1
+		FROM pg_constraint c
+		JOIN pg_class t ON t.oid = c.conrelid
+		WHERE t.relname = 'arbitro_torneo'
+			AND c.contype = 'u'
+			AND pg_get_constraintdef(c.oid) LIKE '%(id_usuario)%'
+			AND pg_get_constraintdef(c.oid) NOT LIKE '%id_torneo%'
+	) THEN
+		EXECUTE (
+			SELECT format('ALTER TABLE arbitro_torneo DROP CONSTRAINT %I', c.conname)
+			FROM pg_constraint c
+			JOIN pg_class t ON t.oid = c.conrelid
+			WHERE t.relname = 'arbitro_torneo'
+				AND c.contype = 'u'
+				AND pg_get_constraintdef(c.oid) LIKE '%(id_usuario)%'
+				AND pg_get_constraintdef(c.oid) NOT LIKE '%id_torneo%'
+			LIMIT 1
+		);
+	END IF;
+
+	-- FK a torneo si falta
+	IF NOT EXISTS (
+		SELECT 1
+		FROM pg_constraint c
+		JOIN pg_class t ON t.oid = c.conrelid
+		WHERE t.relname = 'arbitro_torneo'
+			AND c.contype = 'f'
+			AND pg_get_constraintdef(c.oid) LIKE '%(id_torneo)%'
+	) THEN
+		ALTER TABLE arbitro_torneo
+			ADD CONSTRAINT arbitro_torneo_id_torneo_fkey
+			FOREIGN KEY (id_torneo) REFERENCES torneo(id_torneo) ON DELETE CASCADE;
+	END IF;
+
+	-- UNIQUE (id_usuario, id_torneo) si falta
+	IF NOT EXISTS (
+		SELECT 1
+		FROM pg_constraint c
+		JOIN pg_class t ON t.oid = c.conrelid
+		WHERE t.relname = 'arbitro_torneo'
+			AND c.contype = 'u'
+			AND pg_get_constraintdef(c.oid) LIKE '%(id_usuario, id_torneo)%'
+	) THEN
+		ALTER TABLE arbitro_torneo
+			ADD CONSTRAINT arbitro_torneo_usuario_torneo_key
+			UNIQUE (id_usuario, id_torneo);
+	END IF;
+END $$;
 
 -- ------------------------------
 -- 0) Limpieza de dataset previo
@@ -36,6 +107,10 @@ WHERE id_usuario IN (SELECT id_usuario FROM usuario WHERE correo LIKE 'cal_%@app
 DELETE FROM equipo
 WHERE nombre LIKE 'CAL-%';
 
+-- Eliminar árbitros del dataset (si quedan huérfanos por cambios de esquema)
+DELETE FROM arbitro_torneo
+WHERE id_usuario IN (SELECT id_usuario FROM usuario WHERE correo LIKE 'cal_%@app.com');
+
 DELETE FROM usuario
 WHERE correo LIKE 'cal_%@app.com';
 
@@ -44,8 +119,7 @@ WHERE correo LIKE 'cal_%@app.com';
 -- ------------------------------
 INSERT INTO tipo_torneo (nombre, descripcion)
 VALUES
-	('Liga', 'Todos contra todos'),
-	('Eliminación directa', 'Bracket: el perdedor queda eliminado')
+	('Liga', 'Todos contra todos')
 ON CONFLICT (nombre) DO NOTHING;
 
 INSERT INTO categoria (nombre, participantes_por_partida, norma, descripcion)
@@ -58,7 +132,7 @@ SELECT c.id_categoria, tt.id_tipo_torneo
 FROM categoria c
 JOIN tipo_torneo tt
 	ON c.nombre = 'Fútbol 11'
- AND tt.nombre IN ('Liga', 'Eliminación directa')
+ AND tt.nombre IN ('Liga')
 ON CONFLICT (id_categoria, id_tipo_torneo) DO NOTHING;
 
 -- ------------------------------
@@ -67,18 +141,21 @@ ON CONFLICT (id_categoria, id_tipo_torneo) DO NOTHING;
 INSERT INTO usuario (correo, nombre_usuario, password_hash)
 VALUES
 	('cal_user_a@app.com', 'cal_user_a', crypt('password123', gen_salt('bf'))),
-	('cal_user_b@app.com', 'cal_user_b', crypt('password123', gen_salt('bf')))
+	('cal_user_b@app.com', 'cal_user_b', crypt('password123', gen_salt('bf'))),
+	('cal_ref_01@app.com', 'cal_ref_01', crypt('password123', gen_salt('bf'))),
+	('cal_ref_02@app.com', 'cal_ref_02', crypt('password123', gen_salt('bf'))),
+	('cal_ref_03@app.com', 'cal_ref_03', crypt('password123', gen_salt('bf'))),
+	('cal_ref_04@app.com', 'cal_ref_04', crypt('password123', gen_salt('bf')))
 ON CONFLICT (correo) DO NOTHING;
 
 -- ------------------------------
--- 3) Torneos (4)
+-- 3) Torneos (2)
 -- ------------------------------
 WITH ids AS (
 	SELECT
 		(SELECT id_usuario FROM usuario WHERE correo = 'cal_user_a@app.com') AS org_a,
 		(SELECT id_categoria FROM categoria WHERE nombre = 'Fútbol 11') AS cat_fut,
-		(SELECT id_tipo_torneo FROM tipo_torneo WHERE nombre = 'Liga') AS tt_liga,
-		(SELECT id_tipo_torneo FROM tipo_torneo WHERE nombre = 'Eliminación directa') AS tt_ko
+		(SELECT id_tipo_torneo FROM tipo_torneo WHERE nombre = 'Liga') AS tt_liga
 )
 INSERT INTO torneo (
 	nombre,
@@ -96,7 +173,7 @@ INSERT INTO torneo (
 VALUES
 	(
 		'CAL-LIGA-01',
-		'Calendario DEV - Liga 01',
+		'Calendario DEV - Liga 01 (usuario A arbitra)',
 		NOW() - INTERVAL '3 days',
 		NOW() + INTERVAL '40 days',
 		'en_curso',
@@ -109,42 +186,16 @@ VALUES
 	),
 	(
 		'CAL-LIGA-02',
-		'Calendario DEV - Liga 02',
+		'Calendario DEV - Liga 02 (usuario A juega)',
 		NOW() + INTERVAL '5 days',
 		NOW() + INTERVAL '55 days',
-		'inscripcion_abierta',
+		'en_curso',
 		20,
 		(SELECT cat_fut FROM ids),
 		(SELECT tt_liga FROM ids),
 		(SELECT org_a FROM ids),
 		'3-1-0',
 		'{"dias":["miercoles","viernes"],"hora_inicio":"18:00"}'::jsonb
-	),
-	(
-		'CAL-KO-01',
-		'Calendario DEV - Eliminación directa 01',
-		NOW() - INTERVAL '1 days',
-		NOW() + INTERVAL '12 days',
-		'en_curso',
-		8,
-		(SELECT cat_fut FROM ids),
-		(SELECT tt_ko FROM ids),
-		(SELECT org_a FROM ids),
-		'Gana el partido',
-		'{"dias":["domingo"],"hora_inicio":"12:00"}'::jsonb
-	),
-	(
-		'CAL-KO-02',
-		'Calendario DEV - Eliminación directa 02',
-		NOW() + INTERVAL '10 days',
-		NOW() + INTERVAL '22 days',
-		'inscripcion_abierta',
-		8,
-		(SELECT cat_fut FROM ids),
-		(SELECT tt_ko FROM ids),
-		(SELECT org_a FROM ids),
-		'Gana el partido',
-		'{"dias":["sabado"],"hora_inicio":"16:00"}'::jsonb
 	)
 ON CONFLICT (nombre, id_categoria, id_tipo_torneo) DO NOTHING;
 
@@ -173,24 +224,6 @@ VALUES
 	('CAL-L2-ZETA', 'Liga 02 - Equipo ZETA', 1200)
 ON CONFLICT (nombre) DO NOTHING;
 
--- KO 01 (8 equipos)
-INSERT INTO equipo (nombre, descripcion, elo)
-SELECT
-	'CAL-K1-' || LPAD(gs::text, 2, '0') AS nombre,
-	'KO 01 - Equipo #' || gs AS descripcion,
-	(900 + (random() * 700))::int AS elo
-FROM generate_series(1, 8) AS gs
-ON CONFLICT (nombre) DO NOTHING;
-
--- KO 02 (8 equipos)
-INSERT INTO equipo (nombre, descripcion, elo)
-SELECT
-	'CAL-K2-' || LPAD(gs::text, 2, '0') AS nombre,
-	'KO 02 - Equipo #' || gs AS descripcion,
-	(900 + (random() * 700))::int AS elo
-FROM generate_series(1, 8) AS gs
-ON CONFLICT (nombre) DO NOTHING;
-
 -- ------------------------------
 -- 5) Inscripción/participación por torneo
 -- ------------------------------
@@ -210,40 +243,50 @@ JOIN equipo e ON e.nombre LIKE 'CAL-L2-%'
 WHERE t.nombre = 'CAL-LIGA-02'
 ON CONFLICT (id_torneo, id_equipo) DO NOTHING;
 
--- KO 01: todos los equipos CAL-K1-*
-INSERT INTO participacion_torneo_equipo (id_torneo, id_equipo, fecha, estado, puntuacion)
-SELECT t.id_torneo, e.id_equipo, NOW(), 'jugando', 0
-FROM torneo t
-JOIN equipo e ON e.nombre LIKE 'CAL-K1-%'
-WHERE t.nombre = 'CAL-KO-01'
-ON CONFLICT (id_torneo, id_equipo) DO NOTHING;
-
--- KO 02: todos los equipos CAL-K2-*
-INSERT INTO participacion_torneo_equipo (id_torneo, id_equipo, fecha, estado, puntuacion)
-SELECT t.id_torneo, e.id_equipo, NOW(), 'jugando', 0
-FROM torneo t
-JOIN equipo e ON e.nombre LIKE 'CAL-K2-%'
-WHERE t.nombre = 'CAL-KO-02'
-ON CONFLICT (id_torneo, id_equipo) DO NOTHING;
-
 -- ------------------------------
 -- 6) Pertenece: 2 usuarios con distribución pedida
 -- ------------------------------
--- Usuario A -> 2 equipos (por tanto participa en 2 torneos)
-INSERT INTO pertenece (id_usuario, id_equipo, fecha_inicio, fecha_fin)
-SELECT u.id_usuario, e.id_equipo, CURRENT_DATE - 15, NULL
-FROM usuario u
-JOIN equipo e ON e.nombre IN ('CAL-L1-ALFA', 'CAL-K1-01')
-WHERE u.correo = 'cal_user_a@app.com'
-ON CONFLICT (id_usuario, id_equipo, fecha_inicio) DO NOTHING;
-
--- Usuario B -> 1 equipo (solo 1 torneo)
+-- Usuario A -> juega en Liga 02 (1 equipo)
 INSERT INTO pertenece (id_usuario, id_equipo, fecha_inicio, fecha_fin)
 SELECT u.id_usuario, e.id_equipo, CURRENT_DATE - 7, NULL
 FROM usuario u
 JOIN equipo e ON e.nombre = 'CAL-L2-ALFA'
+WHERE u.correo = 'cal_user_a@app.com'
+ON CONFLICT (id_usuario, id_equipo, fecha_inicio) DO NOTHING;
+
+-- Usuario B -> juega en Liga 01 (1 equipo)
+INSERT INTO pertenece (id_usuario, id_equipo, fecha_inicio, fecha_fin)
+SELECT u.id_usuario, e.id_equipo, CURRENT_DATE - 12, NULL
+FROM usuario u
+JOIN equipo e ON e.nombre = 'CAL-L1-ALFA'
 WHERE u.correo = 'cal_user_b@app.com'
 ON CONFLICT (id_usuario, id_equipo, fecha_inicio) DO NOTHING;
+
+-- ------------------------------
+-- 7) Árbitro: usuario A (global) + asignación a partidos
+-- ------------------------------
+-- Liga 01: varios árbitros (incluye usuario A)
+INSERT INTO arbitro_torneo (id_usuario, id_torneo)
+SELECT u.id_usuario, t.id_torneo
+FROM usuario u
+JOIN torneo t ON t.nombre = 'CAL-LIGA-01'
+WHERE u.correo IN (
+	'cal_user_a@app.com',
+	'cal_ref_01@app.com',
+	'cal_ref_02@app.com'
+)
+ON CONFLICT (id_usuario, id_torneo) DO NOTHING;
+
+-- Liga 02: árbitros distintos (no incluye usuario A)
+INSERT INTO arbitro_torneo (id_usuario, id_torneo)
+SELECT u.id_usuario, t.id_torneo
+FROM usuario u
+JOIN torneo t ON t.nombre = 'CAL-LIGA-02'
+WHERE u.correo IN (
+	'cal_ref_03@app.com',
+	'cal_ref_04@app.com'
+)
+ON CONFLICT (id_usuario, id_torneo) DO NOTHING;
 
 COMMIT;
 
