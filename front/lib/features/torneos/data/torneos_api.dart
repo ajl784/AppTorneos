@@ -178,6 +178,34 @@ class TorneosApi {
     throw const FormatException('Respuesta inesperada al enviar solicitud');
   }
 
+
+    /// Obtiene las solicitudes de inscripción de un torneo con estado opcional
+  Future<List<Map<String, dynamic>>> getSolicitudesInscripcion(int idTorneo, {String? estado}) async {
+    final res = await _api.getRaw(
+      '/torneos/$idTorneo/solicitudes',
+      queryParameters: estado != null ? {'estado': estado} : null,
+    );
+    if (res.data is List) {
+      return (res.data as List).cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+    /// Responde a una solicitud de inscripción (aceptar o denegar)
+  Future<Map<String, dynamic>> responderSolicitudInscripcion({
+    required int idParticipacionEquipo,
+    required bool aceptar,
+  }) async {
+    final res = await _api.patchRaw(
+      '/participaciones/$idParticipacionEquipo/decision',
+      body: {'aceptar': aceptar},
+    );
+    if (res.data is Map<String, dynamic>) {
+      return res.data as Map<String, dynamic>;
+    }
+    throw const FormatException('Respuesta inesperada al responder solicitud');
+  }
+
   Future<TorneoEnfrentamientosResult> generarBracketEliminacion(
     int idTorneo,
   ) async {

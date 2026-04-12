@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
 import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/peticion/api_config.dart';
-
+import 'package:front/screens/perfil/gestion_solicitudes_inscripcion.dart';
 
 class MiTorneoInfoScreen extends StatefulWidget {
   final Torneo torneo;
@@ -168,6 +168,18 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
         _buildDetail('Categoría', _torneo.categoriaNombre),
         _buildDetail('Tipo de torneo', _torneo.tipoTorneoNombre),
         _buildDetail('Participantes por partido', _torneo.participantesPorPartido?.toString()),
+        const SizedBox(height: 16),
+        ElevatedButton.icon(
+          onPressed: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => GestionSolicitudesInscripcionScreen(torneoId: _torneo.id),
+              ),
+            );
+          },
+          icon: const Icon(Icons.group_add),
+          label: const Text('Ver solicitudes de inscripción'),
+        ),
         const SizedBox(height: 32),
         ElevatedButton.icon(
           onPressed: () => setState(() => _editando = true),
