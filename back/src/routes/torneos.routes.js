@@ -8,6 +8,8 @@ const router = express.Router();
 
 router.get("/", controller.listTorneos);
 router.get("/:id", controller.getTorneoById);
+router.get("/:id/clasificacion", controller.getClasificacionTorneo);
+router.get("/:id/partidos", controller.getPartidosTorneo);
 router.get("/:id/formulario", controller.getFormularioTorneo);
 router.get("/:id/solicitudes", solicitudesController.listSolicitudesByTorneo);
 router.post("/", controller.createTorneo);

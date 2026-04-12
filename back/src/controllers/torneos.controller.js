@@ -135,9 +135,33 @@ const avanzarRondaEliminacion = asyncHandler(async (req, res) => {
   created(res, data);
 });
 
+const getClasificacionTorneo = asyncHandler(async (req, res) => {
+  const idTorneo = parsePositiveInt(req.params.id, "id");
+  const data = await torneosService.getClasificacionTorneo(idTorneo);
+
+  if (!data) {
+    throw new AppError(404, "Torneo no encontrado");
+  }
+
+  ok(res, data);
+});
+
+const getPartidosTorneo = asyncHandler(async (req, res) => {
+  const idTorneo = parsePositiveInt(req.params.id, "id");
+  const data = await torneosService.getPartidosTorneo(idTorneo);
+
+  if (!data) {
+    throw new AppError(404, "Torneo no encontrado");
+  }
+
+  ok(res, data);
+});
+
 module.exports = {
   listTorneos,
   getTorneoById,
+  getClasificacionTorneo,
+  getPartidosTorneo,
   createTorneo,
   updateTorneo,
   deleteTorneo,

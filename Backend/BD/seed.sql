@@ -56,6 +56,13 @@ VALUES
 	('sergio@parchis.app', 'sergio_parchis', crypt('password123', gen_salt('bf')), 'Sergio', 'Jiménez', NULL, '1990-06-25', 'Masculino')
 ON CONFLICT (correo) DO NOTHING;
 
+-- Árbitros (DEV) para que se puedan generar enfrentamientos
+INSERT INTO usuario (correo, nombre_usuario, password_hash)
+VALUES
+	('ref_01@app.com', 'ref_01', crypt('password123', gen_salt('bf'))),
+	('ref_02@app.com', 'ref_02', crypt('password123', gen_salt('bf')))
+ON CONFLICT (correo) DO NOTHING;
+
 INSERT INTO torneo (
 	nombre,
 	descripcion,
@@ -88,6 +95,15 @@ JOIN tipo_torneo tt ON tt.nombre = 'Liga'
 JOIN usuario u ON u.correo = 'admin@app.com'
 WHERE c.nombre = 'Fútbol 11'
 ON CONFLICT (nombre, id_categoria, id_tipo_torneo) DO NOTHING;
+
+-- Asignación de árbitros a torneos de seed
+-- Nota: arbitro_torneo es por torneo (id_torneo NOT NULL)
+INSERT INTO arbitro_torneo (id_usuario, id_torneo)
+SELECT u.id_usuario, t.id_torneo
+FROM usuario u
+JOIN torneo t ON t.nombre IN ('Liga Primavera', 'Copa Relámpago')
+WHERE u.correo IN ('ref_01@app.com', 'ref_02@app.com')
+ON CONFLICT (id_usuario, id_torneo) DO NOTHING;
 
 INSERT INTO torneo (
 	nombre,

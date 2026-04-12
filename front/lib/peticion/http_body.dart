@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
+import 'package:front/screens/torneos/torneo_detalle_screen.dart';
 import 'package:front/peticion/unirse_torneo.dart';
 
 class TorneosBody extends StatefulWidget {
@@ -149,37 +149,56 @@ class _TorneosBodyState extends State<TorneosBody> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      torneo.nombre,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: onCard,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                    const SizedBox(height: 10),
-                    if (features.isNotEmpty)
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: features.map(featureBox).toList(growable: false),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => TorneoDetalleScreen(
+                        torneoId: torneo.id,
+                        torneoNombre: torneo.nombre,
                       ),
-                    if (hasDescripcion) ...[
-                      if (features.isNotEmpty) const SizedBox(height: 10),
-                      Divider(color: onCard.withValues(alpha: 0.25), height: 1),
-                      const SizedBox(height: 10),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        torneo.descripcion!,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: onCard.withValues(alpha: 0.85),
-                              height: 1.25,
+                        torneo.nombre,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: onCard,
+                              fontWeight: FontWeight.w700,
                             ),
                       ),
+                      const SizedBox(height: 10),
+                      if (features.isNotEmpty)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children:
+                              features.map(featureBox).toList(growable: false),
+                        ),
+                      if (hasDescripcion) ...[
+                        if (features.isNotEmpty) const SizedBox(height: 10),
+                        Divider(
+                          color: onCard.withValues(alpha: 0.25),
+                          height: 1,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          torneo.descripcion!,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: onCard.withValues(alpha: 0.85),
+                                    height: 1.25,
+                                  ),
+                        ),
+                      ],
                     ],
+                  ),
                     if (torneo.estado != null &&
                         [
                           'inscripcion_abierta',

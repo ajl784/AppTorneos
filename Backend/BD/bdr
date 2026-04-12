@@ -79,7 +79,9 @@ CREATE TABLE entrenador_equipo (
 
 CREATE TABLE arbitro_torneo (
 	id_arbitro_torneo BIGSERIAL PRIMARY KEY,
-	id_usuario BIGINT NOT NULL UNIQUE REFERENCES usuario(id_usuario) ON DELETE CASCADE
+	id_usuario BIGINT NOT NULL REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+	id_torneo BIGINT NOT NULL,
+	UNIQUE (id_usuario, id_torneo)
 );
 
 -- =====================================================
@@ -110,6 +112,10 @@ CREATE TABLE torneo (
 	FOREIGN KEY (id_categoria, id_tipo_torneo)
 		REFERENCES categoria_tipo_torneo(id_categoria, id_tipo_torneo)
 );
+
+ALTER TABLE arbitro_torneo
+	ADD CONSTRAINT arbitro_torneo_id_torneo_fkey
+	FOREIGN KEY (id_torneo) REFERENCES torneo(id_torneo) ON DELETE CASCADE;
 
 CREATE TABLE participacion_torneo_equipo (
 	id_participacion_equipo BIGSERIAL PRIMARY KEY,
