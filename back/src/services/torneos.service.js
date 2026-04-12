@@ -70,6 +70,7 @@ const getTorneoById = async (idTorneo) => {
       t.estado,
       t.id_categoria,
       c.nombre AS categoria_nombre,
+      c.norma AS categoria_norma,
       t.id_tipo_torneo,
       tt.nombre AS tipo_torneo_nombre,
       t.id_organizador,

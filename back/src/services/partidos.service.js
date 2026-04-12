@@ -192,7 +192,7 @@ const registrarPuntuacionesArbitro = async ({
     await client.query("BEGIN");
 
     const partidoResult = await client.query(
-      `SELECT id_partido, id_torneo
+      `SELECT id_partido, id_torneo, estado
        FROM partido
        WHERE id_partido = $1`,
       [idPartido],
@@ -204,6 +204,16 @@ const registrarPuntuacionesArbitro = async ({
     }
 
     const idTorneo = partidoResult.rows[0].id_torneo;
+    const estadoPartido = partidoResult.rows[0].estado;
+
+    // Reglas de negocio: las puntuaciones (y el ELO) solo se consolidan
+    // cuando el partido está cerrado.
+    if (estadoPartido !== "acabado") {
+      throw new AppError(
+        400,
+        "El partido debe estar en estado 'acabado' para registrar puntuaciones",
+      );
+    }
     const actualizadas = [];
     const puntosPorParticipacion = new Map();
 

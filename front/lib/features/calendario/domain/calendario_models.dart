@@ -1,12 +1,16 @@
 class CalendarioEquipo {
   final int idEquipo;
+  final int idParticipacionEquipo;
   final String nombre;
   final bool esMiEquipo;
+  final int puntoPartido;
 
   const CalendarioEquipo({
     required this.idEquipo,
+    required this.idParticipacionEquipo,
     required this.nombre,
     required this.esMiEquipo,
+    this.puntoPartido = 0,
   });
 
   static int? _intOrNull(dynamic value) {
@@ -32,12 +36,26 @@ class CalendarioEquipo {
       throw const FormatException('CalendarioEquipo sin id_equipo');
     }
 
+    final idParticipacionEquipo = _intOrNull(
+      json['id_participacion_equipo'] ?? json['idParticipacionEquipo'],
+    );
+    if (idParticipacionEquipo == null) {
+      throw const FormatException('CalendarioEquipo sin id_participacion_equipo');
+    }
+
     final nombre = (json['nombre'] ?? '').toString();
+
+    final puntoPartido = _intOrNull(
+          json['punto_partido'] ?? json['puntoPartido'] ?? json['punto'],
+        ) ??
+        0;
 
     return CalendarioEquipo(
       idEquipo: idEquipo,
+      idParticipacionEquipo: idParticipacionEquipo,
       nombre: nombre,
       esMiEquipo: _boolOrFalse(json['es_mi_equipo'] ?? json['esMiEquipo']),
+      puntoPartido: puntoPartido,
     );
   }
 }
@@ -56,6 +74,7 @@ class CalendarioPartido {
   final bool esJugador;
   final bool esArbitro;
   final String? arbitroNombre;
+  final int? miIdArbitroTorneo;
 
   const CalendarioPartido({
     required this.idPartido,
@@ -71,6 +90,7 @@ class CalendarioPartido {
     this.esJugador = false,
     this.esArbitro = false,
     this.arbitroNombre,
+    this.miIdArbitroTorneo,
   });
 
   static int? _intOrNull(dynamic value) {
@@ -141,6 +161,7 @@ class CalendarioPartido {
       esJugador: _boolOrFalse(json['es_jugador'] ?? json['esJugador']),
       esArbitro: _boolOrFalse(json['es_arbitro'] ?? json['esArbitro']),
       arbitroNombre: (json['arbitro_nombre'] ?? json['arbitroNombre'])?.toString(),
+      miIdArbitroTorneo: _intOrNull(json['mi_id_arbitro_torneo'] ?? json['miIdArbitroTorneo']),
     );
   }
 }

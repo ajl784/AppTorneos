@@ -3,6 +3,10 @@ import 'package:table_calendar/table_calendar.dart';
 
 import 'package:front/features/calendario/data/calendario_api.dart';
 import 'package:front/features/calendario/domain/calendario_models.dart';
+import 'package:front/features/partidos/data/partidos_api.dart';
+import 'package:front/features/partidos/domain/partido.dart';
+import 'package:front/features/torneos/data/torneos_api.dart';
+import 'package:front/features/torneos/domain/torneo.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/state/auth_state.dart';
 import 'package:front/state/jwt_storage.dart';
@@ -16,6 +20,8 @@ class CalendarioTab extends StatefulWidget {
 
 class _CalendarioTabState extends State<CalendarioTab> {
   final CalendarioApi _api = CalendarioApi(baseUrl: ApiConfig.baseUrl);
+  final PartidosApi _partidosApi = PartidosApi(baseUrl: ApiConfig.baseUrl);
+  final TorneosApi _torneosApi = TorneosApi(baseUrl: ApiConfig.baseUrl);
 
   late final VoidCallback _authListener;
 
@@ -78,6 +84,251 @@ class _CalendarioTabState extends State<CalendarioTab> {
     final m = d.month.toString().padLeft(2, '0');
     final day = d.day.toString().padLeft(2, '0');
     return '$y-$m-$day';
+  }
+
+  static ({int victoria, int empate, int derrota})? _parseNormaPuntuacion(
+    String? norma,
+  ) {
+    final raw = (norma ?? '').trim();
+    if (raw.isEmpty) return null;
+    final parts = raw
+        .split(RegExp(r'[^0-9]+'))
+        .where((p) => p.trim().isNotEmpty)
+        .map(int.tryParse)
+        .whereType<int>()
+        .toList(growable: false);
+    if (parts.length != 3) return null;
+    return (victoria: parts[0], empate: parts[1], derrota: parts[2]);
+  }
+
+  Future<void> _openEditarPartidoDialog(CalendarioPartido partido) async {
+    final estados = const <String>[
+      'planificado',
+      'en_curso',
+      'acabado',
+      'cancelado',
+    ];
+
+    var selectedEstado = (partido.estado ?? 'planificado').trim();
+    if (!estados.contains(selectedEstado)) {
+      selectedEstado = 'planificado';
+    }
+
+    final scoreControllers = <int, TextEditingController>{
+      for (final e in partido.equipos)
+        e.idParticipacionEquipo: TextEditingController(
+          text: e.puntoPartido.toString(),
+        ),
+    };
+
+    Torneo? torneo;
+    String? torneosError;
+    try {
+      torneo = await _torneosApi.fetchTorneoById(partido.idTorneo);
+    } catch (e) {
+      torneosError = e.toString();
+    }
+
+    if (!mounted) {
+      for (final c in scoreControllers.values) {
+        c.dispose();
+      }
+      return;
+    }
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            final normaParsed = _parseNormaPuntuacion(torneo?.normaPuntuacion);
+            return AlertDialog(
+              title: Text('Editar Partido #${partido.idPartido}'),
+              content: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: selectedEstado,
+                      decoration: const InputDecoration(labelText: 'Estado'),
+                      items: estados
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setStateDialog(() => selectedEstado = v);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Puntuaciones (se guardan al pasar a "acabado"):',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    ...partido.equipos.map((e) {
+                      final c = scoreControllers[e.idParticipacionEquipo]!;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: TextFormField(
+                          controller: c,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: e.nombre,
+                            hintText: '0',
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Descripción del torneo:',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 6),
+                    if (torneosError != null)
+                      Text(
+                        'No se pudieron cargar: $torneosError',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Theme.of(context).colorScheme.error),
+                      )
+                    else
+                      Text(
+                        (() {
+                          final txt = torneo?.descripcion?.trim();
+                          if (txt == null || txt.isEmpty) return '—';
+                          return txt;
+                        })(),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Normas de la categoría:',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 6),
+                    if (torneosError != null)
+                      Text(
+                        'No se pudieron cargar: $torneosError',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Theme.of(context).colorScheme.error),
+                      )
+                    else ...[
+                      // Normalizamos textos por si vienen null o vacíos
+                      // (y para evitar non-null assertions innecesarias).
+                      //
+                      // Nota: no guardamos esto en state; es solo para UI.
+                      Text(
+                        (() {
+                          final txt = torneo?.categoriaNorma?.trim();
+                          if (txt == null || txt.isEmpty) return '—';
+                          return txt;
+                        })(),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Regla de puntuación:',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        normaParsed == null
+                            ? (() {
+                                final txt = torneo?.normaPuntuacion?.trim();
+                                if (txt == null || txt.isEmpty) return '—';
+                                return txt;
+                              })()
+                            : 'Victoria ${normaParsed.victoria} · Empate ${normaParsed.empate} · Derrota ${normaParsed.derrota}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (shouldSave != true) {
+      for (final c in scoreControllers.values) {
+        c.dispose();
+      }
+      return;
+    }
+
+    final scoresByParticipacion = <int, int>{
+      for (final e in partido.equipos)
+        e.idParticipacionEquipo: () {
+          final raw = scoreControllers[e.idParticipacionEquipo]?.text ?? '0';
+          final punto = int.tryParse(raw.trim()) ?? 0;
+          return punto < 0 ? 0 : punto;
+        }(),
+    };
+
+    for (final c in scoreControllers.values) {
+      c.dispose();
+    }
+
+    try {
+      await _partidosApi.updatePartido(
+        partido.idPartido,
+        PartidoUpdate(estado: selectedEstado),
+      );
+
+      if (selectedEstado == 'acabado') {
+        final items = partido.equipos.map((e) {
+          return PartidoPuntuacionItem(
+            idParticipacionEquipo: e.idParticipacionEquipo,
+            punto: scoresByParticipacion[e.idParticipacionEquipo] ?? 0,
+          );
+        }).toList(growable: false);
+
+        await _partidosApi.registrarPuntuacionesArbitro(
+          idPartido: partido.idPartido,
+          payload: RegistrarPuntuacionesPayload(
+            puntuaciones: items,
+            idArbitroTorneo: partido.miIdArbitroTorneo,
+            acta: null,
+          ),
+        );
+      }
+
+      if (!mounted) return;
+      _loadedMonthKey = null;
+      await _loadMonth(_focusedDay);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cambios guardados.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al guardar: $e')),
+      );
+    }
   }
 
   Future<void> _loadInitial() async {
@@ -195,7 +446,14 @@ class _CalendarioTabState extends State<CalendarioTab> {
                 : ListView(
                     shrinkWrap: true,
                     children: partidos
-                        .map((p) => _PartidoItem(partido: p))
+                        .map(
+                          (p) => _PartidoItem(
+                            partido: p,
+                            onEditar: p.esArbitro
+                                ? () => _openEditarPartidoDialog(p)
+                                : null,
+                          ),
+                        )
                         .toList(growable: false),
                   ),
           ),
@@ -324,9 +582,10 @@ class _CalendarioTabState extends State<CalendarioTab> {
 }
 
 class _PartidoItem extends StatelessWidget {
-  const _PartidoItem({required this.partido});
+  const _PartidoItem({required this.partido, this.onEditar});
 
   final CalendarioPartido partido;
+  final VoidCallback? onEditar;
 
   @override
   Widget build(BuildContext context) {
@@ -412,6 +671,24 @@ class _PartidoItem extends StatelessWidget {
               Text('Mis equipos: ${misEquipos.join(' · ')}', style: theme.textTheme.bodySmall),
             if (misEquipos.isNotEmpty && rivales.isNotEmpty)
               Text('Rivales: ${rivales.join(' · ')}', style: theme.textTheme.bodySmall),
+
+            if (partido.esArbitro && onEditar != null) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () {
+                    // Este item se muestra dentro del diálogo del día.
+                    // Si editamos y guardamos, el diálogo seguiría mostrando
+                    // la lista vieja (capturada), aunque el calendario se recargue.
+                    // Cerramos el diálogo del día y luego abrimos el editor.
+                    Navigator.of(context).pop();
+                    Future.microtask(() => onEditar?.call());
+                  },
+                  child: const Text('Editar'),
+                ),
+              ),
+            ],
           ],
         ),
       ),

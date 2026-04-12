@@ -8,6 +8,7 @@ class Torneo {
   final int? limiteEquipos;
   final int? categoriaId;
   final String? categoriaNombre;
+  final String? categoriaNorma;
   final int? tipoTorneoId;
   final String? tipoTorneoNombre;
   final int? organizadorId;
@@ -26,6 +27,7 @@ class Torneo {
     this.limiteEquipos,
     this.categoriaId,
     this.categoriaNombre,
+    this.categoriaNorma,
     this.tipoTorneoId,
     this.tipoTorneoNombre,
     this.organizadorId,
@@ -68,6 +70,9 @@ class Torneo {
       categoriaId: _intOrNull(json['id_categoria'] ?? json['categoriaId']),
       categoriaNombre: _stringOrNull(
         json['categoria_nombre'] ?? json['categoriaNombre'],
+      ),
+      categoriaNorma: _stringOrNull(
+        json['categoria_norma'] ?? json['categoriaNorma'],
       ),
       tipoTorneoId: _intOrNull(json['id_tipo_torneo'] ?? json['tipoTorneoId']),
       tipoTorneoNombre: _stringOrNull(

@@ -43,7 +43,7 @@ const getCalendarioUsuario = async ({
       WHERE pte.id_equipo IN (SELECT id_equipo FROM my_teams)
     ),
     my_arbitro AS (
-      SELECT at.id_arbitro_torneo
+      SELECT at.id_arbitro_torneo, at.id_torneo
       FROM arbitro_torneo at
       WHERE at.id_usuario = $1
     ),
@@ -79,11 +79,14 @@ const getCalendarioUsuario = async ({
       p.orden_ronda,
       mp.es_jugador,
       mp.es_arbitro,
+      myat.id_arbitro_torneo AS mi_id_arbitro_torneo,
       ar.arbitro_nombre,
       json_agg(
         json_build_object(
           'id_equipo', e.id_equipo,
+          'id_participacion_equipo', pte_all.id_participacion_equipo,
           'nombre', e.nombre,
+          'punto_partido', COALESCE(pp_all.punto, 0),
           'es_mi_equipo', (e.id_equipo IN (SELECT id_equipo FROM my_teams))
         )
         ORDER BY e.nombre
@@ -91,6 +94,13 @@ const getCalendarioUsuario = async ({
     FROM my_partidos mp
     JOIN partido p ON p.id_partido = mp.id_partido
     JOIN torneo t ON t.id_torneo = p.id_torneo
+    LEFT JOIN LATERAL (
+      SELECT ma.id_arbitro_torneo
+      FROM my_arbitro ma
+      WHERE ma.id_torneo = p.id_torneo OR ma.id_torneo IS NULL
+      ORDER BY CASE WHEN ma.id_torneo = p.id_torneo THEN 0 ELSE 1 END
+      LIMIT 1
+    ) myat ON true
     LEFT JOIN LATERAL (
       SELECT
         string_agg(u.nombre_usuario, ', ' ORDER BY u.nombre_usuario) AS arbitro_nombre
@@ -116,6 +126,7 @@ const getCalendarioUsuario = async ({
       p.orden_ronda,
       mp.es_jugador,
       mp.es_arbitro,
+      myat.id_arbitro_torneo,
       ar.arbitro_nombre
     ORDER BY p.fecha_hora ASC
     LIMIT $2 OFFSET $3`,
