@@ -3,6 +3,7 @@ import 'package:front/features/torneos/domain/torneo.dart';
 import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/screens/perfil/gestion_solicitudes_inscripcion.dart';
+import 'package:front/state/jwt_storage.dart';
 
 class MiTorneoInfoScreen extends StatefulWidget {
   final Torneo torneo;
@@ -29,8 +30,31 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
   late TextEditingController _fechaInicioController;
   late TextEditingController _fechaFinController;
   late TextEditingController _estadoController;
-  final List<String> _estados = ['inscripcion_abierta', 'en_curso', 'acabado'];
   late TextEditingController _participantesController;
+
+  String _normalizeYmd(String? raw) {
+    if (raw == null) return '';
+    final s = raw.trim();
+    if (s.isEmpty) return '';
+    // Si viene como ISO (2026-04-22T22:12:11.199Z), quedarnos con YYYY-MM-DD.
+    if (s.length >= 10) {
+      final prefix = s.substring(0, 10);
+      final ymd = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+      if (ymd.hasMatch(prefix)) return prefix;
+    }
+    return s;
+  }
+
+  bool get _puedeCambiarEstadoDesdeInscripcionAbierta =>
+      (_torneo.estado ?? '') == 'inscripcion_abierta';
+
+  List<String> get _estadosPermitidos {
+    if (_puedeCambiarEstadoDesdeInscripcionAbierta) {
+      return const ['inscripcion_abierta', 'inscripcion_cerrada', 'cancelado'];
+    }
+    final actual = (_torneo.estado ?? '').trim();
+    return actual.isEmpty ? const <String>[] : <String>[actual];
+  }
 
   @override
   void initState() {
@@ -38,8 +62,8 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
     _torneo = widget.torneo;
     _nombreController = TextEditingController(text: _torneo.nombre);
     _descripcionController = TextEditingController(text: _torneo.descripcion ?? '');
-    _fechaInicioController = TextEditingController(text: _torneo.fechaInicio ?? '');
-    _fechaFinController = TextEditingController(text: _torneo.fechaFin ?? '');
+    _fechaInicioController = TextEditingController(text: _normalizeYmd(_torneo.fechaInicio));
+    _fechaFinController = TextEditingController(text: _normalizeYmd(_torneo.fechaFin));
     _estadoController = TextEditingController(text: _torneo.estado ?? '');
     _participantesController = TextEditingController(text: _torneo.participantesPorPartido?.toString() ?? '');
   }
@@ -59,6 +83,10 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() { _cargando = true; });
     try {
+      final token = await JwtStorage.getToken();
+      if (token == null) {
+        throw Exception('Token requerido');
+      }
       final api = TorneosApi(baseUrl: ApiConfig.baseUrl);
       final updated = await api.updateTorneo(
         _torneo.id,
@@ -67,9 +95,14 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
           descripcion: _descripcionController.text.trim(),
           fechaInicio: _fechaInicioController.text.trim().isEmpty ? null : _fechaInicioController.text.trim(),
           fechaFin: _fechaFinController.text.trim().isEmpty ? null : _fechaFinController.text.trim(),
-          estado: _estadoController.text.trim().isEmpty ? null : _estadoController.text.trim(),
+          // Regla: desde inscripcion_abierta solo se permite inscripcion_cerrada o cancelado.
+          // El paso a en_curso lo hace el backend al generar enfrentamientos.
+          estado: _puedeCambiarEstadoDesdeInscripcionAbierta
+              ? (_estadoController.text.trim().isEmpty ? null : _estadoController.text.trim())
+              : null,
           limiteEquipos: int.tryParse(_participantesController.text.trim()),
         ),
+        token: token,
       );
       setState(() {
         _torneo = updated;
@@ -171,7 +204,7 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
         _buildDetail('Participantes por partido', _torneo.participantesPorPartido?.toString()),
         const SizedBox(height: 16),
         ElevatedButton.icon(
-          onPressed: _generarBracketEliminacion,
+          onPressed: _generarEnfrentamientos,
           icon: const Icon(Icons.account_tree),
           label: const Text('Generar enfrentamientos'),
         ),
@@ -263,21 +296,23 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: _estados.contains(_estadoController.text) ? _estadoController.text : null,
+            value: _estadosPermitidos.contains(_estadoController.text) ? _estadoController.text : (_estadosPermitidos.isNotEmpty ? _estadosPermitidos.first : null),
             decoration: const InputDecoration(labelText: 'Estado'),
-            items: _estados
+            items: _estadosPermitidos
                 .map((estado) => DropdownMenuItem(
                       value: estado,
                       child: Text(estado),
                     ))
                 .toList(),
-            onChanged: (value) {
+            onChanged: _puedeCambiarEstadoDesdeInscripcionAbierta
+                ? (value) {
               if (value != null) {
                 setState(() {
                   _estadoController.text = value;
                 });
               }
-            },
+            }
+                : null,
             validator: (v) => v == null || v.isEmpty ? 'Selecciona un estado' : null,
           ),
           const SizedBox(height: 8),
@@ -324,18 +359,18 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
     );
   }
 
-  Future<void> _generarBracketEliminacion() async {
+  Future<void> _generarEnfrentamientos() async {
     setState(() { _cargando = true; });
     try {
       final api = TorneosApi(baseUrl: ApiConfig.baseUrl);
-      await api.generarBracketEliminacion(_torneo.id);
+      await api.generarEnfrentamientos(_torneo.id);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bracket de eliminación generado')),
+        const SnackBar(content: Text('Enfrentamientos generados')),
       );
       if (widget.onTorneoUpdated != null) widget.onTorneoUpdated!();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al generar bracket: $e')),
+        SnackBar(content: Text('Error al generar enfrentamientos: $e')),
       );
     } finally {
       setState(() { _cargando = false; });

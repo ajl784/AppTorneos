@@ -1,4 +1,5 @@
 const { pool } = require("../db/pool");
+const { AppError } = require("../utils/errors");
 
 const listTorneos = async ({
   limit,
@@ -231,6 +232,42 @@ const createTorneo = async (payload) => {
 };
 
 const updateTorneo = async (idTorneo, payload) => {
+  if (payload.estado !== undefined) {
+    const current = await pool.query(
+      `SELECT estado FROM torneo WHERE id_torneo = $1`,
+      [idTorneo],
+    );
+
+    if (current.rowCount) {
+      const currentEstado = current.rows[0].estado;
+      const nextEstado = payload.estado;
+
+      if (nextEstado === "en_curso") {
+        throw new AppError(
+          400,
+          "El estado 'en_curso' se establece automáticamente al generar enfrentamientos",
+        );
+      }
+
+      if (currentEstado === "inscripcion_abierta") {
+        const allowed = new Set([
+          "inscripcion_abierta",
+          "inscripcion_cerrada",
+          "inscripcion_terminada",
+          "cancelado",
+        ]);
+
+        if (!allowed.has(nextEstado)) {
+          throw new AppError(
+            400,
+            "Desde 'inscripcion_abierta' solo puedes pasar a 'inscripcion_cerrada' o 'cancelado'",
+            { from: currentEstado, to: nextEstado },
+          );
+        }
+      }
+    }
+  }
+
   const mapping = {
     nombre: "nombre",
     descripcion: "descripcion",
@@ -726,6 +763,8 @@ async function generarLiga(idTorneo) {
       }
     }
 
+    await client.query(`UPDATE torneo SET estado = 'en_curso' WHERE id_torneo = $1`, [idTorneo]);
+
     await client.query("COMMIT");
     return { ok: true, tipo: "Liga", partidosGenerados: total };
   } catch (e) {
@@ -808,6 +847,8 @@ async function generarEliminacion(idTorneo) {
       idxArbitro = picked.nextIndex;
       orden++;
     }
+
+    await client.query(`UPDATE torneo SET estado = 'en_curso' WHERE id_torneo = $1`, [idTorneo]);
 
     await client.query("COMMIT");
     return { ok: true, tipo: "Eliminación directa", rondaGenerada: 1 };
@@ -897,6 +938,8 @@ async function generarEliminacionMultiInicio(idTorneo, tipoEsperado) {
       idxArbitro = picked.nextIndex;
       orden++;
     }
+
+    await client.query(`UPDATE torneo SET estado = 'en_curso' WHERE id_torneo = $1`, [idTorneo]);
 
     await client.query("COMMIT");
     return {

@@ -186,7 +186,7 @@ ON CONFLICT (nombre) DO NOTHING;
 -- ------------------------------
 -- Liga: inscribir INS-L1-*
 INSERT INTO participacion_torneo_equipo (id_torneo, id_equipo, fecha, estado, puntuacion)
-SELECT t.id_torneo, e.id_equipo, NOW(), 'pendiente', 0
+SELECT t.id_torneo, e.id_equipo, NOW(), 'jugando', 0
 FROM torneo t
 JOIN equipo e ON e.nombre LIKE 'INS-L1-%'
 WHERE t.nombre = 'INS-LIGA-01'
@@ -194,11 +194,28 @@ ON CONFLICT (id_torneo, id_equipo) DO NOTHING;
 
 -- Eliminación directa: inscribir INS-E1-*
 INSERT INTO participacion_torneo_equipo (id_torneo, id_equipo, fecha, estado, puntuacion)
-SELECT t.id_torneo, e.id_equipo, NOW(), 'pendiente', 0
+SELECT t.id_torneo, e.id_equipo, NOW(), 'jugando', 0
 FROM torneo t
 JOIN equipo e ON e.nombre LIKE 'INS-E1-%'
 WHERE t.nombre = 'INS-ELIM-01'
 ON CONFLICT (id_torneo, id_equipo) DO NOTHING;
+
+-- Validación: en eliminación directa, el nº de equipos debe ser potencia de 2
+DO $$
+DECLARE
+	n_equipos INTEGER;
+BEGIN
+	SELECT COUNT(*)
+	INTO n_equipos
+	FROM participacion_torneo_equipo pte
+	JOIN torneo t ON t.id_torneo = pte.id_torneo
+	WHERE t.nombre = 'INS-ELIM-01';
+
+	IF n_equipos < 2 OR (n_equipos & (n_equipos - 1)) <> 0 THEN
+		RAISE EXCEPTION 'INS-ELIM-01 debe tener un nº de equipos potencia de 2 (>=2). Actualmente: %', n_equipos;
+	END IF;
+END
+$$;
 
 -- ------------------------------
 -- 6) Árbitros por torneo

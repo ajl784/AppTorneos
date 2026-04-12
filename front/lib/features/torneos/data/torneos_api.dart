@@ -119,8 +119,16 @@ class TorneosApi {
     return Torneo.fromJson(Map<String, dynamic>.from(data));
   }
 
-  Future<Torneo> updateTorneo(int idTorneo, TorneoUpdate payload) async {
-    final res = await _api.putRaw('/torneos/$idTorneo', body: payload.toJson());
+  Future<Torneo> updateTorneo(
+    int idTorneo,
+    TorneoUpdate payload, {
+    String? token,
+  }) async {
+    final res = await _api.putRaw(
+      '/torneos/$idTorneo',
+      body: payload.toJson(),
+      headers: token == null ? null : {'Authorization': 'Bearer $token'},
+    );
     final data = res.data;
     if (data is! Map) {
       throw const FormatException('Respuesta inesperada (torneo no es Map)');

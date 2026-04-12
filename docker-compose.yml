@@ -25,7 +25,7 @@ services:
       - "3000:3000"
     volumes:
       - .:/workspace
-      - /workspace/node_modules
+      - app_node_modules:/workspace/node_modules
     environment:
       NODE_ENV: development
       PORT: 3000
@@ -40,3 +40,4 @@ services:
 
 volumes:
   postgres_data:
+  app_node_modules:
