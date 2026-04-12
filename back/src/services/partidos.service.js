@@ -312,6 +312,9 @@ const registrarPuntuacionesArbitro = async ({
       );
     }
     const actualizadas = [];
+    // Nota: id_participacion_equipo es BIGINT en PG y node-postgres suele
+    // devolverlo como string en resultados. Usamos claves string para evitar
+    // desajustes al cruzar con el payload (que suele venir como number).
     const puntosPorParticipacion = new Map();
 
     const torneoInfoRes = await client.query(
@@ -376,7 +379,7 @@ const registrarPuntuacionesArbitro = async ({
         [idPartido, idParticipacionEquipo, punto],
       );
 
-      puntosPorParticipacion.set(idParticipacionEquipo, punto);
+      puntosPorParticipacion.set(String(idParticipacionEquipo), punto);
 
       actualizadas.push({
         id_participacion_equipo: idParticipacionEquipo,
@@ -447,33 +450,60 @@ const registrarPuntuacionesArbitro = async ({
       );
     }
 
+    const equiposPartido = eloRows.rows.map((row) => row.id_equipo);
+
     const historialPartido = await client.query(
-      `SELECT id_equipo
+      `SELECT id_equipo, elo_anterior, elo_nuevo
        FROM historial_elo
        WHERE descripcion = $1
          AND id_equipo = ANY($2::bigint[])`,
-      [
-        `partido:${idPartido}`,
-        eloRows.rows.map((row) => row.id_equipo),
-      ],
+      [`partido:${idPartido}`, equiposPartido],
     );
 
     let eloActualizado = [];
     let eloAplicado = false;
 
-    if (historialPartido.rowCount === eloRows.rowCount) {
+    const puntosPayload = puntuaciones.map((p) => Number(p.punto));
+    const esEmpateMarcador =
+      puntosPayload.length > 0 &&
+      Math.max(...puntosPayload) === Math.min(...puntosPayload);
+
+    const historialPorEquipo = new Map(
+      historialPartido.rows.map((r) => [
+        Number(r.id_equipo),
+        {
+          elo_anterior: Number(r.elo_anterior),
+          elo_nuevo: Number(r.elo_nuevo),
+        },
+      ]),
+    );
+
+    const historialCompleto = historialPorEquipo.size === eloRows.rowCount;
+    const historialTieneCambios = Array.from(historialPorEquipo.values()).some(
+      (h) => h.elo_anterior !== h.elo_nuevo,
+    );
+
+    // Si existe historial para todos los equipos y:
+    // - el partido fue empate -> delta 0 es válido
+    // - o ya había cambios -> consideramos ELO aplicado
+    // Si NO es empate y el historial es todo 0-delta, lo tratamos como caso
+    // heredado por bug de mapeo y recalculamos/corregimos.
+    if (historialCompleto && (esEmpateMarcador || historialTieneCambios)) {
       eloActualizado = eloRows.rows.map((row) => ({
-        id_equipo: row.id_equipo,
+        id_equipo: Number(row.id_equipo),
         equipo_nombre: row.nombre,
-        elo_anterior: row.elo,
-        elo_nuevo: row.elo,
+        elo_anterior: Number(row.elo),
+        elo_nuevo: Number(row.elo),
         delta: 0,
       }));
     } else {
-      const equiposConPunto = eloRows.rows.map((row) => ({
-        ...row,
-        punto: puntosPorParticipacion.get(row.id_participacion_equipo) ?? 0,
-      }));
+      const equiposConPunto = eloRows.rows.map((row) => {
+        const idParticipacionKey = String(row.id_participacion_equipo);
+        return {
+          ...row,
+          punto: puntosPorParticipacion.get(idParticipacionKey) ?? 0,
+        };
+      });
 
       const actualizaciones = equiposConPunto.map((team) => {
         const rivals = equiposConPunto.filter(
@@ -487,7 +517,8 @@ const registrarPuntuacionesArbitro = async ({
       });
 
       for (const update of actualizaciones) {
-        const nuevoElo = Math.max(0, update.elo + update.delta);
+        const eloAnterior = Number(update.elo);
+        const nuevoElo = Math.max(0, eloAnterior + update.delta);
 
         await client.query(
           `UPDATE equipo
@@ -496,23 +527,30 @@ const registrarPuntuacionesArbitro = async ({
           [nuevoElo, update.id_equipo],
         );
 
-        await client.query(
-          `INSERT INTO historial_elo (id_equipo, elo_anterior, elo_nuevo, descripcion)
-           VALUES ($1, $2, $3, $4)`,
-          [
-            update.id_equipo,
-            update.elo,
-            nuevoElo,
-            `partido:${idPartido}`,
-          ],
-        );
+        if (historialCompleto) {
+          // Corrige el historial existente del partido (caso bug previo).
+          await client.query(
+            `UPDATE historial_elo
+             SET elo_anterior = $1,
+                 elo_nuevo = $2
+             WHERE descripcion = $3
+               AND id_equipo = $4`,
+            [eloAnterior, nuevoElo, `partido:${idPartido}`, update.id_equipo],
+          );
+        } else {
+          await client.query(
+            `INSERT INTO historial_elo (id_equipo, elo_anterior, elo_nuevo, descripcion)
+             VALUES ($1, $2, $3, $4)`,
+            [update.id_equipo, eloAnterior, nuevoElo, `partido:${idPartido}`],
+          );
+        }
 
         eloActualizado.push({
           id_equipo: update.id_equipo,
           equipo_nombre: update.nombre,
-          elo_anterior: update.elo,
+          elo_anterior: eloAnterior,
           elo_nuevo: nuevoElo,
-          delta: nuevoElo - update.elo,
+          delta: nuevoElo - eloAnterior,
           posicion_esperada: Number(update.posicionEsperada.toFixed(2)),
           posicion_real: Number(update.posicionReal.toFixed(2)),
           score_esperado: Number(update.scoreEsperado.toFixed(4)),
