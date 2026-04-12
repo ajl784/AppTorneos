@@ -136,6 +136,23 @@ class _CalendarioTabState extends State<CalendarioTab> {
       return;
     }
 
+    final equiposOrdenados = partido.equipos.map((e) => e.nombre).toList(growable: false);
+    final equipoA = equiposOrdenados.isNotEmpty ? equiposOrdenados[0] : 'TBD';
+    final equipoB = equiposOrdenados.length > 1 ? equiposOrdenados[1] : 'TBD';
+    final vsTitle = '$equipoA vs $equipoB';
+
+    final local = partido.fechaHora.toLocal();
+    final fechaLabel =
+        '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year.toString().padLeft(4, '0')}';
+    final horaLabel = TimeOfDay.fromDateTime(local).format(context);
+
+    final lugarLabel = (partido.lugar == null || partido.lugar!.trim().isEmpty)
+        ? '—'
+        : partido.lugar!.trim();
+    final arbitroLabel = (partido.arbitroNombre == null || partido.arbitroNombre!.trim().isEmpty)
+        ? '—'
+        : partido.arbitroNombre!.trim();
+
     final shouldSave = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -143,12 +160,16 @@ class _CalendarioTabState extends State<CalendarioTab> {
           builder: (context, setStateDialog) {
             final normaParsed = _parseNormaPuntuacion(torneo?.normaPuntuacion);
             return AlertDialog(
-              title: Text('Editar Partido #${partido.idPartido}'),
+              title: Text(vsTitle),
               content: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Text('Lugar: $lugarLabel'),
+                    Text('Hora: $fechaLabel · $horaLabel'),
+                    Text('Árbitro: $arbitroLabel'),
+                    Text('Estado: $selectedEstado'),
                     DropdownButtonFormField<String>(
                       value: selectedEstado,
                       decoration: const InputDecoration(labelText: 'Estado'),
@@ -598,25 +619,20 @@ class _PartidoItem extends StatelessWidget {
     final local = partido.fechaHora.toLocal();
     final timeLabel = TimeOfDay.fromDateTime(local).format(context);
 
-    final misEquipos = partido.equipos.where((e) => e.esMiEquipo).map((e) => e.nombre).toList(growable: false);
-    final rivales = partido.equipos.where((e) => !e.esMiEquipo).map((e) => e.nombre).toList(growable: false);
-    final equiposLabel = partido.equipos.map((e) => e.nombre).toList(growable: false);
-
-    final torneo = (partido.torneoNombre == null || partido.torneoNombre!.trim().isEmpty)
-        ? 'Torneo #${partido.idTorneo}'
-        : partido.torneoNombre!;
-
-    final estado = partido.estado ?? '—';
-    final lugar = partido.lugar;
+    final estado = (partido.estado == null || partido.estado!.trim().isEmpty)
+      ? '—'
+      : partido.estado!.trim();
+    final lugar = (partido.lugar == null || partido.lugar!.trim().isEmpty)
+      ? '—'
+      : partido.lugar!.trim();
     final arbitroNombre = (partido.arbitroNombre == null || partido.arbitroNombre!.trim().isEmpty)
-      ? null
+      ? '—'
       : partido.arbitroNombre!.trim();
 
-    final roundLabel = (partido.jornada != null)
-      ? 'Jornada ${partido.jornada}'
-      : (partido.ronda != null)
-        ? 'Ronda ${partido.ronda}${partido.ordenRonda != null ? ' · #${partido.ordenRonda}' : ''}'
-        : null;
+    final equipos = partido.equipos.map((e) => e.nombre).toList(growable: false);
+    final equipoA = equipos.isNotEmpty ? equipos[0] : 'TBD';
+    final equipoB = equipos.length > 1 ? equipos[1] : 'TBD';
+    final vsTitle = '$equipoA vs $equipoB';
 
     return Card(
       child: Padding(
@@ -624,58 +640,12 @@ class _PartidoItem extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(timeLabel, style: theme.textTheme.titleMedium),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    torneo,
-                    style: theme.textTheme.titleMedium,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            if (partido.esArbitro || partido.esJugador) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: -8,
-                children: [
-                  if (partido.esArbitro)
-                    const Chip(
-                      label: Text('Arbitras'),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    )
-                  else
-                    const Chip(
-                      label: Text('Juegas'),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                ],
-              ),
-            ],
+            Text(vsTitle, style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
-            Text('Partido #${partido.idPartido}', style: theme.textTheme.bodyMedium),
+            Text('Lugar: $lugar', style: theme.textTheme.bodyMedium),
+            Text('Hora: $timeLabel', style: theme.textTheme.bodyMedium),
+            Text('Árbitro: $arbitroNombre', style: theme.textTheme.bodyMedium),
             Text('Estado: $estado', style: theme.textTheme.bodyMedium),
-            if (roundLabel != null)
-              Text(roundLabel, style: theme.textTheme.bodyMedium),
-            if (lugar != null && lugar.trim().isNotEmpty)
-              Text('Lugar: $lugar', style: theme.textTheme.bodyMedium),
-            Text(
-              'Árbitro: ${arbitroNombre ?? '—'}',
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 6),
-            if (equiposLabel.isNotEmpty)
-              Text('Equipos: ${equiposLabel.join(' · ')}', style: theme.textTheme.bodySmall),
-            if (misEquipos.isNotEmpty)
-              Text('Mis equipos: ${misEquipos.join(' · ')}', style: theme.textTheme.bodySmall),
-            if (misEquipos.isNotEmpty && rivales.isNotEmpty)
-              Text('Rivales: ${rivales.join(' · ')}', style: theme.textTheme.bodySmall),
 
             if (partido.esArbitro && onEditar != null) ...[
               const SizedBox(height: 10),

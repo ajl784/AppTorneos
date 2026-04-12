@@ -1,5 +1,6 @@
 const { pool } = require("../db/pool");
 const { AppError } = require("../utils/errors");
+const torneosService = require("./torneos.service");
 
 const ELO_K_FACTOR = 32;
 
@@ -287,7 +288,7 @@ const registrarPuntuacionesArbitro = async ({
     await client.query("BEGIN");
 
     const partidoResult = await client.query(
-      `SELECT id_partido, id_torneo, estado
+      `SELECT id_partido, id_torneo, estado, ronda
        FROM partido
        WHERE id_partido = $1`,
       [idPartido],
@@ -300,6 +301,7 @@ const registrarPuntuacionesArbitro = async ({
 
     const idTorneo = partidoResult.rows[0].id_torneo;
     const estadoPartido = partidoResult.rows[0].estado;
+    const rondaPartido = partidoResult.rows[0].ronda;
 
     // Reglas de negocio: las puntuaciones (y el ELO) solo se consolidan
     // cuando el partido está cerrado.
@@ -322,9 +324,22 @@ const registrarPuntuacionesArbitro = async ({
 
     const torneoInfo = torneoInfoRes.rows[0] || null;
     const esLiga = (torneoInfo?.tipo_torneo || "") === "Liga";
+    const esEliminacionDirecta = (torneoInfo?.tipo_torneo || "") === "Eliminación directa";
     const normaLiga = esLiga
       ? parseNormaPuntuacionLiga(torneoInfo?.norma_puntuacion)
       : null;
+
+    if (esEliminacionDirecta) {
+      const puntos = puntuaciones.map((p) => Number(p.punto));
+      const max = Math.max(...puntos);
+      const countMax = puntos.filter((x) => x === max).length;
+      if (countMax !== 1) {
+        throw new AppError(
+          400,
+          "En eliminación directa no se permite empate: debe haber un ganador único",
+        );
+      }
+    }
 
     for (const item of puntuaciones) {
       const idParticipacionEquipo = item.id_participacion_equipo;
@@ -519,6 +534,38 @@ const registrarPuntuacionesArbitro = async ({
 
     await client.query("COMMIT");
 
+    // Avance automático de ronda (Eliminación directa)
+    // Nota: se ejecuta DESPUÉS del commit para reutilizar la lógica existente
+    // de generar ronda y evitar transacciones anidadas.
+    let avance = null;
+    if (esEliminacionDirecta && rondaPartido != null) {
+      try {
+        const maxRondaRes = await pool.query(
+          `SELECT MAX(ronda) AS max_ronda FROM partido WHERE id_torneo = $1`,
+          [idTorneo],
+        );
+        const maxRonda = Number(maxRondaRes.rows[0]?.max_ronda || 0);
+
+        // Si ya se generó una ronda posterior, no hacemos nada.
+        if (maxRonda === Number(rondaPartido)) {
+          const pendientesRes = await pool.query(
+            `SELECT COUNT(*)::int AS pendientes
+             FROM partido
+             WHERE id_torneo = $1 AND ronda = $2 AND estado <> 'acabado'`,
+            [idTorneo, rondaPartido],
+          );
+          const pendientes = Number(pendientesRes.rows[0]?.pendientes || 0);
+          if (pendientes === 0) {
+            avance = await torneosService.avanzarRondaEliminacion(Number(idTorneo));
+          }
+        }
+      } catch (_e) {
+        // Si falla por concurrencia o porque otra petición ya avanzó,
+        // no bloqueamos el cierre del partido.
+        avance = null;
+      }
+    }
+
     return {
       id_partido: idPartido,
       id_torneo: idTorneo,
@@ -526,6 +573,7 @@ const registrarPuntuacionesArbitro = async ({
       id_arbitro_torneo: idArbitroTorneo || null,
       elo_aplicado: eloAplicado,
       elo_actualizado: eloActualizado,
+      avance_ronda: avance,
     };
   } catch (error) {
     await client.query("ROLLBACK");
