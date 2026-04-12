@@ -39,21 +39,21 @@ JOIN tipo_torneo tt ON (
 )
 ON CONFLICT (id_categoria, id_tipo_torneo) DO NOTHING;
 
-INSERT INTO usuario (correo, nombre_usuario, password_hash)
+INSERT INTO usuario (correo, nombre_usuario, password_hash, nombre, apellidos, fotoperfil, fechanacimiento, genero)
 VALUES
-	('admin@app.com', 'admin', crypt('password123', gen_salt('bf')))
+	('admin@app.com', 'admin', crypt('password123', gen_salt('bf')), 'Admin', 'App', NULL, NULL, NULL)
 ON CONFLICT (correo) DO NOTHING;
 
-INSERT INTO usuario (correo, nombre_usuario, password_hash)
+INSERT INTO usuario (correo, nombre_usuario, password_hash, nombre, apellidos, fotoperfil, fechanacimiento, genero)
 VALUES
-	('laura@parchis.app', 'laura_parchis', crypt('password123', gen_salt('bf'))),
-	('mario@parchis.app', 'mario_parchis', crypt('password123', gen_salt('bf'))),
-	('nora@parchis.app', 'nora_parchis', crypt('password123', gen_salt('bf'))),
-	('oscar@parchis.app', 'oscar_parchis', crypt('password123', gen_salt('bf'))),
-	('paula@parchis.app', 'paula_parchis', crypt('password123', gen_salt('bf'))),
-	('quique@parchis.app', 'quique_parchis', crypt('password123', gen_salt('bf'))),
-	('raquel@parchis.app', 'raquel_parchis', crypt('password123', gen_salt('bf'))),
-	('sergio@parchis.app', 'sergio_parchis', crypt('password123', gen_salt('bf')))
+	('laura@parchis.app', 'laura_parchis', crypt('password123', gen_salt('bf')), 'Laura', 'Pérez', NULL, '1995-04-10', 'Femenino'),
+	('mario@parchis.app', 'mario_parchis', crypt('password123', gen_salt('bf')), 'Mario', 'García', '3.png', '1993-07-22', 'Masculino'),
+	('nora@parchis.app', 'nora_parchis', crypt('password123', gen_salt('bf')), 'Nora', 'López', NULL, '1996-01-15', 'Femenino'),
+	('oscar@parchis.app', 'oscar_parchis', crypt('password123', gen_salt('bf')), 'Oscar', 'Martínez', NULL, '1992-11-30', 'Masculino'),
+	('paula@parchis.app', 'paula_parchis', crypt('password123', gen_salt('bf')), 'Paula', 'Sánchez', NULL, '1994-09-05', 'Femenino'),
+	('quique@parchis.app', 'quique_parchis', crypt('password123', gen_salt('bf')), 'Quique', 'Ruiz', NULL, '1991-12-12', 'Masculino'),
+	('raquel@parchis.app', 'raquel_parchis', crypt('password123', gen_salt('bf')), 'Raquel', 'Moreno', NULL, '1997-03-18', 'Femenino'),
+	('sergio@parchis.app', 'sergio_parchis', crypt('password123', gen_salt('bf')), 'Sergio', 'Jiménez', NULL, '1990-06-25', 'Masculino')
 ON CONFLICT (correo) DO NOTHING;
 
 -- Árbitros (DEV) para que se puedan generar enfrentamientos

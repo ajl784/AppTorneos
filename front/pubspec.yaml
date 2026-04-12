@@ -39,6 +39,8 @@ dependencies:
   shared_preferences: ^2.5.5
   fl_chart: ^0.68.0
   table_calendar: ^3.1.2
+  image_picker: ^1.0.7
+  file_picker: ^11.0.2 # NOTA: Esto es para que funcione en web, aunque no es necesario para móvil. En móvil se usa image_picker.
 
   
 

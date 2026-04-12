@@ -3,6 +3,7 @@ import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
 import 'package:front/screens/torneos/torneo_detalle_screen.dart';
+import 'package:front/peticion/unirse_torneo.dart';
 
 class TorneosBody extends StatefulWidget {
   const TorneosBody({super.key});
@@ -198,6 +199,33 @@ class _TorneosBodyState extends State<TorneosBody> {
                       ],
                     ],
                   ),
+                    if (torneo.estado != null &&
+                        [
+                          'inscripcion_abierta',
+                          'inscripción_abierta'
+                        ].contains(torneo.estado!.trim().toLowerCase()))
+                      ...[
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.login),
+                            label: const Text('Unirse'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: onCard,
+                              foregroundColor: cardBg,
+                            ),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => UnirseTorneoScreen(idTorneo: torneo.id),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                  ],
                 ),
               ),
             );

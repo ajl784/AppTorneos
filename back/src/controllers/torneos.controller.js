@@ -51,6 +51,23 @@ const updateTorneo = asyncHandler(async (req, res) => {
   ok(res, data);
 });
 
+/* //Opción con autenticación JWT para verificar que solo el organizador pueda modificar el torneo
+const updateTorneo = asyncHandler(async (req, res) => {
+  const idTorneo = parsePositiveInt(req.params.id, "id");
+  // Obtener torneo actual para verificar organizador
+  const torneo = await torneosService.getTorneoById(idTorneo);
+  if (!torneo) {
+    throw new AppError(404, "Torneo no encontrado");
+  }
+  // Verificar que el usuario autenticado es el organizador
+  if (!req.user || torneo.id_organizador !== req.user.id_usuario) {
+    throw new AppError(403, "No tienes permiso para modificar este torneo");
+  }
+  const data = await torneosService.updateTorneo(idTorneo, req.body || {});
+  ok(res, data);
+});
+*/
+
 const deleteTorneo = asyncHandler(async (req, res) => {
   const idTorneo = parsePositiveInt(req.params.id, "id");
   const deleted = await torneosService.deleteTorneo(idTorneo);
