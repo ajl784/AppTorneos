@@ -1,4 +1,5 @@
 const equiposService = require("../services/equipos.service");
+
 const {
   ok,
   created,
@@ -59,10 +60,17 @@ const deleteEquipo = asyncHandler(async (req, res) => {
   ok(res, { deleted: true });
 });
 
+const getEquiposByUsuario = asyncHandler(async (req, res) => {
+  const idUsuario = parsePositiveInt(req.params.idUsuario, "idUsuario");
+  const data = await equiposService.getEquiposByUsuario(idUsuario);
+  ok(res, data);
+});
+
 module.exports = {
   listEquipos,
   getEquipoById,
   createEquipo,
   updateEquipo,
   deleteEquipo,
+  getEquiposByUsuario,
 };

@@ -25,17 +25,31 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
       }
       try {
         final result = await _authApi.login(correo: correo, password: password);
+        // LOG: Imprimir respuesta completa del backend
+        // ignore: avoid_print
+        print('Login backend result:');
+        // ignore: avoid_print
+        print(result);
         if (result['ok'] == true && result['data'] != null) {
           final token = result['data']['token'] as String?;
           final usuario = result['data']['usuario'] as Map<String, dynamic>?;
+          // LOG: Imprimir usuario recibido
+          // ignore: avoid_print
+          print('Usuario recibido:');
+          // ignore: avoid_print
+          print(usuario);
           if (token != null && usuario != null) {
             // Guardar token y usuario
-            // ignore: use_build_context_synchronously
             await Future.wait([
-              // ignore: use_build_context_synchronously
               JwtStorage.saveToken(token),
               JwtStorage.saveUser(usuario),
             ]);
+            // LOG: Leer usuario guardado
+            final userGuardado = await JwtStorage.getUser();
+            // ignore: avoid_print
+            print('Usuario guardado en storage:');
+            // ignore: avoid_print
+            print(userGuardado);
             AuthState.isLoggedIn.value = true;
             if (mounted) {
               Navigator.of(context).pop();

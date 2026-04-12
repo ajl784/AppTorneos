@@ -78,4 +78,18 @@ class EquiposApi {
 
     return true;
   }
+
+  /// Obtiene los equipos de un usuario por su ID usando la ruta /equipos/usuario/<idUsuario>
+    Future<ApiResponse<List<Equipo>>> getEquiposByUsuario(int idUsuario) async {
+      final res = await _api.getRaw('/equipos/usuario/$idUsuario');
+      final data = res.data;
+      if (data is! List) {
+        throw const FormatException('Respuesta inesperada (equipos no es List)');
+      }
+      final equipos = data
+          .whereType<Map>()
+          .map((item) => Equipo.fromJson(Map<String, dynamic>.from(item)))
+          .toList(growable: false);
+      return ApiResponse<List<Equipo>>(data: equipos, meta: res.meta);
+    }
 }
