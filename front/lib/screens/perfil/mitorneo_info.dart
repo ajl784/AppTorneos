@@ -29,6 +29,7 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
   late TextEditingController _fechaInicioController;
   late TextEditingController _fechaFinController;
   late TextEditingController _estadoController;
+  final List<String> _estados = ['inscripcion_abierta', 'en_curso', 'acabado'];
   late TextEditingController _participantesController;
 
   @override
@@ -170,6 +171,12 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
         _buildDetail('Participantes por partido', _torneo.participantesPorPartido?.toString()),
         const SizedBox(height: 16),
         ElevatedButton.icon(
+          onPressed: _generarBracketEliminacion,
+          icon: const Icon(Icons.account_tree),
+          label: const Text('Generar Bracket Eliminación'),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton.icon(
           onPressed: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(
@@ -219,17 +226,59 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
           const SizedBox(height: 8),
           TextFormField(
             controller: _fechaInicioController,
+            readOnly: true,
             decoration: const InputDecoration(labelText: 'Fecha de inicio (YYYY-MM-DD)'),
+            onTap: () async {
+              DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: _torneo.fechaInicio != null && _torneo.fechaInicio!.isNotEmpty
+                    ? DateTime.tryParse(_torneo.fechaInicio!) ?? DateTime.now()
+                    : DateTime.now(),
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) {
+                _fechaInicioController.text = picked.toIso8601String().substring(0, 10);
+              }
+            },
           ),
           const SizedBox(height: 8),
           TextFormField(
             controller: _fechaFinController,
+            readOnly: true,
             decoration: const InputDecoration(labelText: 'Fecha de fin (YYYY-MM-DD)'),
+            onTap: () async {
+              DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: _torneo.fechaFin != null && _torneo.fechaFin!.isNotEmpty
+                    ? DateTime.tryParse(_torneo.fechaFin!) ?? DateTime.now()
+                    : DateTime.now(),
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) {
+                _fechaFinController.text = picked.toIso8601String().substring(0, 10);
+              }
+            },
           ),
           const SizedBox(height: 8),
-          TextFormField(
-            controller: _estadoController,
+          DropdownButtonFormField<String>(
+            value: _estados.contains(_estadoController.text) ? _estadoController.text : null,
             decoration: const InputDecoration(labelText: 'Estado'),
+            items: _estados
+                .map((estado) => DropdownMenuItem(
+                      value: estado,
+                      child: Text(estado),
+                    ))
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() {
+                  _estadoController.text = value;
+                });
+              }
+            },
+            validator: (v) => v == null || v.isEmpty ? 'Selecciona un estado' : null,
           ),
           const SizedBox(height: 8),
           TextFormField(
@@ -273,5 +322,23 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _generarBracketEliminacion() async {
+    setState(() { _cargando = true; });
+    try {
+      final api = TorneosApi(baseUrl: ApiConfig.baseUrl);
+      await api.generarBracketEliminacion(_torneo.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bracket de eliminación generado')),
+      );
+      if (widget.onTorneoUpdated != null) widget.onTorneoUpdated!();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al generar bracket: $e')),
+      );
+    } finally {
+      setState(() { _cargando = false; });
+    }
   }
 }

@@ -47,7 +47,7 @@ ON CONFLICT (correo) DO NOTHING;
 INSERT INTO usuario (correo, nombre_usuario, password_hash, nombre, apellidos, fotoperfil, fechanacimiento, genero)
 VALUES
 	('laura@parchis.app', 'laura_parchis', crypt('password123', gen_salt('bf')), 'Laura', 'Pérez', NULL, '1995-04-10', 'Femenino'),
-	('mario@parchis.app', 'mario_parchis', crypt('password123', gen_salt('bf')), 'Mario', 'García', '3.png', '1993-07-22', 'Masculino'),
+	('mario@parchis.app', 'mario_parchis', crypt('password123', gen_salt('bf')), 'Mario', 'García', '3.jpg', '1993-07-22', 'Masculino'),
 	('nora@parchis.app', 'nora_parchis', crypt('password123', gen_salt('bf')), 'Nora', 'López', NULL, '1996-01-15', 'Femenino'),
 	('oscar@parchis.app', 'oscar_parchis', crypt('password123', gen_salt('bf')), 'Oscar', 'Martínez', NULL, '1992-11-30', 'Masculino'),
 	('paula@parchis.app', 'paula_parchis', crypt('password123', gen_salt('bf')), 'Paula', 'Sánchez', NULL, '1994-09-05', 'Femenino'),

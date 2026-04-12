@@ -181,6 +181,32 @@ class _TorneosBodyState extends State<TorneosBody> {
                           children:
                               features.map(featureBox).toList(growable: false),
                         ),
+                        if (torneo.estado != null &&
+                            [
+                              'inscripcion_abierta',
+                              'inscripción_abierta'
+                            ].contains(torneo.estado!.trim().toLowerCase()))
+                          ...[
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.login),
+                                label: const Text('Unirse'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: onCard,
+                                  foregroundColor: cardBg,
+                                ),
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => UnirseTorneoScreen(idTorneo: torneo.id),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                       if (hasDescripcion) ...[
                         if (features.isNotEmpty) const SizedBox(height: 10),
                         Divider(
@@ -199,33 +225,6 @@ class _TorneosBodyState extends State<TorneosBody> {
                       ],
                     ],
                   ),
-                    if (torneo.estado != null &&
-                        [
-                          'inscripcion_abierta',
-                          'inscripción_abierta'
-                        ].contains(torneo.estado!.trim().toLowerCase()))
-                      ...[
-                        const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.login),
-                            label: const Text('Unirse'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: onCard,
-                              foregroundColor: cardBg,
-                            ),
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => UnirseTorneoScreen(idTorneo: torneo.id),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                  ],
                 ),
               ),
             );

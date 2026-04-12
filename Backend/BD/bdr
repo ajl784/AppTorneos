@@ -43,7 +43,7 @@ CREATE TABLE usuario (
 	correo VARCHAR(255) NOT NULL UNIQUE,
 	nombre_usuario VARCHAR(120) NOT NULL,
 	password_hash TEXT NOT NULL,
-	nombre VARCHAR(120) NOT NULL,
+	nombre VARCHAR(120) NOT NULL DEFAULT '',
 	apellidos VARCHAR(120),
 	fotoperfil TEXT,
 	fechanacimiento DATE,
