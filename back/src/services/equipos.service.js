@@ -79,6 +79,19 @@ const updateEquipo = async (idEquipo, payload) => {
   return result.rows[0] || null;
 };
 
+const getEquiposByUsuario = async (idUsuario) => {
+  // Devuelve todos los equipos a los que pertenece un usuario
+  const result = await pool.query(
+    `SELECT e.id_equipo, e.nombre, e.descripcion, e.elo
+     FROM equipo e
+     INNER JOIN pertenece p ON e.id_equipo = p.id_equipo
+     WHERE p.id_usuario = $1
+     ORDER BY e.id_equipo DESC`,
+    [idUsuario],
+  );
+  return result.rows;
+};
+
 const deleteEquipo = async (idEquipo) => {
   const result = await pool.query(
     `DELETE FROM equipo
@@ -96,4 +109,5 @@ module.exports = {
   createEquipo,
   updateEquipo,
   deleteEquipo,
+  getEquiposByUsuario,
 };

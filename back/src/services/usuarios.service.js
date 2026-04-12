@@ -109,7 +109,7 @@ const listUsuarios = async ({ limit, offset, q }) => {
 
 const getUsuarioById = async (idUsuario) => {
   const result = await pool.query(
-    `SELECT id_usuario, correo, nombre_usuario
+    `SELECT id_usuario, correo, nombre_usuario, nombre, apellidos, fechanacimiento, genero, fotoperfil
      FROM usuario
      WHERE id_usuario = $1`,
     [idUsuario],
