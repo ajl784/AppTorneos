@@ -123,6 +123,84 @@ const getClasificacionTorneo = async (idTorneo) => {
   };
 };
 
+const getPartidosTorneo = async (idTorneo) => {
+  const torneo = await getTorneoById(idTorneo);
+  if (!torneo) return null;
+
+  const result = await pool.query(
+    `SELECT
+       p.id_partido,
+       p.fecha_hora,
+       p.lugar,
+       p.estado,
+       p.jornada,
+       p.ronda,
+       p.orden_ronda,
+       p.id_partido_siguiente,
+       p.ganador_id_participacion_equipo,
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'id_participacion_equipo', pte.id_participacion_equipo,
+             'id_equipo', e.id_equipo,
+             'equipo_nombre', e.nombre,
+             'punto', pp.punto
+           )
+           ORDER BY pte.id_participacion_equipo
+         ) FILTER (WHERE pte.id_participacion_equipo IS NOT NULL),
+         '[]'::json
+       ) AS equipos
+     FROM partido p
+     LEFT JOIN participacion_partido pp ON pp.id_partido = p.id_partido
+     LEFT JOIN participacion_torneo_equipo pte ON pte.id_participacion_equipo = pp.id_participacion_equipo
+     LEFT JOIN equipo e ON e.id_equipo = pte.id_equipo
+     WHERE p.id_torneo = $1
+     GROUP BY p.id_partido
+     ORDER BY
+       p.ronda NULLS LAST,
+       p.orden_ronda NULLS LAST,
+       p.jornada NULLS LAST,
+       p.fecha_hora ASC,
+       p.id_partido ASC`,
+    [idTorneo],
+  );
+
+  return {
+    id_torneo: Number(torneo.id_torneo),
+    torneo_nombre: torneo.nombre,
+    tipo_torneo_nombre: torneo.tipo_torneo_nombre,
+    partidos: result.rows.map((r) => {
+      const rawEquipos = r.equipos;
+      const equipos =
+        typeof rawEquipos === "string" ? JSON.parse(rawEquipos) : rawEquipos;
+
+      return {
+        id_partido: Number(r.id_partido),
+        fecha_hora: r.fecha_hora,
+        lugar: r.lugar,
+        estado: r.estado,
+        jornada: r.jornada === null ? null : Number(r.jornada),
+        ronda: r.ronda === null ? null : Number(r.ronda),
+        orden_ronda: r.orden_ronda === null ? null : Number(r.orden_ronda),
+        id_partido_siguiente:
+          r.id_partido_siguiente === null ? null : Number(r.id_partido_siguiente),
+        ganador_id_participacion_equipo:
+          r.ganador_id_participacion_equipo === null
+            ? null
+            : Number(r.ganador_id_participacion_equipo),
+        equipos: Array.isArray(equipos)
+          ? equipos.map((e) => ({
+              id_participacion_equipo: Number(e.id_participacion_equipo),
+              id_equipo: Number(e.id_equipo),
+              equipo_nombre: e.equipo_nombre,
+              punto: Number(e.punto),
+            }))
+          : [],
+      };
+    }),
+  };
+};
+
 const createTorneo = async (payload) => {
   const result = await pool.query(
     `INSERT INTO torneo (
@@ -1136,6 +1214,7 @@ module.exports = {
   listTorneos,
   getTorneoById,
   getClasificacionTorneo,
+  getPartidosTorneo,
   createTorneo,
   updateTorneo,
   deleteTorneo,
