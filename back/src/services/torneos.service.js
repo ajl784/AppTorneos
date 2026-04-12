@@ -88,6 +88,41 @@ const getTorneoById = async (idTorneo) => {
   return result.rows[0] || null;
 };
 
+const getClasificacionTorneo = async (idTorneo) => {
+  // Verifica existencia
+  const torneo = await getTorneoById(idTorneo);
+  if (!torneo) return null;
+
+  const result = await pool.query(
+    `SELECT
+       pte.id_participacion_equipo,
+       e.id_equipo,
+       e.nombre AS equipo_nombre,
+       e.elo,
+       COALESCE(pte.puntuacion, 0) AS puntos
+     FROM participacion_torneo_equipo pte
+     JOIN equipo e ON e.id_equipo = pte.id_equipo
+     WHERE pte.id_torneo = $1
+     ORDER BY COALESCE(pte.puntuacion, 0) DESC, e.nombre ASC`,
+    [idTorneo],
+  );
+
+  return {
+    id_torneo: Number(torneo.id_torneo),
+    torneo_nombre: torneo.nombre,
+    tipo_torneo_nombre: torneo.tipo_torneo_nombre,
+    norma_puntuacion: torneo.norma_puntuacion,
+    clasificacion: result.rows.map((r, idx) => ({
+      posicion: idx + 1,
+      id_participacion_equipo: Number(r.id_participacion_equipo),
+      id_equipo: Number(r.id_equipo),
+      equipo_nombre: r.equipo_nombre,
+      elo: Number(r.elo),
+      puntos: Number(r.puntos),
+    })),
+  };
+};
+
 const createTorneo = async (payload) => {
   const result = await pool.query(
     `INSERT INTO torneo (
@@ -1100,6 +1135,7 @@ async function generarEnfrentamientos(idTorneo) {
 module.exports = {
   listTorneos,
   getTorneoById,
+  getClasificacionTorneo,
   createTorneo,
   updateTorneo,
   deleteTorneo,

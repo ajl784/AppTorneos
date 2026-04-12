@@ -167,8 +167,13 @@ class _CalendarioTabState extends State<CalendarioTab> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Puntuaciones (se guardan al pasar a "acabado"):',
+                      'Marcador del partido (se guarda al pasar a "acabado"):',
                       style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'La clasificación del torneo (ej. 3-1-0) se calcula automáticamente según la regla de puntuación.',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 8),
                     ...partido.equipos.map((e) {
