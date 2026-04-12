@@ -173,7 +173,7 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
         ElevatedButton.icon(
           onPressed: _generarBracketEliminacion,
           icon: const Icon(Icons.account_tree),
-          label: const Text('Generar Bracket Eliminación'),
+          label: const Text('Generar enfrentamientos'),
         ),
         const SizedBox(height: 16),
         ElevatedButton.icon(
