@@ -14,6 +14,7 @@ class EquiposApi {
     int? limit,
     int? offset,
     String? nombre,
+    int? categoriaId,
   }) async {
     final res = await _api.getRaw(
       '/equipos',
@@ -21,6 +22,7 @@ class EquiposApi {
         'limit': limit?.toString(),
         'offset': offset?.toString(),
         'nombre': nombre,
+        'categoriaId': categoriaId?.toString(),
       },
     );
 
@@ -80,16 +82,73 @@ class EquiposApi {
   }
 
   /// Obtiene los equipos de un usuario por su ID usando la ruta /equipos/usuario/<idUsuario>
-    Future<ApiResponse<List<Equipo>>> getEquiposByUsuario(int idUsuario) async {
-      final res = await _api.getRaw('/equipos/usuario/$idUsuario');
-      final data = res.data;
-      if (data is! List) {
-        throw const FormatException('Respuesta inesperada (equipos no es List)');
-      }
-      final equipos = data
-          .whereType<Map>()
-          .map((item) => Equipo.fromJson(Map<String, dynamic>.from(item)))
-          .toList(growable: false);
-      return ApiResponse<List<Equipo>>(data: equipos, meta: res.meta);
+  Future<ApiResponse<List<Equipo>>> getEquiposByUsuario(int idUsuario) async {
+    final res = await _api.getRaw('/equipos/usuario/$idUsuario');
+    final data = res.data;
+    if (data is! List) {
+      throw const FormatException('Respuesta inesperada (equipos no es List)');
     }
+    final equipos = data
+        .whereType<Map>()
+        .map((item) => Equipo.fromJson(Map<String, dynamic>.from(item)))
+        .toList(growable: false);
+    return ApiResponse<List<Equipo>>(data: equipos, meta: res.meta);
+  }
+
+  Future<Map<String, dynamic>> solicitarIngresoEquipo({
+    required int idEquipo,
+    required String descripcion,
+    required String token,
+  }) async {
+    final res = await _api.postRaw(
+      '/equipos/$idEquipo/solicitudes',
+      body: {
+        'descripcion': descripcion,
+      },
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (res.data is Map<String, dynamic>) {
+      return res.data as Map<String, dynamic>;
+    }
+    throw const FormatException('Respuesta inesperada al solicitar ingreso');
+  }
+
+  Future<List<Map<String, dynamic>>> listSolicitudesIngresoEquipo({
+    required int idEquipo,
+    required String token,
+    String? estado,
+  }) async {
+    final res = await _api.getRaw(
+      '/equipos/$idEquipo/solicitudes',
+      headers: {'Authorization': 'Bearer $token'},
+      queryParameters: estado == null ? null : {'estado': estado},
+    );
+
+    if (res.data is! List) {
+      throw const FormatException('Respuesta inesperada (solicitudes no es List)');
+    }
+
+    return (res.data as List)
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> decidirSolicitudIngresoEquipo({
+    required int idSolicitudEquipo,
+    required bool aceptar,
+    required String token,
+  }) async {
+    final res = await _api.patchRaw(
+      '/equipos/solicitudes/$idSolicitudEquipo/decision',
+      body: {'aceptar': aceptar},
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (res.data is Map<String, dynamic>) {
+      return res.data as Map<String, dynamic>;
+    }
+
+    throw const FormatException('Respuesta inesperada al decidir solicitud');
+  }
 }

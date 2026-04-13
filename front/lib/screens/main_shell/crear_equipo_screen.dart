@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:front/peticion/api_config.dart';
+import 'package:front/features/categorias/data/categorias_api.dart';
+import 'package:front/features/categorias/domain/categoria.dart';
 import 'package:front/features/equipos/data/equipos_api.dart';
 import 'package:front/features/equipos/domain/equipo.dart';
 import 'package:front/api/api_exception.dart';
+import 'package:front/state/jwt_storage.dart';
 
 class CrearEquipoScreen extends StatefulWidget {
   const CrearEquipoScreen({super.key});
@@ -15,14 +18,21 @@ class _CrearEquipoScreenState extends State<CrearEquipoScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nombreController = TextEditingController();
   final TextEditingController _descripcionController = TextEditingController();
+  List<Categoria> _categorias = const [];
+  int? _categoriaSeleccionada;
+  String? _errorCategorias;
   bool _enviando = false;
+  bool _cargandoCategorias = true;
 
   late final EquiposApi _equiposApi;
+  late final CategoriasApi _categoriasApi;
 
   @override
   void initState() {
     super.initState();
     _equiposApi = EquiposApi(baseUrl: ApiConfig.baseUrl);
+    _categoriasApi = CategoriasApi(baseUrl: ApiConfig.baseUrl);
+    _cargarCategorias();
   }
 
   @override
@@ -32,14 +42,53 @@ class _CrearEquipoScreenState extends State<CrearEquipoScreen> {
     super.dispose();
   }
 
+  Future<void> _cargarCategorias() async {
+    setState(() {
+      _cargandoCategorias = true;
+      _errorCategorias = null;
+    });
+
+    try {
+      final res = await _categoriasApi.listCategorias(limit: 200, offset: 0);
+      final categorias = res.data;
+      setState(() {
+        _categorias = categorias;
+        _categoriaSeleccionada = categorias.isNotEmpty
+            ? categorias.first.idCategoria
+            : null;
+        _cargandoCategorias = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorCategorias = 'No se pudieron cargar las categorías';
+        _cargandoCategorias = false;
+      });
+    }
+  }
+
   void _crearEquipo() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_categoriaSeleccionada == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona una categoría para el equipo.')),
+      );
+      return;
+    }
+
     setState(() => _enviando = true);
     try {
+      final user = await JwtStorage.getUser();
+      final idUsuarioRaw = user?['id_usuario'];
+      final idUsuario = idUsuarioRaw is int
+          ? idUsuarioRaw
+          : int.tryParse(idUsuarioRaw?.toString() ?? '');
+
       final equipo = await _equiposApi.createEquipo(
         EquipoCreate(
           nombre: _nombreController.text.trim(),
           descripcion: _descripcionController.text.trim(),
+          idCategoria: _categoriaSeleccionada!,
+          idUsuario: idUsuario,
         ),
       );
       if (!mounted) return;
@@ -64,6 +113,10 @@ class _CrearEquipoScreenState extends State<CrearEquipoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_cargandoCategorias) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Crear equipo'),
@@ -75,6 +128,11 @@ class _CrearEquipoScreenState extends State<CrearEquipoScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (_errorCategorias != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Text(_errorCategorias!, style: const TextStyle(color: Colors.red)),
+                ),
               TextFormField(
                 controller: _nombreController,
                 decoration: const InputDecoration(
@@ -85,6 +143,26 @@ class _CrearEquipoScreenState extends State<CrearEquipoScreen> {
                     (value == null || value.trim().isEmpty) ? 'Introduce un nombre' : null,
               ),
               const SizedBox(height: 20),
+              DropdownButtonFormField<int>(
+                initialValue: _categoriaSeleccionada,
+                items: _categorias
+                    .map(
+                      (c) => DropdownMenuItem<int>(
+                        value: c.idCategoria,
+                        child: Text(c.nombre),
+                      ),
+                    )
+                    .toList(),
+                decoration: const InputDecoration(
+                  labelText: 'Categoría del equipo',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  setState(() => _categoriaSeleccionada = value);
+                },
+                validator: (value) => value == null ? 'Selecciona una categoría' : null,
+              ),
+              const SizedBox(height: 20),
               TextFormField(
                 controller: _descripcionController,
                 decoration: const InputDecoration(
@@ -93,8 +171,6 @@ class _CrearEquipoScreenState extends State<CrearEquipoScreen> {
                 ),
                 minLines: 2,
                 maxLines: 4,
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty) ? 'Introduce una descripción' : null,
               ),
               const SizedBox(height: 32),
               ElevatedButton(

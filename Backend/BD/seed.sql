@@ -166,18 +166,22 @@ WHERE c.nombre = 'Baloncesto 5'
 ON CONFLICT (nombre, id_categoria, id_tipo_torneo) DO NOTHING;
 
 -- Equipos de fútbol para Liga Primavera
-INSERT INTO equipo (nombre, descripcion, elo)
-VALUES
-    ('Atlético Aurora', 'Equipo ficticio de barrio', 1200),
-    ('Deportivo Central', 'Plantel de prueba', 1200),
-    ('Unión del Parque', 'Equipo amateur', 1200),
-    ('Sporting del Norte', 'Club inventado', 1200),
-    ('Rápidos FC', 'Equipo de fútbol 11', 1200),
-    ('Estrella Roja', 'Equipo de competición', 1200),
-    ('Titanes FC', 'Equipo ficticio', 1200),
-    ('Club Horizonte', 'Plantel de ejemplo', 1200),
-    ('Los Leones', 'Equipo de barrio', 1200),
-    ('Nueva Generación', 'Equipo juvenil ficticio', 1200)
+INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
+SELECT v.nombre, v.descripcion, v.elo, c.id_categoria
+FROM (
+	VALUES
+		('Atlético Aurora', 'Equipo ficticio de barrio', 1200),
+		('Deportivo Central', 'Plantel de prueba', 1200),
+		('Unión del Parque', 'Equipo amateur', 1200),
+		('Sporting del Norte', 'Club inventado', 1200),
+		('Rápidos FC', 'Equipo de fútbol 11', 1200),
+		('Estrella Roja', 'Equipo de competición', 1200),
+		('Titanes FC', 'Equipo ficticio', 1200),
+		('Club Horizonte', 'Plantel de ejemplo', 1200),
+		('Los Leones', 'Equipo de barrio', 1200),
+		('Nueva Generación', 'Equipo juvenil ficticio', 1200)
+) AS v(nombre, descripcion, elo)
+JOIN categoria c ON c.nombre = 'Fútbol 11'
 ON CONFLICT (nombre) DO NOTHING;
 
 -- Inscripción de equipos al torneo Liga Primavera
@@ -251,8 +255,10 @@ WHERE t.nombre = 'Copa Relámpago'
 ON CONFLICT (id_torneo, id_equipo) DO NOTHING;
 
 -- Personas/equipos de atletismo para pruebas de liga multi-participante
-INSERT INTO equipo (nombre, descripcion, elo)
-VALUES
+INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
+SELECT v.nombre, v.descripcion, v.elo, c.id_categoria
+FROM (
+  VALUES
 	('Ana Sprint', 'Atleta de velocidad', 1200),
 	('Bruno Rayo', 'Atleta de velocidad', 1200),
 	('Carla Pista', 'Atleta de pista', 1200),
@@ -269,11 +275,15 @@ VALUES
 	('Nico Track', 'Atleta de pista', 1200),
 	('Olga Tempo', 'Atleta de ritmo', 1200),
 	('Pablo Lane', 'Atleta de carril', 1200)
+) AS v(nombre, descripcion, elo)
+JOIN categoria c ON c.nombre = 'Atletismo'
 ON CONFLICT (nombre) DO NOTHING;
 
 -- Equipos/jugadores de parchis para eliminatorias por rondas
-INSERT INTO equipo (nombre, descripcion, elo)
-VALUES
+INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
+SELECT v.nombre, v.descripcion, v.elo, c.id_categoria
+FROM (
+  VALUES
 	('Laura Dados', 'Jugadora de parchis', 1200),
 	('Mario Ficha', 'Jugador de parchis', 1200),
 	('Nora Meta', 'Jugadora de parchis', 1200),
@@ -286,6 +296,8 @@ VALUES
 	('Ulises Casa', 'Jugador de parchis', 1200),
 	('Valeria Dado', 'Jugadora de parchis', 1200),
 	('Walter Salida', 'Jugador de parchis', 1200)
+) AS v(nombre, descripcion, elo)
+JOIN categoria c ON c.nombre = 'Parchís'
 ON CONFLICT (nombre) DO NOTHING;
 
 -- Torneo de atletismo para probar liga con mas de 2 participantes por partido

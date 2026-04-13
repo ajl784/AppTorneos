@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:front/screens/crear_torneo/crear_torneo_wizard_screen.dart';
 import 'package:front/screens/main_shell/crear_equipo_screen.dart';
+import 'package:front/screens/main_shell/unirse_equipo_screen.dart';
 
 class SpeedDialFab extends StatefulWidget {
+  const SpeedDialFab({super.key});
+
   @override
   State<SpeedDialFab> createState() => _SpeedDialFabState();
 }
@@ -75,6 +78,19 @@ class _SpeedDialFabState extends State<SpeedDialFab> with SingleTickerProviderSt
               ),
               const SizedBox(height: 12),
               SpeedDialOption(
+                icon: Icons.person_add_alt_1,
+                label: 'Unirse a equipo',
+                onTap: () {
+                  _toggle();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const UnirseEquipoScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              SpeedDialOption(
                 icon: Icons.emoji_events,
                 label: 'Crear torneo',
                 onTap: () {
@@ -123,8 +139,8 @@ class SpeedDialOption extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
