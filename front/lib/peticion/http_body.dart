@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:front/features/torneos/data/torneos_api.dart';
+import 'package:front/features/torneos/torneos_refresh.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
 import 'package:front/screens/torneos/torneo_detalle_screen.dart';
@@ -57,7 +58,29 @@ class _TorneosBodyState extends State<TorneosBody> {
     baseUrl: ApiConfig.baseUrl,
   );
 
-  late final Future<List<Torneo>> _future = _api.fetchTorneos();
+  late Future<List<Torneo>> _future;
+  late final VoidCallback _refreshListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _api.fetchTorneos();
+
+    _refreshListener = () {
+      if (!mounted) return;
+      setState(() {
+        _future = _api.fetchTorneos();
+      });
+    };
+
+    TorneosRefresh.instance.tick.addListener(_refreshListener);
+  }
+
+  @override
+  void dispose() {
+    TorneosRefresh.instance.tick.removeListener(_refreshListener);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
