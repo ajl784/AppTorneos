@@ -4,6 +4,32 @@ Aplicación de gestión de torneos para la asignatura 21782 - Laboratori de Proj
 
 Este README está pensado para el equipo de front.
 
+## 0) Prerequisitos (Windows/Mac/Linux)
+
+- Docker Desktop instalado y en ejecución (daemon activo).
+- Node.js 20+ y npm instalados.
+
+Comprobaciones rápidas:
+
+```bash
+docker --version
+docker compose version
+node -v
+npm -v
+```
+
+Si falta configuración local, copia el ejemplo:
+
+```bash
+cp .env.example .env
+```
+
+En Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
 ## 1) Pregunta frecuente: para que sirve back/nada.js
 
 Si, sirve.
@@ -24,6 +50,8 @@ Levantar backend + BD:
 docker compose up --build -d
 ```
 
+Si Docker da error de daemon/pipe en Windows, abre Docker Desktop y espera a que diga "Engine running".
+
 Comprobar que esta vivo:
 
 ```bash
@@ -41,6 +69,15 @@ Base URL para front:
 ```text
 http://localhost:3000/api/v1
 ```
+
+Alternativa sin Docker (backend local):
+
+```bash
+npm install
+npm run dev
+```
+
+Nota: en modo local debes tener PostgreSQL disponible y `DB_HOST=localhost` en `.env`.
 
 ## 3) Contrato de respuesta (importante para front)
 

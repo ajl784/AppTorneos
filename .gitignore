@@ -5,6 +5,7 @@
 *.pyc
 *.swp
 node_modules/
+.env
 .buildlog/
 .history
 .vscode/

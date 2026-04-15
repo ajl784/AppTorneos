@@ -7,9 +7,15 @@ const { errorHandler } = require("./middleware/error-handler");
 
 const app = express();
 
+const corsOriginEnv = process.env.CORS_ORIGIN;
+const corsOrigin =
+  !corsOriginEnv || corsOriginEnv.trim() === "*"
+    ? "*"
+    : corsOriginEnv.split(",").map((origin) => origin.trim()).filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : "*",
+    origin: corsOrigin,
   }),
 );
 app.use(express.json({ limit: "1mb" }));
