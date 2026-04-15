@@ -1,4 +1,46 @@
 const { pool } = require("../db/pool");
+const { AppError } = require("../utils/errors");
+
+const assertNoUsuariosEnEquiposDelTorneo = async ({ idTorneo, idEquipo }) => {
+  const conflicto = await pool.query(
+    `SELECT DISTINCT
+        u.id_usuario,
+        u.nombre_usuario,
+        p_conf.id_equipo AS id_equipo_conflicto,
+        e_conf.nombre AS equipo_conflicto_nombre,
+        pte.estado AS estado_conflicto
+     FROM pertenece p_new
+     JOIN pertenece p_conf
+       ON p_conf.id_usuario = p_new.id_usuario
+      AND p_conf.fecha_fin IS NULL
+      AND p_conf.id_equipo <> p_new.id_equipo
+     JOIN participacion_torneo_equipo pte
+       ON pte.id_equipo = p_conf.id_equipo
+      AND pte.id_torneo = $1
+      AND pte.estado IN ('pendiente', 'jugando')
+     JOIN usuario u
+       ON u.id_usuario = p_new.id_usuario
+     JOIN equipo e_conf
+       ON e_conf.id_equipo = p_conf.id_equipo
+     WHERE p_new.id_equipo = $2
+       AND p_new.fecha_fin IS NULL
+     ORDER BY u.id_usuario ASC
+     LIMIT 10`,
+    [idTorneo, idEquipo],
+  );
+
+  if (conflicto.rowCount) {
+    throw new AppError(
+      409,
+      "No se puede inscribir el equipo: hay usuarios que ya participan o tienen solicitud pendiente en este torneo con otro equipo",
+      {
+        id_torneo: idTorneo,
+        id_equipo: idEquipo,
+        conflictos: conflicto.rows,
+      },
+    );
+  }
+};
 
 const listParticipaciones = async ({
   limit,
@@ -79,6 +121,11 @@ const createParticipacion = async ({
   estado,
   puntuacion,
 }) => {
+  await assertNoUsuariosEnEquiposDelTorneo({
+    idTorneo: id_torneo,
+    idEquipo: id_equipo,
+  });
+
   const result = await pool.query(
     `INSERT INTO participacion_torneo_equipo (id_torneo, id_equipo, respuesta, estado, puntuacion)
      VALUES ($1, $2, $3::jsonb, $4, $5)
@@ -183,6 +230,11 @@ const listSolicitudesByTorneo = async ({ idTorneo, estado }) => {
 };
 
 const createSolicitudByTorneo = async ({ idTorneo, idEquipo, respuesta }) => {
+  await assertNoUsuariosEnEquiposDelTorneo({
+    idTorneo,
+    idEquipo,
+  });
+
   const result = await pool.query(
     `INSERT INTO participacion_torneo_equipo (id_torneo, id_equipo, respuesta, estado, puntuacion)
      VALUES ($1, $2, $3::jsonb, 'pendiente', 0)
