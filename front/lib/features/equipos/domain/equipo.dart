@@ -3,12 +3,16 @@ class Equipo {
   final String nombre;
   final String? descripcion;
   final int? elo;
+  final int? idCategoria;
+  final String? categoriaNombre;
 
   const Equipo({
     required this.idEquipo,
     required this.nombre,
     this.descripcion,
     this.elo,
+    this.idCategoria,
+    this.categoriaNombre,
   });
 
   static int? _intOrNull(dynamic value) {
@@ -36,6 +40,8 @@ class Equipo {
       nombre: (json['nombre'] as String?) ?? '',
       descripcion: _stringOrNull(json['descripcion']),
       elo: _intOrNull(json['elo']),
+      idCategoria: _intOrNull(json['id_categoria'] ?? json['idCategoria']),
+      categoriaNombre: _stringOrNull(json['categoria_nombre'] ?? json['categoriaNombre']),
     );
   }
 
@@ -45,6 +51,8 @@ class Equipo {
       'nombre': nombre,
       'descripcion': descripcion,
       'elo': elo,
+      'id_categoria': idCategoria,
+      'categoria_nombre': categoriaNombre,
     };
   }
 }
@@ -53,13 +61,23 @@ class EquipoCreate {
   final String nombre;
   final String? descripcion;
   final int? elo;
+  final int idCategoria;
+  final int? idUsuario;
 
-  const EquipoCreate({required this.nombre, this.descripcion, this.elo});
+  const EquipoCreate({
+    required this.nombre,
+    required this.idCategoria,
+    this.descripcion,
+    this.elo,
+    this.idUsuario,
+  });
 
   Map<String, dynamic> toJson() => {
     'nombre': nombre,
+    'id_categoria': idCategoria,
     if (descripcion != null) 'descripcion': descripcion,
     if (elo != null) 'elo': elo,
+    if (idUsuario != null) 'id_usuario': idUsuario,
   };
 }
 
@@ -67,12 +85,14 @@ class EquipoUpdate {
   final String? nombre;
   final String? descripcion;
   final int? elo;
+  final int? idCategoria;
 
-  const EquipoUpdate({this.nombre, this.descripcion, this.elo});
+  const EquipoUpdate({this.nombre, this.descripcion, this.elo, this.idCategoria});
 
   Map<String, dynamic> toJson() => {
     if (nombre != null) 'nombre': nombre,
     if (descripcion != null) 'descripcion': descripcion,
     if (elo != null) 'elo': elo,
+    if (idCategoria != null) 'id_categoria': idCategoria,
   };
 }

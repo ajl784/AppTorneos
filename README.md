@@ -186,6 +186,8 @@ Al guardar:
 - se actualiza `participacion_partido.punto` (puntos de ese partido),
 - se recalcula `participacion_torneo_equipo.puntuacion` (acumulado del torneo),
 - se guarda el acta en `arbitro_partido` si se envia `id_arbitro_torneo`.
+- si el partido tiene varios equipos, se ajusta el Elo de cada uno comparando su posición esperada frente a la posición real.
+- la respuesta incluye `elo_actualizado` con `posicion_esperada`, `posicion_real`, `score_esperado` y `score_real` por equipo.
 
 ### 4.5 Flujo organizador: generacion de enfrentamientos
 

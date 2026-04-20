@@ -167,7 +167,7 @@ class AppTorneosApiClient {
       throw ApiException(statusCode: 0, message: 'Error de red: $e');
     }
 
-    final decoded = _tryDecodeJson(response.body);
+    final decoded = tryDecodeJson(response.body);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw _toApiException(response.statusCode, decoded, response.body);
@@ -190,7 +190,7 @@ class AppTorneosApiClient {
     return ApiResponse<dynamic>(data: decoded, meta: null);
   }
 
-  static Object? _tryDecodeJson(String body) {
+  static Object? tryDecodeJson(String body) {
     if (body.trim().isEmpty) return null;
     try {
       return jsonDecode(body);

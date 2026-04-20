@@ -1,3 +1,8 @@
+import 'dart:async';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:front/peticion/api_config.dart';
+import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:flutter/material.dart';
 
 import 'package:front/screens/login_register/login_register_screen.dart';
@@ -7,8 +12,13 @@ import 'package:front/screens/main_shell/tabs/estadisticas_tab.dart';
 import 'package:front/screens/main_shell/tabs/inicio_tab.dart';
 import 'package:front/screens/main_shell/tabs/torneos_tab.dart';
 import 'package:front/screens/crear_torneo/crear_torneo_wizard_screen.dart';
+import 'package:front/screens/main_shell/_speed_dial_fab.dart';
 import 'package:front/screens/perfil/perfil_screen.dart';
 import 'package:front/state/auth_state.dart';
+import 'package:front/state/jwt_storage.dart';
+import 'package:front/peticion/api_config.dart';
+import 'package:front/features/usuarios/data/usuarios_api.dart';
+import 'package:front/screens/main_shell/mis_notificaciones.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -17,26 +27,123 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
-  int _currentIndex = 0;
+class NotificationBadgeState {
+  static final ValueNotifier<bool> hasPending = ValueNotifier(false);
+}
 
-  void _goToProfile() {
-    if (AuthState.isLoggedIn.value) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const PerfilScreen()),
-      );
+
+class _MainShellState extends State<MainShell> {
+    // Control para el badge de notificaciones
+    late final ValueNotifier<bool> _hasPendingNotifications;
+    StreamSubscription? _notificacionesSub;
+
+  int _currentIndex = 0;
+  ImageProvider? _profileImage;
+  bool _loadingProfileImage = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileImage();
+    AuthState.isLoggedIn.addListener(_loadProfileImage);
+
+    _hasPendingNotifications = NotificationBadgeState.hasPending;
+    _checkPendingNotifications();
+  }
+
+  @override
+  void dispose() {
+    AuthState.isLoggedIn.removeListener(_loadProfileImage);
+    _notificacionesSub?.cancel();
+    super.dispose();
+  }
+  Future<void> _checkPendingNotifications() async {
+    try {
+      final jwtUser = await JwtStorage.getUser();
+      if (jwtUser == null) {
+        _hasPendingNotifications.value = false;
+        return;
+      }
+      final int idUsuario = int.parse(jwtUser['id_usuario'].toString());
+      final torneosApi = TorneosApi(baseUrl: ApiConfig.baseUrl);
+      final response = await torneosApi.listTorneos(organizadorId: idUsuario);
+      final torneos = response.data;
+      bool found = false;
+      for (final torneo in torneos) {
+        final idTorneo = torneo.id;
+        final url = ApiConfig.baseUrl.replaceAll('/api/v1', '') + '/api/v1/torneos/$idTorneo/solicitudes?estado=pendiente';
+        final resp = await http.get(Uri.parse(url));
+        if (resp.statusCode == 200) {
+          final data = json.decode(resp.body);
+          if (data['ok'] == true && data['meta'] != null && data['meta']['count'] > 0) {
+            found = true;
+            break;
+          }
+        }
+      }
+      _hasPendingNotifications.value = found;
+    } catch (_) {
+      _hasPendingNotifications.value = false;
+    }
+  }
+
+  Future<void> _loadProfileImage() async {
+    if (!AuthState.isLoggedIn.value) {
+      setState(() {
+        _profileImage = null;
+      });
       return;
     }
+    setState(() { _loadingProfileImage = true; });
+    try {
+      // Obtener el usuario logueado y su foto de perfil
+      final jwtUser = await JwtStorage.getUser();
+      if (jwtUser == null) throw Exception('No hay usuario logueado');
+      final int idUsuario = int.parse(jwtUser['id_usuario'].toString());
+      final usuariosApi = UsuariosApi(baseUrl: ApiConfig.baseUrl);
+      final userResp = await usuariosApi.getUsuarioById(idUsuario);
+      ImageProvider? profileImage;
+      if (userResp.fotoperfil != null) {
+        final url = ApiConfig.baseUrl.replaceAll('/api/v1', '') + '/api/v1/usuarios/$idUsuario/profile-pic';
+        profileImage = NetworkImage(url);
+      } else {
+        profileImage = null;
+      }
+      setState(() {
+        _profileImage = profileImage;
+      });
+    } catch (_) {
+      setState(() {
+        _profileImage = null;
+      });
+    } finally {
+      setState(() { _loadingProfileImage = false; });
+    }
+  }
 
+  void _goToProfile() async {
+    if (AuthState.isLoggedIn.value) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const PerfilScreen()),
+      );
+      // Al volver del perfil, recarga la imagen
+      _loadProfileImage();
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const LoginRegisterScreen()),
     );
   }
 
-  void _openNotifications() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Notificaciones')),
+  void _openNotifications() async {
+    // Navega y espera el resultado
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const MisNotificacionesScreen(),
+      ),
     );
+    // Al volver, vuelve a comprobar
+    _checkPendingNotifications();
   }
 
   @override
@@ -48,10 +155,33 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        leading: IconButton(
-          tooltip: 'Notificaciones',
-          icon: const Icon(Icons.notifications),
-          onPressed: _openNotifications,
+        leading: ValueListenableBuilder<bool>(
+          valueListenable: _hasPendingNotifications,
+          builder: (context, hasPending, child) {
+            return Stack(
+              children: [
+                IconButton(
+                  tooltip: 'Notificaciones',
+                  icon: const Icon(Icons.notifications),
+                  onPressed: _openNotifications,
+                ),
+                if (hasPending)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
         title: const Text('Torneando'),
         actions: [
@@ -60,8 +190,9 @@ class _MainShellState extends State<MainShell> {
             child: InkWell(
               onTap: _goToProfile,
               customBorder: const CircleBorder(),
-              child: const CircleAvatar(
-                child: Icon(Icons.person),
+              child: CircleAvatar(
+                backgroundImage: _profileImage,
+                child: _profileImage == null ? const Icon(Icons.person) : null,
               ),
             ),
           ),
@@ -78,27 +209,7 @@ class _MainShellState extends State<MainShell> {
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: SizedBox(
-        width: 70,
-        height: 70,
-        child: FloatingActionButton(
-          tooltip: 'Crear torneo',
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const CrearTorneoWizardScreen(),
-              ),
-            );
-          },
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          elevation: 6,
-          shape: const CircleBorder(
-            side: BorderSide(color: Colors.white24, width: 1.5),
-          ),
-          child: const Icon(Icons.add, size: 40),
-        ),
-      ),
+      floatingActionButton: SpeedDialFab(),
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8,

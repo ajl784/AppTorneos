@@ -7,6 +7,8 @@ import 'package:front/features/categorias/domain/categoria.dart';
 import 'package:front/features/tipos_torneo/domain/tipo_torneo.dart';
 import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
+import 'package:front/features/torneos/torneos_refresh.dart';
+import 'package:front/state/jwt_storage.dart';
 
 class CrearTorneoWizardScreen extends StatefulWidget {
   const CrearTorneoWizardScreen({super.key});
@@ -54,6 +56,7 @@ class _PreguntaDraft {
 }
 
 class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
+    int? _idOrganizador;
   static String _defaultApiBaseUrl() {
     if (kIsWeb) {
       final host = (Uri.base.host.isNotEmpty) ? Uri.base.host : 'localhost';
@@ -82,7 +85,6 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
       TextEditingController(text: '2');
 
   List<TipoTorneo> _tiposPermitidos = const [];
-  String? _modoTipo; // 'liga' | 'eliminacion'
   TipoTorneo? _tipoSeleccionado;
 
   final TextEditingController _puntosGanarCtrl = TextEditingController(text: '3');
@@ -108,6 +110,29 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
   void initState() {
     super.initState();
     _loadCategorias();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final userMap = await JwtStorage.getUser();
+    final dynamic idRaw = userMap != null
+        ? (userMap['id_usuario'] ?? userMap['idUsuario'] ?? userMap['id'])
+        : null;
+    final int? id =
+        idRaw is int ? idRaw : (idRaw != null ? int.tryParse(idRaw.toString()) : null);
+    if (userMap == null || id == null) {
+      // Si no hay usuario, cerrar el wizard y mostrar aviso
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Debes iniciar sesión para crear un torneo.')),
+        );
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+    setState(() {
+      _idOrganizador = id;
+    });
   }
 
   @override
@@ -154,7 +179,6 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
     setState(() {
       _categoriaSeleccionada = value;
       _tiposPermitidos = const [];
-      _modoTipo = null;
       _tipoSeleccionado = null;
     });
 
@@ -166,22 +190,12 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
       if (!mounted) return;
       setState(() {
         _tiposPermitidos = tipos;
+        _tipoSeleccionado = tipos.isEmpty ? null : tipos.first;
       });
-
-      if (tipos.length == 1) {
-        setState(() {
-          _tipoSeleccionado = tipos.first;
-          _modoTipo = _isLiga(tipos.first) ? 'liga' : 'eliminacion';
-        });
-      }
     } catch (e) {
       if (!mounted) return;
       _snack('No se pudieron cargar tipos: $e');
     }
-  }
-
-  static bool _isLiga(TipoTorneo t) {
-    return t.nombre.trim().toLowerCase().contains('liga');
   }
 
   static String _two(int v) => v.toString().padLeft(2, '0');
@@ -370,6 +384,10 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
 
   Future<void> _handleNext() async {
     if (_loading) return;
+    if (_idOrganizador == null) {
+      _snack('Debes iniciar sesión para crear un torneo.');
+      return;
+    }
 
     if (_stepIndex == 0) {
       if (!_validateStep0()) return;
@@ -457,6 +475,7 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
       normaPuntuacion: _buildNormaPuntuacion(),
       preferenciaHorario: _buildPreferenciaHorario(),
       encuesta: _buildEncuesta(),
+      idOrganizador: _idOrganizador,
     );
 
     setState(() => _loading = true);
@@ -466,6 +485,7 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
 
       setState(() => _loading = false);
       _snack('Torneo creado: ${created.nombre}');
+      TorneosRefresh.instance.notify();
       Navigator.of(context).pop(created);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -742,7 +762,6 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
               if (_crearCategoriaNueva) {
                 _categoriaSeleccionada = null;
                 _tiposPermitidos = const [];
-                _modoTipo = null;
                 _tipoSeleccionado = null;
               }
             });
@@ -801,72 +820,22 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
       return const Text('Cargando tipos permitidos para la categoría...');
     }
 
-    final ligas = _tiposPermitidos.where(_isLiga).toList(growable: false);
-    final eliminaciones =
-        _tiposPermitidos.where((t) => !_isLiga(t)).toList(growable: false);
-
-    final ligaEnabled = ligas.isNotEmpty;
-    final elimEnabled = eliminaciones.isNotEmpty;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text('Elige el tipo de torneo:'),
-        const SizedBox(height: 8),
-        RadioListTile<String>(
-          value: 'liga',
-          groupValue: _modoTipo,
-          onChanged: ligaEnabled
-              ? (v) {
-                  setState(() {
-                    _modoTipo = v;
-                    _tipoSeleccionado = ligas.isNotEmpty ? ligas.first : null;
-                  });
-                }
-              : null,
-          title: const Text('Liga'),
-          subtitle: ligaEnabled
-              ? null
-              : const Text('No disponible en esta categoría'),
-          contentPadding: EdgeInsets.zero,
-        ),
-        RadioListTile<String>(
-          value: 'eliminacion',
-          groupValue: _modoTipo,
-          onChanged: elimEnabled
-              ? (v) {
-                  setState(() {
-                    _modoTipo = v;
-                    _tipoSeleccionado = null;
-                  });
-                }
-              : null,
-          title: const Text('Eliminación'),
-          subtitle: elimEnabled
-              ? null
-              : const Text('No disponible en esta categoría'),
-          contentPadding: EdgeInsets.zero,
-        ),
         const SizedBox(height: 12),
-        if (_modoTipo == 'eliminacion')
-          DropdownButtonFormField<TipoTorneo>(
-            value: _tipoSeleccionado,
-            items: eliminaciones
-                .map((t) => DropdownMenuItem(value: t, child: Text(t.nombre)))
-                .toList(growable: false),
-            onChanged: (t) => setState(() => _tipoSeleccionado = t),
-            decoration: const InputDecoration(
-              labelText: 'Variante de eliminación',
-              border: OutlineInputBorder(),
-            ),
+        DropdownButtonFormField<TipoTorneo>(
+          value: _tipoSeleccionado,
+          items: _tiposPermitidos
+              .map((t) => DropdownMenuItem(value: t, child: Text(t.nombre)))
+              .toList(growable: false),
+          onChanged: (t) => setState(() => _tipoSeleccionado = t),
+          decoration: const InputDecoration(
+            labelText: 'Tipo de torneo',
+            border: OutlineInputBorder(),
           ),
-        if (_modoTipo == 'liga')
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'Tipo seleccionado: ${_tipoSeleccionado?.nombre ?? 'Liga'}',
-            ),
-          ),
+        ),
       ],
     );
   }

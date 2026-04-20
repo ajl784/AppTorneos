@@ -1,4 +1,5 @@
 const { pool } = require("../db/pool");
+const { AppError } = require("../utils/errors");
 
 const listTorneos = async ({
   limit,
@@ -41,7 +42,6 @@ const listTorneos = async ({
       t.fecha_inicio,
       t.fecha_fin,
       t.estado,
-      t.limite_equipos,
       t.id_categoria,
       c.nombre AS categoria_nombre,
       t.id_tipo_torneo,
@@ -69,9 +69,9 @@ const getTorneoById = async (idTorneo) => {
       t.fecha_inicio,
       t.fecha_fin,
       t.estado,
-      t.limite_equipos,
       t.id_categoria,
       c.nombre AS categoria_nombre,
+      c.norma AS categoria_norma,
       t.id_tipo_torneo,
       tt.nombre AS tipo_torneo_nombre,
       t.id_organizador,
@@ -89,15 +89,127 @@ const getTorneoById = async (idTorneo) => {
   return result.rows[0] || null;
 };
 
+const getClasificacionTorneo = async (idTorneo) => {
+  // Verifica existencia
+  const torneo = await getTorneoById(idTorneo);
+  if (!torneo) return null;
+
+  const result = await pool.query(
+    `SELECT
+       pte.id_participacion_equipo,
+       e.id_equipo,
+       e.nombre AS equipo_nombre,
+       e.elo,
+       COALESCE(pte.puntuacion, 0) AS puntos
+     FROM participacion_torneo_equipo pte
+     JOIN equipo e ON e.id_equipo = pte.id_equipo
+     WHERE pte.id_torneo = $1
+     ORDER BY COALESCE(pte.puntuacion, 0) DESC, e.nombre ASC`,
+    [idTorneo],
+  );
+
+  return {
+    id_torneo: Number(torneo.id_torneo),
+    torneo_nombre: torneo.nombre,
+    tipo_torneo_nombre: torneo.tipo_torneo_nombre,
+    norma_puntuacion: torneo.norma_puntuacion,
+    clasificacion: result.rows.map((r, idx) => ({
+      posicion: idx + 1,
+      id_participacion_equipo: Number(r.id_participacion_equipo),
+      id_equipo: Number(r.id_equipo),
+      equipo_nombre: r.equipo_nombre,
+      elo: Number(r.elo),
+      puntos: Number(r.puntos),
+    })),
+  };
+};
+
+const getPartidosTorneo = async (idTorneo) => {
+  const torneo = await getTorneoById(idTorneo);
+  if (!torneo) return null;
+
+  const result = await pool.query(
+    `SELECT
+       p.id_partido,
+       p.fecha_hora,
+       p.lugar,
+       p.estado,
+       p.jornada,
+       p.ronda,
+       p.orden_ronda,
+       p.id_partido_siguiente,
+       p.ganador_id_participacion_equipo,
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'id_participacion_equipo', pte.id_participacion_equipo,
+             'id_equipo', e.id_equipo,
+             'equipo_nombre', e.nombre,
+             'punto', pp.punto
+           )
+           ORDER BY pte.id_participacion_equipo
+         ) FILTER (WHERE pte.id_participacion_equipo IS NOT NULL),
+         '[]'::json
+       ) AS equipos
+     FROM partido p
+     LEFT JOIN participacion_partido pp ON pp.id_partido = p.id_partido
+     LEFT JOIN participacion_torneo_equipo pte ON pte.id_participacion_equipo = pp.id_participacion_equipo
+     LEFT JOIN equipo e ON e.id_equipo = pte.id_equipo
+     WHERE p.id_torneo = $1
+     GROUP BY p.id_partido
+     ORDER BY
+       p.ronda NULLS LAST,
+       p.orden_ronda NULLS LAST,
+       p.jornada NULLS LAST,
+       p.fecha_hora ASC,
+       p.id_partido ASC`,
+    [idTorneo],
+  );
+
+  return {
+    id_torneo: Number(torneo.id_torneo),
+    torneo_nombre: torneo.nombre,
+    tipo_torneo_nombre: torneo.tipo_torneo_nombre,
+    partidos: result.rows.map((r) => {
+      const rawEquipos = r.equipos;
+      const equipos =
+        typeof rawEquipos === "string" ? JSON.parse(rawEquipos) : rawEquipos;
+
+      return {
+        id_partido: Number(r.id_partido),
+        fecha_hora: r.fecha_hora,
+        lugar: r.lugar,
+        estado: r.estado,
+        jornada: r.jornada === null ? null : Number(r.jornada),
+        ronda: r.ronda === null ? null : Number(r.ronda),
+        orden_ronda: r.orden_ronda === null ? null : Number(r.orden_ronda),
+        id_partido_siguiente:
+          r.id_partido_siguiente === null ? null : Number(r.id_partido_siguiente),
+        ganador_id_participacion_equipo:
+          r.ganador_id_participacion_equipo === null
+            ? null
+            : Number(r.ganador_id_participacion_equipo),
+        equipos: Array.isArray(equipos)
+          ? equipos.map((e) => ({
+              id_participacion_equipo: Number(e.id_participacion_equipo),
+              id_equipo: Number(e.id_equipo),
+              equipo_nombre: e.equipo_nombre,
+              punto: Number(e.punto),
+            }))
+          : [],
+      };
+    }),
+  };
+};
+
 const createTorneo = async (payload) => {
   const result = await pool.query(
     `INSERT INTO torneo (
       nombre, descripcion, fecha_inicio, fecha_fin, estado,
-      limite_equipos,
       id_categoria, id_tipo_torneo, id_organizador,
       encuesta, norma_puntuacion, preferencia_horario
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12::jsonb)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11::jsonb)
      RETURNING id_torneo`,
     [
       payload.nombre,
@@ -105,7 +217,6 @@ const createTorneo = async (payload) => {
       payload.fecha_inicio || null,
       payload.fecha_fin || null,
       payload.estado || "inscripcion_abierta",
-      payload.limite_equipos ?? null,
       payload.id_categoria,
       payload.id_tipo_torneo,
       payload.id_organizador || null,
@@ -121,13 +232,48 @@ const createTorneo = async (payload) => {
 };
 
 const updateTorneo = async (idTorneo, payload) => {
+  if (payload.estado !== undefined) {
+    const current = await pool.query(
+      `SELECT estado FROM torneo WHERE id_torneo = $1`,
+      [idTorneo],
+    );
+
+    if (current.rowCount) {
+      const currentEstado = current.rows[0].estado;
+      const nextEstado = payload.estado;
+
+      if (nextEstado === "en_curso") {
+        throw new AppError(
+          400,
+          "El estado 'en_curso' se establece automáticamente al generar enfrentamientos",
+        );
+      }
+
+      if (currentEstado === "inscripcion_abierta") {
+        const allowed = new Set([
+          "inscripcion_abierta",
+          "inscripcion_cerrada",
+          "inscripcion_terminada",
+          "cancelado",
+        ]);
+
+        if (!allowed.has(nextEstado)) {
+          throw new AppError(
+            400,
+            "Desde 'inscripcion_abierta' solo puedes pasar a 'inscripcion_cerrada' o 'cancelado'",
+            { from: currentEstado, to: nextEstado },
+          );
+        }
+      }
+    }
+  }
+
   const mapping = {
     nombre: "nombre",
     descripcion: "descripcion",
     fecha_inicio: "fecha_inicio",
     fecha_fin: "fecha_fin",
     estado: "estado",
-    limite_equipos: "limite_equipos",
     id_categoria: "id_categoria",
     id_tipo_torneo: "id_tipo_torneo",
     id_organizador: "id_organizador",
@@ -369,6 +515,103 @@ async function insertarParticipacionesPartido(
   );
 }
 
+async function getArbitrosTorneo(client, idTorneo) {
+  // Compatibilidad: algunos esquemas modelan árbitros globales (sin id_torneo)
+  // y otros los asocian por torneo (con id_torneo). Detectamos la columna.
+  const hasIdTorneo = await client.query(
+    `
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = 'arbitro_torneo'
+      AND column_name = 'id_torneo'
+    LIMIT 1
+    `,
+  );
+
+  const q = hasIdTorneo.rowCount
+    ? await client.query(
+        `
+        SELECT id_arbitro_torneo
+        FROM arbitro_torneo
+        WHERE id_torneo = $1 OR id_torneo IS NULL
+        ORDER BY id_arbitro_torneo ASC
+        `,
+        [idTorneo],
+      )
+    : await client.query(
+        `
+        SELECT id_arbitro_torneo
+        FROM arbitro_torneo
+        ORDER BY id_arbitro_torneo ASC
+        `,
+      );
+
+  return q.rows.map((r) => Number(r.id_arbitro_torneo));
+}
+
+async function asignarArbitroPartido(client, { idPartido, idArbitroTorneo }) {
+  await client.query(
+    `
+    INSERT INTO arbitro_partido (id_partido, id_arbitro_torneo, acta)
+    VALUES ($1, $2, NULL)
+    ON CONFLICT (id_partido, id_arbitro_torneo)
+    DO NOTHING
+    `,
+    [idPartido, idArbitroTorneo],
+  );
+}
+
+async function arbitroParticipaEnPartido(client, { idArbitroTorneo, idPartido }) {
+  // Un árbitro NO debe arbitrar si juega el partido (pertenece a un equipo participante
+  // en la fecha del partido). Esta lógica funciona tanto para partidos 1v1 como multi.
+  const q = await client.query(
+    `
+    SELECT 1
+    FROM arbitro_torneo at
+    JOIN pertenece pe ON pe.id_usuario = at.id_usuario
+    JOIN partido pa ON pa.id_partido = $2
+    JOIN participacion_partido pp ON pp.id_partido = pa.id_partido
+    JOIN participacion_torneo_equipo pte
+      ON pte.id_participacion_equipo = pp.id_participacion_equipo
+     AND pte.id_equipo = pe.id_equipo
+    WHERE at.id_arbitro_torneo = $1
+      AND (pa.fecha_hora::date >= pe.fecha_inicio)
+      AND (pe.fecha_fin IS NULL OR pa.fecha_hora::date <= pe.fecha_fin)
+    LIMIT 1
+    `,
+    [idArbitroTorneo, idPartido],
+  );
+  return Boolean(q.rowCount);
+}
+
+async function elegirArbitroDisponible(client, {
+  arbitros,
+  startIndex,
+  idPartido,
+}) {
+  if (!arbitros.length) {
+    throw new Error("Se requiere al menos 1 árbitro para generar enfrentamientos");
+  }
+
+  for (let offset = 0; offset < arbitros.length; offset++) {
+    const idx = (startIndex + offset) % arbitros.length;
+    const idArbitroTorneo = arbitros[idx];
+
+    const participa = await arbitroParticipaEnPartido(client, {
+      idArbitroTorneo,
+      idPartido,
+    });
+    if (!participa) {
+      return { idArbitroTorneo, nextIndex: idx + 1 };
+    }
+  }
+
+  throw new Error(
+    "No hay árbitros disponibles que no participen en el partido (conflicto árbitro/jugador)",
+  );
+}
+
 function construirJornadasDuelo(participaciones, dobleVuelta = true) {
   const equipos = participaciones.slice();
   if (equipos.length < 2) return [];
@@ -466,6 +709,14 @@ async function generarLiga(idTorneo) {
       );
     }
 
+    const arbitros = await getArbitrosTorneo(client, idTorneo);
+    if (!arbitros.length) {
+      throw new Error(
+        "Se requiere al menos 1 árbitro para generar enfrentamientos",
+      );
+    }
+    let idxArbitro = 0;
+
     let cursor = torneo.fecha_inicio
       ? new Date(torneo.fecha_inicio)
       : new Date();
@@ -497,9 +748,22 @@ async function generarLiga(idTorneo) {
           idPartido,
           participantesDelPartido,
         );
+
+        const picked = await elegirArbitroDisponible(client, {
+          arbitros,
+          startIndex: idxArbitro,
+          idPartido,
+        });
+        await asignarArbitroPartido(client, {
+          idPartido,
+          idArbitroTorneo: picked.idArbitroTorneo,
+        });
+        idxArbitro = picked.nextIndex;
         total++;
       }
     }
+
+    await client.query(`UPDATE torneo SET estado = 'en_curso' WHERE id_torneo = $1`, [idTorneo]);
 
     await client.query("COMMIT");
     return { ok: true, tipo: "Liga", partidosGenerados: total };
@@ -539,6 +803,14 @@ async function generarEliminacion(idTorneo) {
       throw new Error("En eliminación directa, equipos debe ser potencia de 2");
     }
 
+    const arbitros = await getArbitrosTorneo(client, idTorneo);
+    if (!arbitros.length) {
+      throw new Error(
+        "Se requiere al menos 1 árbitro para generar enfrentamientos",
+      );
+    }
+    let idxArbitro = 0;
+
     let cursor = torneo.fecha_inicio
       ? new Date(torneo.fecha_inicio)
       : new Date();
@@ -562,8 +834,21 @@ async function generarEliminacion(idTorneo) {
         a.id_participacion_equipo,
         b.id_participacion_equipo,
       ]);
+
+      const picked = await elegirArbitroDisponible(client, {
+        arbitros,
+        startIndex: idxArbitro,
+        idPartido,
+      });
+      await asignarArbitroPartido(client, {
+        idPartido,
+        idArbitroTorneo: picked.idArbitroTorneo,
+      });
+      idxArbitro = picked.nextIndex;
       orden++;
     }
+
+    await client.query(`UPDATE torneo SET estado = 'en_curso' WHERE id_torneo = $1`, [idTorneo]);
 
     await client.query("COMMIT");
     return { ok: true, tipo: "Eliminación directa", rondaGenerada: 1 };
@@ -615,6 +900,14 @@ async function generarEliminacionMultiInicio(idTorneo, tipoEsperado) {
       throw new Error("No se pudieron formar series validas para la primera ronda");
     }
 
+    const arbitros = await getArbitrosTorneo(client, idTorneo);
+    if (!arbitros.length) {
+      throw new Error(
+        "Se requiere al menos 1 árbitro para generar enfrentamientos",
+      );
+    }
+    let idxArbitro = 0;
+
     let cursor = torneo.fecha_inicio ? new Date(torneo.fecha_inicio) : new Date();
     let idxDia = 0;
     let orden = 1;
@@ -632,8 +925,21 @@ async function generarEliminacionMultiInicio(idTorneo, tipoEsperado) {
       });
 
       await insertarParticipacionesPartido(client, idPartido, grupo);
+
+      const picked = await elegirArbitroDisponible(client, {
+        arbitros,
+        startIndex: idxArbitro,
+        idPartido,
+      });
+      await asignarArbitroPartido(client, {
+        idPartido,
+        idArbitroTorneo: picked.idArbitroTorneo,
+      });
+      idxArbitro = picked.nextIndex;
       orden++;
     }
+
+    await client.query(`UPDATE torneo SET estado = 'en_curso' WHERE id_torneo = $1`, [idTorneo]);
 
     await client.query("COMMIT");
     return {
@@ -665,6 +971,14 @@ async function avanzarRondaEliminacion(idTorneo) {
     if (!tiposSoportados.includes(torneo.tipo)) {
       throw new Error("El torneo no es de un tipo de eliminación soportado");
     }
+
+    const arbitros = await getArbitrosTorneo(client, idTorneo);
+    if (!arbitros.length) {
+      throw new Error(
+        "Se requiere al menos 1 árbitro para generar la siguiente ronda",
+      );
+    }
+    let idxArbitro = 0;
 
     const maxRondaQ = await client.query(
       `SELECT MAX(ronda) AS max_ronda FROM partido WHERE id_torneo = $1`,
@@ -865,6 +1179,17 @@ async function avanzarRondaEliminacion(idTorneo) {
         orden,
       });
       await insertarParticipacionesPartido(client, idPartidoNuevo, grupo);
+
+      const picked = await elegirArbitroDisponible(client, {
+        arbitros,
+        startIndex: idxArbitro,
+        idPartido: idPartidoNuevo,
+      });
+      await asignarArbitroPartido(client, {
+        idPartido: idPartidoNuevo,
+        idArbitroTorneo: picked.idArbitroTorneo,
+      });
+      idxArbitro = picked.nextIndex;
       nuevosPartidos.push(idPartidoNuevo);
       orden++;
     }
@@ -931,6 +1256,8 @@ async function generarEnfrentamientos(idTorneo) {
 module.exports = {
   listTorneos,
   getTorneoById,
+  getClasificacionTorneo,
+  getPartidosTorneo,
   createTorneo,
   updateTorneo,
   deleteTorneo,

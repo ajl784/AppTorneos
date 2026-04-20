@@ -1,4 +1,5 @@
 const equiposService = require("../services/equipos.service");
+
 const {
   ok,
   created,
@@ -15,6 +16,7 @@ const listEquipos = asyncHandler(async (req, res) => {
     limit,
     offset,
     nombre: req.query.nombre,
+    categoriaId: req.query.categoriaId,
   });
 
   ok(res, data, { limit, offset, count: data.length });
@@ -32,8 +34,17 @@ const getEquipoById = asyncHandler(async (req, res) => {
 });
 
 const createEquipo = asyncHandler(async (req, res) => {
-  requireFields(req.body, ["nombre"]);
-  const data = await equiposService.createEquipo(req.body);
+  requireFields(req.body, ["nombre", "id_categoria"]);
+  const payload = {
+    ...req.body,
+    id_categoria: parsePositiveInt(req.body.id_categoria, "id_categoria"),
+  };
+
+  if (req.body.id_usuario !== undefined && req.body.id_usuario !== null) {
+    payload.id_usuario = parsePositiveInt(req.body.id_usuario, "id_usuario");
+  }
+
+  const data = await equiposService.createEquipo(payload);
   created(res, data);
 });
 
@@ -59,10 +70,112 @@ const deleteEquipo = asyncHandler(async (req, res) => {
   ok(res, { deleted: true });
 });
 
+const getEquiposByUsuario = asyncHandler(async (req, res) => {
+  const idUsuario = parsePositiveInt(req.params.idUsuario, "idUsuario");
+  const data = await equiposService.getEquiposByUsuario(idUsuario);
+  ok(res, data);
+});
+
+const createSolicitudIngresoEquipo = asyncHandler(async (req, res) => {
+  const idEquipo = parsePositiveInt(req.params.idEquipo, "idEquipo");
+  requireFields(req.body, ["descripcion"]);
+
+  const data = await equiposService.createSolicitudIngresoEquipo({
+    idEquipo,
+    idUsuario: parsePositiveInt(req.user.id_usuario, "id_usuario"),
+    respuesta: {
+      descripcion: String(req.body.descripcion || "").trim(),
+    },
+  });
+
+  created(res, data);
+});
+
+const listSolicitudesIngresoEquipo = asyncHandler(async (req, res) => {
+  const idEquipo = parsePositiveInt(req.params.idEquipo, "idEquipo");
+  const idUsuario = parsePositiveInt(req.user.id_usuario, "id_usuario");
+
+  const isEntrenador = await equiposService.isEntrenadorActivo({
+    idEquipo,
+    idUsuario,
+  });
+
+  if (!isEntrenador) {
+    throw new AppError(403, "Solo el entrenador del equipo puede ver solicitudes");
+  }
+
+  const data = await equiposService.listSolicitudesIngresoEquipo({
+    idEquipo,
+    estado: req.query.estado,
+  });
+
+  ok(res, data, { count: data.length });
+});
+
+const listSolicitudesIngresoUsuario = asyncHandler(async (req, res) => {
+  const idUsuario = parsePositiveInt(req.params.idUsuario, "idUsuario");
+  const authIdUsuario = parsePositiveInt(req.user.id_usuario, "id_usuario");
+
+  if (idUsuario !== authIdUsuario) {
+    throw new AppError(403, "Solo puedes ver tus propias solicitudes");
+  }
+
+  const data = await equiposService.listSolicitudesIngresoUsuario({
+    idUsuario,
+    estado: req.query.estado,
+  });
+
+  ok(res, data, { count: data.length });
+});
+
+const decidirSolicitudIngresoEquipo = asyncHandler(async (req, res) => {
+  const idSolicitudEquipo = parsePositiveInt(
+    req.params.idSolicitudEquipo,
+    "idSolicitudEquipo",
+  );
+
+  if (typeof req.body.aceptar !== "boolean") {
+    throw new AppError(400, "aceptar debe ser booleano");
+  }
+
+  const idEntrenadorDecisor = parsePositiveInt(req.user.id_usuario, "id_usuario");
+
+  const solicitud = await equiposService.getSolicitudIngresoById(idSolicitudEquipo);
+  if (!solicitud) {
+    throw new AppError(404, "Solicitud de ingreso no encontrada");
+  }
+
+  const isEntrenador = await equiposService.isEntrenadorActivo({
+    idEquipo: parsePositiveInt(solicitud.id_equipo, "id_equipo"),
+    idUsuario: idEntrenadorDecisor,
+  });
+
+  if (!isEntrenador) {
+    throw new AppError(403, "Solo el entrenador del equipo puede decidir solicitudes");
+  }
+
+  const data = await equiposService.decideSolicitudIngresoEquipo({
+    idSolicitudEquipo,
+    aceptar: req.body.aceptar,
+    idEntrenadorDecisor,
+  });
+
+  if (!data) {
+    throw new AppError(404, "Solicitud de ingreso no encontrada");
+  }
+
+  ok(res, data);
+});
+
 module.exports = {
   listEquipos,
   getEquipoById,
   createEquipo,
   updateEquipo,
   deleteEquipo,
+  getEquiposByUsuario,
+  createSolicitudIngresoEquipo,
+  listSolicitudesIngresoEquipo,
+  listSolicitudesIngresoUsuario,
+  decidirSolicitudIngresoEquipo,
 };

@@ -39,21 +39,28 @@ JOIN tipo_torneo tt ON (
 )
 ON CONFLICT (id_categoria, id_tipo_torneo) DO NOTHING;
 
-INSERT INTO usuario (correo, nombre_usuario, password_hash)
+INSERT INTO usuario (correo, nombre_usuario, password_hash, nombre, apellidos, fotoperfil, fechanacimiento, genero)
 VALUES
-	('admin@app.com', 'admin', crypt('password123', gen_salt('bf')))
+	('admin@app.com', 'admin', crypt('password123', gen_salt('bf')), 'Admin', 'App', NULL, NULL, NULL)
 ON CONFLICT (correo) DO NOTHING;
 
+INSERT INTO usuario (correo, nombre_usuario, password_hash, nombre, apellidos, fotoperfil, fechanacimiento, genero)
+VALUES
+	('laura@parchis.app', 'laura_parchis', crypt('password123', gen_salt('bf')), 'Laura', 'Pérez', NULL, '1995-04-10', 'Femenino'),
+	('mario@parchis.app', 'mario_parchis', crypt('password123', gen_salt('bf')), 'Mario', 'García', '3.jpg', '1993-07-22', 'Masculino'),
+	('nora@parchis.app', 'nora_parchis', crypt('password123', gen_salt('bf')), 'Nora', 'López', NULL, '1996-01-15', 'Femenino'),
+	('oscar@parchis.app', 'oscar_parchis', crypt('password123', gen_salt('bf')), 'Oscar', 'Martínez', NULL, '1992-11-30', 'Masculino'),
+	('paula@parchis.app', 'paula_parchis', crypt('password123', gen_salt('bf')), 'Paula', 'Sánchez', NULL, '1994-09-05', 'Femenino'),
+	('quique@parchis.app', 'quique_parchis', crypt('password123', gen_salt('bf')), 'Quique', 'Ruiz', NULL, '1991-12-12', 'Masculino'),
+	('raquel@parchis.app', 'raquel_parchis', crypt('password123', gen_salt('bf')), 'Raquel', 'Moreno', NULL, '1997-03-18', 'Femenino'),
+	('sergio@parchis.app', 'sergio_parchis', crypt('password123', gen_salt('bf')), 'Sergio', 'Jiménez', NULL, '1990-06-25', 'Masculino')
+ON CONFLICT (correo) DO NOTHING;
+
+-- Árbitros (DEV) para que se puedan generar enfrentamientos
 INSERT INTO usuario (correo, nombre_usuario, password_hash)
 VALUES
-	('laura@parchis.app', 'laura_parchis', crypt('password123', gen_salt('bf'))),
-	('mario@parchis.app', 'mario_parchis', crypt('password123', gen_salt('bf'))),
-	('nora@parchis.app', 'nora_parchis', crypt('password123', gen_salt('bf'))),
-	('oscar@parchis.app', 'oscar_parchis', crypt('password123', gen_salt('bf'))),
-	('paula@parchis.app', 'paula_parchis', crypt('password123', gen_salt('bf'))),
-	('quique@parchis.app', 'quique_parchis', crypt('password123', gen_salt('bf'))),
-	('raquel@parchis.app', 'raquel_parchis', crypt('password123', gen_salt('bf'))),
-	('sergio@parchis.app', 'sergio_parchis', crypt('password123', gen_salt('bf')))
+	('ref_01@app.com', 'ref_01', crypt('password123', gen_salt('bf'))),
+	('ref_02@app.com', 'ref_02', crypt('password123', gen_salt('bf')))
 ON CONFLICT (correo) DO NOTHING;
 
 INSERT INTO torneo (
@@ -88,6 +95,15 @@ JOIN tipo_torneo tt ON tt.nombre = 'Liga'
 JOIN usuario u ON u.correo = 'admin@app.com'
 WHERE c.nombre = 'Fútbol 11'
 ON CONFLICT (nombre, id_categoria, id_tipo_torneo) DO NOTHING;
+
+-- Asignación de árbitros a torneos de seed
+-- Nota: arbitro_torneo es por torneo (id_torneo NOT NULL)
+INSERT INTO arbitro_torneo (id_usuario, id_torneo)
+SELECT u.id_usuario, t.id_torneo
+FROM usuario u
+JOIN torneo t ON t.nombre IN ('Liga Primavera', 'Copa Relámpago')
+WHERE u.correo IN ('ref_01@app.com', 'ref_02@app.com')
+ON CONFLICT (id_usuario, id_torneo) DO NOTHING;
 
 INSERT INTO torneo (
 	nombre,
@@ -150,18 +166,22 @@ WHERE c.nombre = 'Baloncesto 5'
 ON CONFLICT (nombre, id_categoria, id_tipo_torneo) DO NOTHING;
 
 -- Equipos de fútbol para Liga Primavera
-INSERT INTO equipo (nombre, descripcion, elo)
-VALUES
-    ('Atlético Aurora', 'Equipo ficticio de barrio', 1200),
-    ('Deportivo Central', 'Plantel de prueba', 1200),
-    ('Unión del Parque', 'Equipo amateur', 1200),
-    ('Sporting del Norte', 'Club inventado', 1200),
-    ('Rápidos FC', 'Equipo de fútbol 11', 1200),
-    ('Estrella Roja', 'Equipo de competición', 1200),
-    ('Titanes FC', 'Equipo ficticio', 1200),
-    ('Club Horizonte', 'Plantel de ejemplo', 1200),
-    ('Los Leones', 'Equipo de barrio', 1200),
-    ('Nueva Generación', 'Equipo juvenil ficticio', 1200)
+INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
+SELECT v.nombre, v.descripcion, v.elo, c.id_categoria
+FROM (
+	VALUES
+		('Atlético Aurora', 'Equipo ficticio de barrio', 1200),
+		('Deportivo Central', 'Plantel de prueba', 1200),
+		('Unión del Parque', 'Equipo amateur', 1200),
+		('Sporting del Norte', 'Club inventado', 1200),
+		('Rápidos FC', 'Equipo de fútbol 11', 1200),
+		('Estrella Roja', 'Equipo de competición', 1200),
+		('Titanes FC', 'Equipo ficticio', 1200),
+		('Club Horizonte', 'Plantel de ejemplo', 1200),
+		('Los Leones', 'Equipo de barrio', 1200),
+		('Nueva Generación', 'Equipo juvenil ficticio', 1200)
+) AS v(nombre, descripcion, elo)
+JOIN categoria c ON c.nombre = 'Fútbol 11'
 ON CONFLICT (nombre) DO NOTHING;
 
 -- Inscripción de equipos al torneo Liga Primavera
@@ -235,8 +255,10 @@ WHERE t.nombre = 'Copa Relámpago'
 ON CONFLICT (id_torneo, id_equipo) DO NOTHING;
 
 -- Personas/equipos de atletismo para pruebas de liga multi-participante
-INSERT INTO equipo (nombre, descripcion, elo)
-VALUES
+INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
+SELECT v.nombre, v.descripcion, v.elo, c.id_categoria
+FROM (
+  VALUES
 	('Ana Sprint', 'Atleta de velocidad', 1200),
 	('Bruno Rayo', 'Atleta de velocidad', 1200),
 	('Carla Pista', 'Atleta de pista', 1200),
@@ -253,11 +275,15 @@ VALUES
 	('Nico Track', 'Atleta de pista', 1200),
 	('Olga Tempo', 'Atleta de ritmo', 1200),
 	('Pablo Lane', 'Atleta de carril', 1200)
+) AS v(nombre, descripcion, elo)
+JOIN categoria c ON c.nombre = 'Atletismo'
 ON CONFLICT (nombre) DO NOTHING;
 
 -- Equipos/jugadores de parchis para eliminatorias por rondas
-INSERT INTO equipo (nombre, descripcion, elo)
-VALUES
+INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
+SELECT v.nombre, v.descripcion, v.elo, c.id_categoria
+FROM (
+  VALUES
 	('Laura Dados', 'Jugadora de parchis', 1200),
 	('Mario Ficha', 'Jugador de parchis', 1200),
 	('Nora Meta', 'Jugadora de parchis', 1200),
@@ -270,6 +296,8 @@ VALUES
 	('Ulises Casa', 'Jugador de parchis', 1200),
 	('Valeria Dado', 'Jugadora de parchis', 1200),
 	('Walter Salida', 'Jugador de parchis', 1200)
+) AS v(nombre, descripcion, elo)
+JOIN categoria c ON c.nombre = 'Parchís'
 ON CONFLICT (nombre) DO NOTHING;
 
 -- Torneo de atletismo para probar liga con mas de 2 participantes por partido
