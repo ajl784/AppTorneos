@@ -120,7 +120,12 @@ CREATE TABLE torneo (
 	encuesta JSONB,
 	norma_puntuacion TEXT,
 	preferencia_horario JSONB,
+	tipo_generacion_enfrentamientos VARCHAR(30),
 	CHECK (estado IN ('inscripcion_abierta', 'inscripcion_cerrada', 'inscripcion_terminada', 'en_curso', 'acabado', 'cancelado')),
+	CHECK (
+		tipo_generacion_enfrentamientos IS NULL
+		OR tipo_generacion_enfrentamientos IN ('balanceada', 'rotacion')
+	),
 	
 	CHECK (fecha_fin IS NULL OR fecha_inicio IS NULL OR fecha_fin >= fecha_inicio),
 	UNIQUE (nombre, id_categoria, id_tipo_torneo),

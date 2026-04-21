@@ -1,15 +1,14 @@
 -- =====================================================
--- AppTorneos - Dataset para probar Estadísticas (DEV)
+-- AppTorneos - Dataset Atletismo (DEV)
 --
--- Crea un set para probar clasificación con “masa”:
--- - 1 usuario
--- - >= 30 equipos
--- - 1 torneo (1 categoría)
--- - SOLO el usuario pertenece a 1 equipo
--- - SOLO ese equipo tiene historial_elo
--- - El resto de equipos tienen ELO aleatorio
+-- Crea un escenario de liga multi:
+-- - Categoria Atletismo (8 participantes por partido)
+-- - 1 torneo de atletismo (Liga)
+-- - 35 equipos inscritos/aceptados (estado = jugando)
+-- - 1 usuario organizador
+-- - arbitros asociados al torneo
 --
--- Idempotente: limpia SOLO recursos prefijados con STATS-/stats_
+-- Idempotente: limpia solo recursos ATL-
 -- =====================================================
 
 BEGIN;
@@ -17,94 +16,142 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ------------------------------
--- 0) Limpieza de dataset previo
+-- 0) Limpieza del dataset ATL
 -- ------------------------------
--- Ojo: borrar primero tablas hijas para evitar problemas de FK.
 DELETE FROM participacion_torneo_equipo
-WHERE id_torneo IN (SELECT id_torneo FROM torneo WHERE nombre LIKE 'STATS-%')
-   OR id_equipo IN (SELECT id_equipo FROM equipo WHERE nombre LIKE 'STATS-%');
+WHERE id_torneo IN (SELECT id_torneo FROM torneo WHERE nombre LIKE 'ATL-%')
+   OR id_equipo IN (SELECT id_equipo FROM equipo WHERE nombre LIKE 'ATL-%');
+
+DELETE FROM arbitro_torneo
+WHERE id_torneo IN (SELECT id_torneo FROM torneo WHERE nombre LIKE 'ATL-%')
+   OR id_usuario IN (
+     SELECT id_usuario FROM usuario WHERE correo LIKE 'atl_%@app.com'
+   );
 
 DELETE FROM historial_elo
 WHERE id_equipo IN (
-  SELECT id_equipo FROM equipo WHERE nombre LIKE 'STATS-%'
+  SELECT id_equipo FROM equipo WHERE nombre LIKE 'ATL-%'
 );
 
 DELETE FROM torneo
-WHERE nombre LIKE 'STATS-%';
+WHERE nombre LIKE 'ATL-%';
 
 DELETE FROM pertenece
 WHERE id_usuario IN (
-  SELECT id_usuario FROM usuario WHERE correo LIKE 'stats_%@app.com'
-);
+  SELECT id_usuario FROM usuario WHERE correo LIKE 'atl_%@app.com'
+)
+   OR id_equipo IN (
+     SELECT id_equipo FROM equipo WHERE nombre LIKE 'ATL-%'
+   );
+
+DELETE FROM solicitud_equipo
+WHERE id_usuario IN (
+  SELECT id_usuario FROM usuario WHERE correo LIKE 'atl_%@app.com'
+)
+   OR id_equipo IN (
+     SELECT id_equipo FROM equipo WHERE nombre LIKE 'ATL-%'
+   );
 
 DELETE FROM equipo
-WHERE nombre LIKE 'STATS-%';
+WHERE nombre LIKE 'ATL-%';
 
 DELETE FROM usuario
-WHERE correo LIKE 'stats_%@app.com';
+WHERE correo LIKE 'atl_%@app.com';
 
 -- ------------------------------
--- 1) Catálogos mínimos (si faltan)
+-- 1) Catalogos necesarios
 -- ------------------------------
 INSERT INTO tipo_torneo (nombre, descripcion)
-VALUES
-  ('Liga', 'Todos contra todos'),
-  ('Eliminación directa', 'Bracket')
+VALUES ('Liga', 'Todos contra todos')
 ON CONFLICT (nombre) DO NOTHING;
 
 INSERT INTO categoria (nombre, participantes_por_partida, norma, descripcion)
-VALUES
-  ('Fútbol 11', 2, 'Reglas estándar', 'Partidos 1 vs 1'),
-  ('Baloncesto 5', 2, 'Reglas estándar', 'Partidos 1 vs 1'),
-  ('Atletismo', 8, 'Clasificación por posicion/tiempo', 'Multi-participante')
-ON CONFLICT (nombre) DO NOTHING;
+VALUES (
+  'Atletismo',
+  8,
+  'Series de 8 y puntuacion por posicion',
+  'Competicion multi-participante por posiciones'
+)
+ON CONFLICT (nombre) DO UPDATE
+SET
+  participantes_por_partida = EXCLUDED.participantes_por_partida,
+  norma = EXCLUDED.norma,
+  descripcion = EXCLUDED.descripcion;
 
 INSERT INTO categoria_tipo_torneo (id_categoria, id_tipo_torneo)
 SELECT c.id_categoria, tt.id_tipo_torneo
 FROM categoria c
-JOIN tipo_torneo tt ON (
-  (c.nombre IN ('Fútbol 11','Baloncesto 5','Atletismo') AND tt.nombre = 'Liga')
-  OR (c.nombre IN ('Fútbol 11','Baloncesto 5') AND tt.nombre = 'Eliminación directa')
-)
+JOIN tipo_torneo tt ON tt.nombre = 'Liga'
+WHERE c.nombre = 'Atletismo'
 ON CONFLICT (id_categoria, id_tipo_torneo) DO NOTHING;
 
 -- ------------------------------
--- 2) Usuario (1)
+-- 2) Usuario organizador
 -- ------------------------------
-INSERT INTO usuario (correo, nombre_usuario, password_hash)
-VALUES ('stats_user@app.com', 'stats_user', crypt('password123', gen_salt('bf')))
+INSERT INTO usuario (correo, nombre_usuario, password_hash, nombre, apellidos)
+VALUES (
+  'atl_org@app.com',
+  'atl_org',
+  crypt('password123', gen_salt('bf')),
+  'Organizador',
+  'Atletismo'
+)
 ON CONFLICT (correo) DO NOTHING;
 
 -- ------------------------------
--- 3) Equipos (>= 30)
+-- 3) Usuarios arbitros
 -- ------------------------------
--- Un equipo "mío" (el único que pertenecerá al usuario)
-INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
-VALUES (
-  'STATS-ME-Futbol',
-  'Equipo del usuario (Fútbol)',
-  1200,
-  (SELECT id_categoria FROM categoria WHERE nombre = 'Fútbol 11')
-)
-ON CONFLICT (nombre) DO NOTHING;
+INSERT INTO usuario (correo, nombre_usuario, password_hash, nombre, apellidos)
+VALUES
+  (
+    'atl_ref_01@app.com',
+    'atl_ref_01',
+    crypt('password123', gen_salt('bf')),
+    'Arbitro 1',
+    'Atletismo'
+  ),
+  (
+    'atl_ref_02@app.com',
+    'atl_ref_02',
+    crypt('password123', gen_salt('bf')),
+    'Arbitro 2',
+    'Atletismo'
+  ),
+  (
+    'atl_ref_03@app.com',
+    'atl_ref_03',
+    crypt('password123', gen_salt('bf')),
+    'Arbitro 3',
+    'Atletismo'
+  ),
+  (
+    'atl_ref_04@app.com',
+    'atl_ref_04',
+    crypt('password123', gen_salt('bf')),
+    'Arbitro 4',
+    'Atletismo'
+  )
+ON CONFLICT (correo) DO NOTHING;
 
--- Resto de equipos para clasificación (ELO aleatorio)
+-- ------------------------------
+-- 4) Equipos (35)
+-- ------------------------------
 INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
 SELECT
-  'STATS-TEAM-' || LPAD(gs::text, 2, '0') AS nombre,
-  'Equipo ranking #' || gs AS descripcion,
-  (900 + (random() * 700))::int AS elo,
-  (SELECT id_categoria FROM categoria WHERE nombre = 'Fútbol 11') AS id_categoria
-FROM generate_series(1, 30) AS gs
+  'ATL-TEAM-' || LPAD(gs::text, 2, '0') AS nombre,
+  'Equipo Atletismo #' || gs AS descripcion,
+  (950 + (random() * 450))::int AS elo,
+  (SELECT id_categoria FROM categoria WHERE nombre = 'Atletismo')
+FROM generate_series(1, 35) AS gs
 ON CONFLICT (nombre) DO NOTHING;
 
 -- ------------------------------
--- 4) Torneo (1) - 1 categoría
+-- 5) Torneo Atletismo (Liga, 8 por serie)
 -- ------------------------------
 WITH ids AS (
   SELECT
-    (SELECT id_usuario FROM usuario WHERE correo = 'stats_user@app.com') AS org_id,
-    (SELECT id_categoria FROM categoria WHERE nombre = 'Fútbol 11') AS cat_fut,
+    (SELECT id_usuario FROM usuario WHERE correo = 'atl_org@app.com') AS org_id,
+    (SELECT id_categoria FROM categoria WHERE nombre = 'Atletismo') AS cat_atl,
     (SELECT id_tipo_torneo FROM tipo_torneo WHERE nombre = 'Liga') AS tt_liga
 )
 INSERT INTO torneo (
@@ -118,25 +165,27 @@ INSERT INTO torneo (
   id_tipo_torneo,
   id_organizador,
   norma_puntuacion,
-  preferencia_horario
+  preferencia_horario,
+  tipo_generacion_enfrentamientos
 )
 VALUES (
-  'STATS-FUT-Liga',
-  'Torneo de prueba estadísticas (Fútbol 11 - Liga) con 30+ equipos',
-  NOW() - INTERVAL '10 days',
-  NOW() + INTERVAL '20 days',
+  'ATL-LIGA-8P',
+  'Liga de Atletismo con series de 8 participantes',
+  NOW() - INTERVAL '5 days',
+  NOW() + INTERVAL '45 days',
   'en_curso',
   40,
-  (SELECT cat_fut FROM ids),
+  (SELECT cat_atl FROM ids),
   (SELECT tt_liga FROM ids),
   (SELECT org_id FROM ids),
-  '3-1-0',
-  '{"dias":["sabado"],"hora_inicio":"10:00"}'::jsonb
+  'modo=posiciones;pos1=12;pos2=9;pos3=7;pos4=5;pos5=4;pos6=3;pos7=2;pos8=1;estrategia_multi=balanceada;jornadas_multi=12',
+  '{"dias":["sabado","domingo"],"hora_inicio":"09:00","hora_fin":"14:00"}'::jsonb,
+  'balanceada'
 )
 ON CONFLICT (nombre, id_categoria, id_tipo_torneo) DO NOTHING;
 
 -- ------------------------------
--- 5) Participaciones (meter TODOS los equipos en el torneo)
+-- 6) Inscripciones aceptadas (estado = jugando)
 -- ------------------------------
 INSERT INTO participacion_torneo_equipo (id_torneo, id_equipo, fecha, estado, puntuacion)
 SELECT
@@ -146,53 +195,35 @@ SELECT
   'jugando',
   0
 FROM torneo t
-JOIN equipo e ON e.nombre = 'STATS-ME-Futbol'
-   OR e.nombre LIKE 'STATS-TEAM-%'
-WHERE t.nombre = 'STATS-FUT-Liga'
+JOIN equipo e ON e.nombre LIKE 'ATL-TEAM-%'
+WHERE t.nombre = 'ATL-LIGA-8P'
 ON CONFLICT (id_torneo, id_equipo) DO NOTHING;
 
 -- ------------------------------
--- 6) Pertenece (SOLO 1 usuario -> SOLO 1 equipo)
+-- 7) Asignacion de arbitros al torneo
 -- ------------------------------
-INSERT INTO pertenece (id_usuario, id_equipo, fecha_inicio, fecha_fin)
-SELECT u.id_usuario, e.id_equipo, CURRENT_DATE - 30, NULL
-FROM usuario u
-JOIN equipo e ON e.nombre = 'STATS-ME-Futbol'
-WHERE u.correo = 'stats_user@app.com'
-ON CONFLICT (id_usuario, id_equipo, fecha_inicio) DO NOTHING;
-
--- ------------------------------
--- 7) Historial de ELO (para gráficas)
--- ------------------------------
--- Nota: entradas "manuales" (no partido:*). Solo para el equipo del usuario.
-WITH me AS (
-  SELECT id_equipo
-  FROM equipo
-  WHERE nombre = 'STATS-ME-Futbol'
-)
-INSERT INTO historial_elo (id_equipo, elo_anterior, elo_nuevo, descripcion, creado_en)
+INSERT INTO arbitro_torneo (id_usuario, id_torneo)
 SELECT
-  (SELECT id_equipo FROM me),
-  v.elo_anterior,
-  v.elo_nuevo,
-  v.descripcion,
-  v.creado_en
-FROM (
-  VALUES
-    (1200, 1188, 'stats:init', NOW() - INTERVAL '9 days'),
-    (1188, 1215, 'stats:subida', NOW() - INTERVAL '6 days'),
-    (1215, 1202, 'stats:ajuste', NOW() - INTERVAL '4 days'),
-    (1202, 1240, 'stats:subida', NOW() - INTERVAL '2 days'),
-    (1240, 1265, 'stats:subida', NOW() - INTERVAL '1 days')
-) AS v(elo_anterior, elo_nuevo, descripcion, creado_en)
-WHERE (SELECT id_equipo FROM me) IS NOT NULL;
+  u.id_usuario,
+  t.id_torneo
+FROM usuario u
+CROSS JOIN torneo t
+WHERE u.correo IN (
+  'atl_ref_01@app.com',
+  'atl_ref_02@app.com',
+  'atl_ref_03@app.com',
+  'atl_ref_04@app.com'
+)
+  AND t.nombre = 'ATL-LIGA-8P'
+ON CONFLICT (id_usuario, id_torneo) DO NOTHING;
 
 COMMIT;
 
 -- =====================================================
--- Cómo cargarlo (desde la raíz del repo):
---   docker exec -i app_postgres psql -U admin -d app_db < Backend/BD/script.sql
+-- Carga desde PowerShell (raiz del repo):
+--   Get-Content Backend/BD/bdr -Raw | docker compose exec -T postgres psql -U admin -d app_db
+--   Get-Content Backend/BD/atletismo.sql -Raw | docker compose exec -T postgres psql -U admin -d app_db
 --
--- Usuarios para login:
---   stats_user@app.com / password123
+-- Usuario organizador:
+--   atl_org@app.com / password123
 -- =====================================================

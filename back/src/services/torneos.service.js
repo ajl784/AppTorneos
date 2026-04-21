@@ -48,6 +48,7 @@ const listTorneos = async ({
       tt.nombre AS tipo_torneo_nombre,
       t.id_organizador
         , c.participantes_por_partida AS participantes_por_partido
+      , t.tipo_generacion_enfrentamientos
      FROM torneo t
      JOIN categoria c ON c.id_categoria = t.id_categoria
      JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
@@ -78,7 +79,8 @@ const getTorneoById = async (idTorneo) => {
       c.participantes_por_partida AS participantes_por_partido,
       t.encuesta,
       t.norma_puntuacion,
-      t.preferencia_horario
+      t.preferencia_horario,
+      t.tipo_generacion_enfrentamientos
      FROM torneo t
      JOIN categoria c ON c.id_categoria = t.id_categoria
      JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
@@ -207,9 +209,10 @@ const createTorneo = async (payload) => {
     `INSERT INTO torneo (
       nombre, descripcion, fecha_inicio, fecha_fin, estado,
       id_categoria, id_tipo_torneo, id_organizador,
-      encuesta, norma_puntuacion, preferencia_horario
+      encuesta, norma_puntuacion, preferencia_horario,
+      tipo_generacion_enfrentamientos
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11::jsonb)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11::jsonb, $12)
      RETURNING id_torneo`,
     [
       payload.nombre,
@@ -225,6 +228,7 @@ const createTorneo = async (payload) => {
       payload.preferencia_horario
         ? JSON.stringify(payload.preferencia_horario)
         : null,
+      payload.tipo_generacion_enfrentamientos || null,
     ],
   );
 
@@ -278,6 +282,7 @@ const updateTorneo = async (idTorneo, payload) => {
     id_tipo_torneo: "id_tipo_torneo",
     id_organizador: "id_organizador",
     norma_puntuacion: "norma_puntuacion",
+    tipo_generacion_enfrentamientos: "tipo_generacion_enfrentamientos",
   };
 
   const fields = [];
@@ -669,6 +674,118 @@ function construirJornadasMulti(participaciones, participantesPorPartido) {
   return jornadas;
 }
 
+function keyPar(a, b) {
+  const left = Number(a);
+  const right = Number(b);
+  return left < right ? `${left}-${right}` : `${right}-${left}`;
+}
+
+function elegirGrupoBalanceado({
+  disponibles,
+  tamGrupo,
+  apariciones,
+  descansos,
+  paresJugados,
+}) {
+  const lista = Array.from(disponibles).map((id) => Number(id));
+  if (lista.length < tamGrupo) return null;
+
+  lista.sort((a, b) => {
+    const diffApariciones = (apariciones.get(a) || 0) - (apariciones.get(b) || 0);
+    if (diffApariciones !== 0) return diffApariciones;
+    const diffDescansos = (descansos.get(b) || 0) - (descansos.get(a) || 0);
+    if (diffDescansos !== 0) return diffDescansos;
+    return a - b;
+  });
+
+  const grupo = [lista[0]];
+
+  while (grupo.length < tamGrupo) {
+    const candidatos = lista.filter((id) => !grupo.includes(id));
+    if (!candidatos.length) return null;
+
+    candidatos.sort((a, b) => {
+      const coste = (id) => {
+        let total = 0;
+
+        for (const actual of grupo) {
+          total += (paresJugados.get(keyPar(id, actual)) || 0) * 100;
+        }
+
+        total += (apariciones.get(id) || 0) * 4;
+        total -= (descansos.get(id) || 0) * 3;
+        return total;
+      };
+
+      const diffCoste = coste(a) - coste(b);
+      if (diffCoste !== 0) return diffCoste;
+      return a - b;
+    });
+
+    grupo.push(candidatos[0]);
+  }
+
+  return grupo;
+}
+
+function construirJornadasMultiBalanceada(
+  participaciones,
+  participantesPorPartido,
+  jornadasObjetivo,
+) {
+  const ids = participaciones.map((p) => Number(p.id_participacion_equipo));
+  const jornadas = [];
+  const apariciones = new Map(ids.map((id) => [id, 0]));
+  const descansos = new Map(ids.map((id) => [id, 0]));
+  const paresJugados = new Map();
+
+  for (let jornada = 0; jornada < jornadasObjetivo; jornada++) {
+    const disponibles = new Set(ids);
+    const partidosJornada = [];
+
+    while (disponibles.size >= participantesPorPartido) {
+      const grupo = elegirGrupoBalanceado({
+        disponibles,
+        tamGrupo: participantesPorPartido,
+        apariciones,
+        descansos,
+        paresJugados,
+      });
+
+      if (!grupo || grupo.length < participantesPorPartido) {
+        break;
+      }
+
+      for (const id of grupo) {
+        disponibles.delete(id);
+      }
+
+      for (let i = 0; i < grupo.length; i++) {
+        for (let j = i + 1; j < grupo.length; j++) {
+          const key = keyPar(grupo[i], grupo[j]);
+          paresJugados.set(key, (paresJugados.get(key) || 0) + 1);
+        }
+      }
+
+      for (const id of grupo) {
+        apariciones.set(id, (apariciones.get(id) || 0) + 1);
+      }
+
+      partidosJornada.push(grupo);
+    }
+
+    for (const id of disponibles) {
+      descansos.set(id, (descansos.get(Number(id)) || 0) + 1);
+    }
+
+    if (partidosJornada.length) {
+      jornadas.push(partidosJornada);
+    }
+  }
+
+  return jornadas;
+}
+
 async function generarLiga(idTorneo) {
   const client = await pool.connect();
   try {
@@ -723,10 +840,40 @@ async function generarLiga(idTorneo) {
     let idxDia = 0;
     let total = 0;
 
-    const jornadas =
-      participantesPorPartido === 2
-        ? construirJornadasDuelo(participaciones, true)
-        : construirJornadasMulti(participaciones, participantesPorPartido);
+    const normaConfig = parseNormaConfig(torneo.norma_puntuacion);
+    const jornadasObjetivoRaw = Number(
+      normaConfig.jornadas_multi || participaciones.length,
+    );
+    const jornadasObjetivo =
+      Number.isInteger(jornadasObjetivoRaw) && jornadasObjetivoRaw > 0
+        ? jornadasObjetivoRaw
+        : participaciones.length;
+
+    let jornadas = [];
+    if (participantesPorPartido === 2) {
+      jornadas = construirJornadasDuelo(participaciones, true);
+    } else {
+      const estrategiaMulti = String(
+        normaConfig.estrategia_multi || "balanceada",
+      ).toLowerCase();
+
+      if (estrategiaMulti === "rotacion") {
+        jornadas = construirJornadasMulti(participaciones, participantesPorPartido);
+      } else {
+        jornadas = construirJornadasMultiBalanceada(
+          participaciones,
+          participantesPorPartido,
+          jornadasObjetivo,
+        );
+
+        if (!jornadas.length) {
+          jornadas = construirJornadasMulti(
+            participaciones,
+            participantesPorPartido,
+          );
+        }
+      }
+    }
 
     for (let idxJornada = 0; idxJornada < jornadas.length; idxJornada++) {
       const fechaJornada = nextPreferredDate(

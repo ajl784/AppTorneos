@@ -92,8 +92,10 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
       TextEditingController(text: '1');
   final TextEditingController _puntosPerderCtrl =
       TextEditingController(text: '0');
-    final List<TextEditingController> _puntosPosicionCtrls =
+  final List<TextEditingController> _puntosPosicionCtrls =
       <TextEditingController>[];
+  String _estrategiaMulti = 'balanceada';
+  final TextEditingController _jornadasMultiCtrl = TextEditingController();
   final TextEditingController _normasExtraCtrl = TextEditingController();
 
   final TextEditingController _limiteEquiposCtrl = TextEditingController();
@@ -148,6 +150,7 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
     for (final ctrl in _puntosPosicionCtrls) {
       ctrl.dispose();
     }
+    _jornadasMultiCtrl.dispose();
     _normasExtraCtrl.dispose();
     _limiteEquiposCtrl.dispose();
 
@@ -296,6 +299,17 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
           return false;
         }
       }
+
+      if (_esLigaSeleccionada) {
+        final jornadasRaw = _jornadasMultiCtrl.text.trim();
+        if (jornadasRaw.isNotEmpty) {
+          final jornadas = int.tryParse(jornadasRaw);
+          if (jornadas == null || jornadas < 1) {
+            _snack('Jornadas de liga debe ser un entero mayor o igual a 1.');
+            return false;
+          }
+        }
+      }
       return true;
     }
 
@@ -369,7 +383,15 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
         final valor = int.tryParse(_puntosPosicionCtrls[idx].text.trim()) ?? 0;
         posiciones.add('pos${idx + 1}=$valor');
       }
-      final base = 'modo=posiciones;${posiciones.join(';')}';
+      final partes = <String>['modo=posiciones', ...posiciones];
+      if (_esLigaSeleccionada) {
+        partes.add('estrategia_multi=$_estrategiaMulti');
+        final jornadas = int.tryParse(_jornadasMultiCtrl.text.trim());
+        if (jornadas != null && jornadas > 0) {
+          partes.add('jornadas_multi=$jornadas');
+        }
+      }
+      final base = partes.join(';');
       final extra = _normasExtraCtrl.text.trim();
       return extra.isEmpty ? base : '$base;$extra';
     }
@@ -381,6 +403,14 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
     final base = 'victoria=$ganar;empate=$empatar;derrota=$perder';
     final extra = _normasExtraCtrl.text.trim();
     return extra.isEmpty ? base : '$base;$extra';
+  }
+
+  String? _buildTipoGeneracionEnfrentamientos() {
+    final participantesPorPartido = _participantesPorPartidoActual;
+    if (_esLigaSeleccionada && participantesPorPartido > 2) {
+      return _estrategiaMulti;
+    }
+    return null;
   }
 
   Map<String, dynamic>? _buildPreferenciaHorario() {
@@ -506,6 +536,7 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
       fechaInicio: _fechaInicio == null ? null : _formatDateTime(_fechaInicio!),
       fechaFin: _fechaFin == null ? null : _formatDateTime(_fechaFin!),
       normaPuntuacion: _buildNormaPuntuacion(),
+      tipoGeneracionEnfrentamientos: _buildTipoGeneracionEnfrentamientos(),
       preferenciaHorario: _buildPreferenciaHorario(),
       encuesta: _buildEncuesta(),
       idOrganizador: _idOrganizador,
@@ -876,6 +907,7 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
   Widget _stepPuntos(BuildContext context) {
     final participantesPorPartido = _participantesPorPartidoActual;
     final usaPuntosPorPosicion = participantesPorPartido > 2;
+    final mostrarConfigLigaMulti = usaPuntosPorPosicion && _esLigaSeleccionada;
 
     if (usaPuntosPorPosicion) {
       _syncPuntosPosicionControllers(participantesPorPartido);
@@ -943,6 +975,42 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
               ),
             ],
           ),
+        if (mostrarConfigLigaMulti) ...[
+          const SizedBox(height: 12),
+          const Text('Configuración de generación de enfrentamientos (Liga multi):'),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _estrategiaMulti,
+            items: const [
+              DropdownMenuItem(
+                value: 'balanceada',
+                child: Text('Balanceada (recomendada)'),
+              ),
+              DropdownMenuItem(
+                value: 'rotacion',
+                child: Text('Rotación clásica'),
+              ),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _estrategiaMulti = value);
+            },
+            decoration: const InputDecoration(
+              labelText: 'Estrategia multi',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _jornadasMultiCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Número de jornadas (opcional)',
+              helperText: 'Si lo dejas vacío, el sistema calculará un valor por defecto.',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         TextField(
           controller: _normasExtraCtrl,
@@ -955,6 +1023,11 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
         ),
       ],
     );
+  }
+
+  bool get _esLigaSeleccionada {
+    final nombre = _tipoSeleccionado?.nombre.toLowerCase().trim();
+    return nombre == 'liga';
   }
 
   int get _participantesPorPartidoActual {
