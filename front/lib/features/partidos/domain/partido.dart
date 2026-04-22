@@ -99,17 +99,23 @@ class PartidoUpdate {
 
 class PartidoPuntuacionItem {
   final int idParticipacionEquipo;
-  final int punto;
+  final int? punto;
+  final int? posicion;
 
   const PartidoPuntuacionItem({
     required this.idParticipacionEquipo,
-    required this.punto,
+    this.punto,
+    this.posicion,
   });
 
-  Map<String, dynamic> toJson() => {
-    'id_participacion_equipo': idParticipacionEquipo,
-    'punto': punto,
-  };
+  Map<String, dynamic> toJson() {
+    final data = <String, dynamic>{
+      'id_participacion_equipo': idParticipacionEquipo,
+    };
+    if (punto != null) data['punto'] = punto;
+    if (posicion != null) data['posicion'] = posicion;
+    return data;
+  }
 }
 
 class RegistrarPuntuacionesPayload {

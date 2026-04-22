@@ -12,6 +12,25 @@ import 'package:front/peticion/api_config.dart';
 import 'package:front/state/auth_state.dart';
 import 'package:front/state/jwt_storage.dart';
 
+String _buildPartidoTitle(List<CalendarioEquipo> equipos) {
+  final nombres = equipos
+      .map((e) => e.nombre.trim())
+      .where((n) => n.isNotEmpty)
+      .toList(growable: false);
+
+  if (nombres.isEmpty) return 'TBD';
+  if (nombres.length == 1) return nombres.first;
+  if (nombres.length == 2) return '${nombres[0]} vs ${nombres[1]}';
+
+  return nombres.join(' · ');
+}
+
+bool _isNormaModoPosiciones(String? norma) {
+  final raw = (norma ?? '').trim().toLowerCase();
+  if (raw.isEmpty) return false;
+  return raw.contains('modo=posiciones') || RegExp(r'(^|[;,\s])pos\d+\s*=').hasMatch(raw);
+}
+
 class CalendarioTab extends StatefulWidget {
   const CalendarioTab({super.key});
 
@@ -124,13 +143,6 @@ class _CalendarioTabState extends State<CalendarioTab> {
       selectedEstado = 'planificado';
     }
 
-    final scoreControllers = <int, TextEditingController>{
-      for (final e in partido.equipos)
-        e.idParticipacionEquipo: TextEditingController(
-          text: e.puntoPartido.toString(),
-        ),
-    };
-
     Torneo? torneo;
     String? torneosError;
     try {
@@ -140,16 +152,22 @@ class _CalendarioTabState extends State<CalendarioTab> {
     }
 
     if (!mounted) {
-      for (final c in scoreControllers.values) {
-        c.dispose();
-      }
       return;
     }
 
-    final equiposOrdenados = partido.equipos.map((e) => e.nombre).toList(growable: false);
-    final equipoA = equiposOrdenados.isNotEmpty ? equiposOrdenados[0] : 'TBD';
-    final equipoB = equiposOrdenados.length > 1 ? equiposOrdenados[1] : 'TBD';
-    final vsTitle = '$equipoA vs $equipoB';
+    final esPartidoMulti = partido.equipos.length > 2;
+    final usarPosiciones = esPartidoMulti && _isNormaModoPosiciones(torneo?.normaPuntuacion);
+
+    final valueControllers = <int, TextEditingController>{
+      for (var i = 0; i < partido.equipos.length; i++)
+        partido.equipos[i].idParticipacionEquipo: TextEditingController(
+          text: usarPosiciones
+              ? (i + 1).toString()
+              : partido.equipos[i].puntoPartido.toString(),
+        ),
+    };
+
+    final vsTitle = _buildPartidoTitle(partido.equipos);
 
     final local = partido.fechaHora.toLocal();
     final fechaLabel =
@@ -208,7 +226,7 @@ class _CalendarioTabState extends State<CalendarioTab> {
                     ),
                     const SizedBox(height: 8),
                     ...partido.equipos.map((e) {
-                      final c = scoreControllers[e.idParticipacionEquipo]!;
+                      final c = valueControllers[e.idParticipacionEquipo]!;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: TextFormField(
@@ -216,7 +234,10 @@ class _CalendarioTabState extends State<CalendarioTab> {
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
                             labelText: e.nombre,
-                            hintText: '0',
+                            hintText: usarPosiciones ? '1' : '0',
+                            helperText: usarPosiciones
+                                ? 'Posición (1 = primero)'
+                                : null,
                           ),
                         ),
                       );
@@ -308,22 +329,92 @@ class _CalendarioTabState extends State<CalendarioTab> {
     );
 
     if (shouldSave != true) {
-      for (final c in scoreControllers.values) {
+      for (final c in valueControllers.values) {
         c.dispose();
       }
       return;
     }
 
-    final scoresByParticipacion = <int, int>{
-      for (final e in partido.equipos)
-        e.idParticipacionEquipo: () {
-          final raw = scoreControllers[e.idParticipacionEquipo]?.text ?? '0';
-          final punto = int.tryParse(raw.trim()) ?? 0;
-          return punto < 0 ? 0 : punto;
-        }(),
-    };
+    final payloadItems = <PartidoPuntuacionItem>[];
 
-    for (final c in scoreControllers.values) {
+    if (usarPosiciones) {
+      final posicionesByParticipacion = <int, int>{};
+      for (final e in partido.equipos) {
+        final raw = valueControllers[e.idParticipacionEquipo]?.text ?? '';
+        final posicion = int.tryParse(raw.trim());
+        if (posicion == null) {
+          for (final c in valueControllers.values) {
+            c.dispose();
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Posición inválida para ${e.nombre}.')),
+            );
+          }
+          return;
+        }
+        if (posicion < 1 || posicion > partido.equipos.length) {
+          for (final c in valueControllers.values) {
+            c.dispose();
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'La posición de ${e.nombre} debe estar entre 1 y ${partido.equipos.length}.',
+                ),
+              ),
+            );
+          }
+          return;
+        }
+        posicionesByParticipacion[e.idParticipacionEquipo] = posicion;
+      }
+
+      final posiciones = posicionesByParticipacion.values.toList(growable: false);
+      if (posiciones.toSet().length != posiciones.length) {
+        for (final c in valueControllers.values) {
+          c.dispose();
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No puede haber posiciones repetidas en un partido multi.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      payloadItems.addAll(
+        partido.equipos.map(
+          (e) => PartidoPuntuacionItem(
+            idParticipacionEquipo: e.idParticipacionEquipo,
+            posicion: posicionesByParticipacion[e.idParticipacionEquipo],
+          ),
+        ),
+      );
+    } else {
+      final scoresByParticipacion = <int, int>{
+        for (final e in partido.equipos)
+          e.idParticipacionEquipo: () {
+            final raw = valueControllers[e.idParticipacionEquipo]?.text ?? '0';
+            final punto = int.tryParse(raw.trim()) ?? 0;
+            return punto < 0 ? 0 : punto;
+          }(),
+      };
+
+      payloadItems.addAll(
+        partido.equipos.map(
+          (e) => PartidoPuntuacionItem(
+            idParticipacionEquipo: e.idParticipacionEquipo,
+            punto: scoresByParticipacion[e.idParticipacionEquipo] ?? 0,
+          ),
+        ),
+      );
+    }
+
+    for (final c in valueControllers.values) {
       c.dispose();
     }
 
@@ -334,17 +425,10 @@ class _CalendarioTabState extends State<CalendarioTab> {
       );
 
       if (selectedEstado == 'acabado') {
-        final items = partido.equipos.map((e) {
-          return PartidoPuntuacionItem(
-            idParticipacionEquipo: e.idParticipacionEquipo,
-            punto: scoresByParticipacion[e.idParticipacionEquipo] ?? 0,
-          );
-        }).toList(growable: false);
-
         await _partidosApi.registrarPuntuacionesArbitro(
           idPartido: partido.idPartido,
           payload: RegistrarPuntuacionesPayload(
-            puntuaciones: items,
+            puntuaciones: payloadItems,
             idArbitroTorneo: partido.miIdArbitroTorneo,
             acta: null,
           ),
@@ -639,10 +723,7 @@ class _PartidoItem extends StatelessWidget {
       ? '—'
       : partido.arbitroNombre!.trim();
 
-    final equipos = partido.equipos.map((e) => e.nombre).toList(growable: false);
-    final equipoA = equipos.isNotEmpty ? equipos[0] : 'TBD';
-    final equipoB = equipos.length > 1 ? equipos[1] : 'TBD';
-    final vsTitle = '$equipoA vs $equipoB';
+    final vsTitle = _buildPartidoTitle(partido.equipos);
 
     return Card(
       child: Padding(

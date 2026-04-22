@@ -73,11 +73,11 @@ const registrarPuntuacionesArbitro = asyncHandler(async (req, res) => {
   req.body.puntuaciones.forEach((item) => {
     if (
       item.id_participacion_equipo === undefined ||
-      item.punto === undefined
+      (item.punto === undefined && item.posicion === undefined)
     ) {
       throw new AppError(
         400,
-        "Cada elemento debe incluir id_participacion_equipo y punto",
+        "Cada elemento debe incluir id_participacion_equipo y al menos punto o posicion",
       );
     }
   });

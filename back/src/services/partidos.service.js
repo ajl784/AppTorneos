@@ -411,12 +411,6 @@ const registrarPuntuacionesArbitro = async ({
         "El partido debe estar en estado 'acabado' para registrar puntuaciones",
       );
     }
-    const actualizadas = [];
-    // Nota: id_participacion_equipo es BIGINT en PG y node-postgres suele
-    // devolverlo como string en resultados. Usamos claves string para evitar
-    // desajustes al cruzar con el payload (que suele venir como number).
-    const puntosPorParticipacion = new Map();
-
     const torneoInfoRes = await client.query(
       `SELECT tt.nombre AS tipo_torneo, t.norma_puntuacion
        FROM torneo t
@@ -432,8 +426,58 @@ const registrarPuntuacionesArbitro = async ({
       ? parseNormaPuntuacionLiga(torneoInfo?.norma_puntuacion)
       : null;
 
+    const totalParticipantes = puntuaciones.length;
+    const puntuacionesNormalizadas = puntuaciones.map((item) => ({
+      id_participacion_equipo: item.id_participacion_equipo,
+      punto: item.punto,
+      posicion: item.posicion,
+    }));
+
+    if (esLiga && normaLiga?.modo === "posiciones") {
+      const usaPosiciones = puntuacionesNormalizadas.every(
+        (item) => item.posicion !== undefined && item.posicion !== null,
+      );
+
+      if (usaPosiciones) {
+        const posiciones = puntuacionesNormalizadas.map((item) =>
+          Number.parseInt(String(item.posicion), 10),
+        );
+
+        if (
+          posiciones.some(
+            (pos) =>
+              !Number.isInteger(pos) || pos < 1 || pos > totalParticipantes,
+          )
+        ) {
+          throw new AppError(
+            400,
+            `En modo posiciones, cada posicion debe ser entero entre 1 y ${totalParticipantes}`,
+          );
+        }
+
+        if (new Set(posiciones).size !== posiciones.length) {
+          throw new AppError(
+            400,
+            "En modo posiciones, no puede haber posiciones repetidas",
+          );
+        }
+
+        for (let i = 0; i < puntuacionesNormalizadas.length; i++) {
+          // Convertimos posicion (1 = mejor) a puntaje interno (mayor = mejor)
+          // para mantener consistencia con ranking/ELO existentes.
+          puntuacionesNormalizadas[i].punto = totalParticipantes - posiciones[i] + 1;
+        }
+      }
+    }
+
+    const actualizadas = [];
+    // Nota: id_participacion_equipo es BIGINT en PG y node-postgres suele
+    // devolverlo como string en resultados. Usamos claves string para evitar
+    // desajustes al cruzar con el payload (que suele venir como number).
+    const puntosPorParticipacion = new Map();
+
     if (esEliminacionDirecta) {
-      const puntos = puntuaciones.map((p) => Number(p.punto));
+      const puntos = puntuacionesNormalizadas.map((p) => Number(p.punto));
       const max = Math.max(...puntos);
       const countMax = puntos.filter((x) => x === max).length;
       if (countMax !== 1) {
@@ -444,9 +488,9 @@ const registrarPuntuacionesArbitro = async ({
       }
     }
 
-    for (const item of puntuaciones) {
+    for (const item of puntuacionesNormalizadas) {
       const idParticipacionEquipo = item.id_participacion_equipo;
-      const punto = item.punto;
+      const punto = Number(item.punto);
 
       if (!Number.isInteger(punto) || punto < 0) {
         throw new AppError(400, "punto debe ser un entero mayor o igual a 0");
@@ -563,7 +607,7 @@ const registrarPuntuacionesArbitro = async ({
     let eloActualizado = [];
     let eloAplicado = false;
 
-    const puntosPayload = puntuaciones.map((p) => Number(p.punto));
+    const puntosPayload = puntuacionesNormalizadas.map((p) => Number(p.punto));
     const esEmpateMarcador =
       puntosPayload.length > 0 &&
       Math.max(...puntosPayload) === Math.min(...puntosPayload);
