@@ -2,6 +2,7 @@ import 'package:front/api/api_response.dart';
 import 'package:front/api/app_torneos_api_client.dart';
 import 'package:front/features/categorias/domain/categoria.dart';
 import 'package:front/features/tipos_torneo/domain/tipo_torneo.dart';
+import 'package:http/http.dart' as http;
 
 class CategoriasApi {
   final AppTorneosApiClient _client;
@@ -31,7 +32,19 @@ class CategoriasApi {
   }
 
   Future<Categoria> createCategoria(CategoriaCreate payload) async {
-    final res = await _client.postRaw('/categorias', body: payload.toJson());
+    final res = payload.iconoBytes == null
+        ? await _client.postRaw('/categorias', body: payload.toFields())
+        : await _client.postMultipartRaw(
+            '/categorias',
+            fields: payload.toFields(),
+            files: [
+              http.MultipartFile.fromBytes(
+                'icono',
+                payload.iconoBytes!,
+                filename: payload.iconoNombre ?? 'icono.jpg',
+              ),
+            ],
+          );
     return Categoria.fromJson(res.data as Map<String, dynamic>);
   }
 

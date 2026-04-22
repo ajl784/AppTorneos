@@ -7,6 +7,10 @@ const { errorHandler } = require("./middleware/error-handler");
 
 const app = express();
 
+pool.query('ALTER TABLE categoria ADD COLUMN IF NOT EXISTS icono TEXT').catch((error) => {
+  console.error('No se pudo asegurar la columna icono en categoria:', error);
+});
+
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : "*",
