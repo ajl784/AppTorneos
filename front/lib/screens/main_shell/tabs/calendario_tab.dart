@@ -7,6 +7,7 @@ import 'package:front/features/partidos/data/partidos_api.dart';
 import 'package:front/features/partidos/domain/partido.dart';
 import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
+import 'package:front/features/torneos/torneos_refresh.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/state/auth_state.dart';
 import 'package:front/state/jwt_storage.dart';
@@ -24,6 +25,7 @@ class _CalendarioTabState extends State<CalendarioTab> {
   final TorneosApi _torneosApi = TorneosApi(baseUrl: ApiConfig.baseUrl);
 
   late final VoidCallback _authListener;
+  late final VoidCallback _torneosRefreshListener;
 
   bool _loading = true;
   String? _error;
@@ -58,6 +60,13 @@ class _CalendarioTabState extends State<CalendarioTab> {
 
     AuthState.isLoggedIn.addListener(_authListener);
 
+    _torneosRefreshListener = () {
+      if (!mounted || !AuthState.isLoggedIn.value) return;
+      _loadedMonthKey = null;
+      _loadMonth(_focusedDay);
+    };
+    TorneosRefresh.instance.tick.addListener(_torneosRefreshListener);
+
     if (AuthState.isLoggedIn.value) {
       _loadInitial();
     } else {
@@ -68,6 +77,7 @@ class _CalendarioTabState extends State<CalendarioTab> {
   @override
   void dispose() {
     AuthState.isLoggedIn.removeListener(_authListener);
+    TorneosRefresh.instance.tick.removeListener(_torneosRefreshListener);
     super.dispose();
   }
 

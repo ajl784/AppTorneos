@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
 import 'package:front/features/torneos/data/torneos_api.dart';
+import 'package:front/features/torneos/torneos_refresh.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/screens/perfil/gestion_solicitudes_inscripcion.dart';
 import 'package:front/state/jwt_storage.dart';
@@ -367,6 +368,7 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enfrentamientos generados')),
       );
+      TorneosRefresh.instance.notify();
       if (widget.onTorneoUpdated != null) widget.onTorneoUpdated!();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

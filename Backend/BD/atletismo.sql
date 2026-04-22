@@ -146,6 +146,29 @@ FROM generate_series(1, 35) AS gs
 ON CONFLICT (nombre) DO NOTHING;
 
 -- ------------------------------
+-- 4.1) Usuario jugador de equipo (cuenta de prueba)
+-- ------------------------------
+INSERT INTO usuario (correo, nombre_usuario, password_hash, nombre, apellidos)
+VALUES (
+  'atl_player_01@app.com',
+  'atl_player_01',
+  crypt('password123', gen_salt('bf')),
+  'Jugador 01',
+  'Atletismo'
+)
+ON CONFLICT (correo) DO NOTHING;
+
+INSERT INTO pertenece (id_usuario, id_equipo, fecha_inicio)
+SELECT
+  u.id_usuario,
+  e.id_equipo,
+  CURRENT_DATE
+FROM usuario u
+JOIN equipo e ON e.nombre = 'ATL-TEAM-01'
+WHERE u.correo = 'atl_player_01@app.com'
+ON CONFLICT (id_usuario, id_equipo, fecha_inicio) DO NOTHING;
+
+-- ------------------------------
 -- 5) Torneo Atletismo (Liga, 8 por serie)
 -- ------------------------------
 WITH ids AS (
@@ -226,4 +249,6 @@ COMMIT;
 --
 -- Usuario organizador:
 --   atl_org@app.com / password123
+-- Usuario jugador (ATL-TEAM-01):
+--   atl_player_01@app.com / password123
 -- =====================================================
