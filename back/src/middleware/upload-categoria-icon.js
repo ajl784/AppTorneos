@@ -1,6 +1,7 @@
 const fs = require("fs");
 const multer = require("multer");
 const path = require("path");
+const { AppError } = require("../utils/errors");
 
 const CATEGORY_ICONS_DIR = path.join(__dirname, "../../public/category_icons");
 fs.mkdirSync(CATEGORY_ICONS_DIR, { recursive: true });
@@ -17,8 +18,15 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (_req, file, cb) => {
-  if (!file.mimetype.startsWith("image/")) {
-    return cb(new Error("Solo se permiten imágenes"), false);
+  const allowedExtensions = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
+  const ext = path.extname(file.originalname || "").toLowerCase();
+  const hasImageMime = (file.mimetype || "").startsWith("image/");
+  const hasAllowedExt = allowedExtensions.has(ext);
+
+  // En algunos clientes (especialmente desktop/web), el multipart llega como
+  // application/octet-stream aunque el archivo sí sea una imagen.
+  if (!hasImageMime && !hasAllowedExt) {
+    return cb(new AppError(400, "Solo se permiten imágenes"), false);
   }
   cb(null, true);
 };
