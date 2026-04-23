@@ -1,14 +1,16 @@
 -- =====================================================
--- AppTorneos - Dataset Atletismo (DEV)
+-- AppTorneos - Dataset Parchis (BD vacia)
 --
--- Crea un escenario de liga multi:
--- - Categoria Atletismo (8 participantes por partido)
--- - 1 torneo de atletismo (Liga)
--- - 35 equipos inscritos/aceptados (estado = jugando)
+-- Crea desde cero:
+-- - Tipo de torneo: Eliminacion por serie
+-- - Categoria: parchis (4 participantes por partida)
+-- - Relacion categoria_tipo_torneo
 -- - 1 usuario organizador
+-- - 1 arbitro
+-- - 16 equipos
+-- - 1 torneo de parchis
+-- - equipos inscritos en estado jugando
 -- - arbitros asociados al torneo
---
--- Idempotente: limpia solo recursos ATL-
 -- =====================================================
 
 BEGIN;
@@ -16,61 +18,19 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ------------------------------
--- 0) Limpieza del dataset ATL
--- ------------------------------
-DELETE FROM participacion_torneo_equipo
-WHERE id_torneo IN (SELECT id_torneo FROM torneo WHERE nombre LIKE 'ATL-%')
-   OR id_equipo IN (SELECT id_equipo FROM equipo WHERE nombre LIKE 'ATL-%');
-
-DELETE FROM arbitro_torneo
-WHERE id_torneo IN (SELECT id_torneo FROM torneo WHERE nombre LIKE 'ATL-%')
-   OR id_usuario IN (
-     SELECT id_usuario FROM usuario WHERE correo LIKE 'atl_%@app.com'
-   );
-
-DELETE FROM historial_elo
-WHERE id_equipo IN (
-  SELECT id_equipo FROM equipo WHERE nombre LIKE 'ATL-%'
-);
-
-DELETE FROM torneo
-WHERE nombre LIKE 'ATL-%';
-
-DELETE FROM pertenece
-WHERE id_usuario IN (
-  SELECT id_usuario FROM usuario WHERE correo LIKE 'atl_%@app.com'
-)
-   OR id_equipo IN (
-     SELECT id_equipo FROM equipo WHERE nombre LIKE 'ATL-%'
-   );
-
-DELETE FROM solicitud_equipo
-WHERE id_usuario IN (
-  SELECT id_usuario FROM usuario WHERE correo LIKE 'atl_%@app.com'
-)
-   OR id_equipo IN (
-     SELECT id_equipo FROM equipo WHERE nombre LIKE 'ATL-%'
-   );
-
-DELETE FROM equipo
-WHERE nombre LIKE 'ATL-%';
-
-DELETE FROM usuario
-WHERE correo LIKE 'atl_%@app.com';
-
--- ------------------------------
--- 1) Catalogos necesarios
+-- 1) Catalogos
 -- ------------------------------
 INSERT INTO tipo_torneo (nombre, descripcion)
-VALUES ('Liga', 'Todos contra todos')
+VALUES
+  ('Eliminación por serie', 'Eliminacion multi por bloques de series y clasificacion por puntos')
 ON CONFLICT (nombre) DO NOTHING;
 
 INSERT INTO categoria (nombre, participantes_por_partida, norma, descripcion)
 VALUES (
-  'Atletismo',
-  8,
-  'Series de 8 y puntuacion por posicion',
-  'Competicion multi-participante por posiciones'
+  'parchis',
+  4,
+  'Partidas de 4 con puntuacion por posicion',
+  'Categoria multijugador para eliminacion por serie'
 )
 ON CONFLICT (nombre) DO UPDATE
 SET
@@ -81,101 +41,54 @@ SET
 INSERT INTO categoria_tipo_torneo (id_categoria, id_tipo_torneo)
 SELECT c.id_categoria, tt.id_tipo_torneo
 FROM categoria c
-JOIN tipo_torneo tt ON tt.nombre = 'Liga'
-WHERE c.nombre = 'Atletismo'
+JOIN tipo_torneo tt ON tt.nombre = 'Eliminación por serie'
+WHERE c.nombre = 'parchis'
 ON CONFLICT (id_categoria, id_tipo_torneo) DO NOTHING;
 
 -- ------------------------------
--- 2) Usuario organizador
+-- 2) Usuarios
 -- ------------------------------
 INSERT INTO usuario (correo, nombre_usuario, password_hash, nombre, apellidos)
 VALUES (
-  'atl_org@app.com',
-  'atl_org',
+  'parchis_org@app.com',
+  'parchis_org',
   crypt('password123', gen_salt('bf')),
   'Organizador',
-  'Atletismo'
+  'Parchis'
 )
 ON CONFLICT (correo) DO NOTHING;
 
--- ------------------------------
--- 3) Usuarios arbitros
--- ------------------------------
 INSERT INTO usuario (correo, nombre_usuario, password_hash, nombre, apellidos)
 VALUES
   (
-    'atl_ref_01@app.com',
-    'atl_ref_01',
+    'parchis_ref_01@app.com',
+    'parchis_ref_01',
     crypt('password123', gen_salt('bf')),
     'Arbitro 1',
-    'Atletismo'
-  ),
-  (
-    'atl_ref_02@app.com',
-    'atl_ref_02',
-    crypt('password123', gen_salt('bf')),
-    'Arbitro 2',
-    'Atletismo'
-  ),
-  (
-    'atl_ref_03@app.com',
-    'atl_ref_03',
-    crypt('password123', gen_salt('bf')),
-    'Arbitro 3',
-    'Atletismo'
-  ),
-  (
-    'atl_ref_04@app.com',
-    'atl_ref_04',
-    crypt('password123', gen_salt('bf')),
-    'Arbitro 4',
-    'Atletismo'
+    'Parchis'
   )
 ON CONFLICT (correo) DO NOTHING;
 
 -- ------------------------------
--- 4) Equipos (35)
+-- 3) Equipos (16)
 -- ------------------------------
 INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
 SELECT
-  'ATL-TEAM-' || LPAD(gs::text, 2, '0') AS nombre,
-  'Equipo Atletismo #' || gs AS descripcion,
-  (950 + (random() * 450))::int AS elo,
-  (SELECT id_categoria FROM categoria WHERE nombre = 'Atletismo')
-FROM generate_series(1, 35) AS gs
+  'PARCHIS-TEAM-' || LPAD(gs::text, 2, '0') AS nombre,
+  'Equipo Parchis #' || gs AS descripcion,
+  (1000 + (random() * 300))::int AS elo,
+  (SELECT id_categoria FROM categoria WHERE nombre = 'parchis')
+FROM generate_series(1, 16) AS gs
 ON CONFLICT (nombre) DO NOTHING;
 
 -- ------------------------------
--- 4.1) Usuario jugador de equipo (cuenta de prueba)
--- ------------------------------
-INSERT INTO usuario (correo, nombre_usuario, password_hash, nombre, apellidos)
-VALUES (
-  'atl_player_01@app.com',
-  'atl_player_01',
-  crypt('password123', gen_salt('bf')),
-  'Jugador 01',
-  'Atletismo'
-)
-ON CONFLICT (correo) DO NOTHING;
-
-INSERT INTO pertenece (id_usuario, id_equipo, fecha_inicio)
-SELECT
-  u.id_usuario,
-  e.id_equipo,
-  CURRENT_DATE
-FROM usuario u
-JOIN equipo e ON e.nombre = 'ATL-TEAM-01'
-WHERE u.correo = 'atl_player_01@app.com'
-ON CONFLICT (id_usuario, id_equipo, fecha_inicio) DO NOTHING;
-
--- ------------------------------
--- 5) Torneo Atletismo (Liga, 8 por serie)
+-- 4) Torneo
 -- ------------------------------
 WITH ids AS (
   SELECT
-    (SELECT id_usuario FROM usuario WHERE correo = 'atl_org@app.com') AS org_id,
-    (SELECT id_categoria FROM categoria WHERE nombre = 'Atletismo') AS cat_atl,
-    (SELECT id_tipo_torneo FROM tipo_torneo WHERE nombre = 'Liga') AS tt_liga
+    (SELECT id_usuario FROM usuario WHERE correo = 'parchis_org@app.com') AS org_id,
+    (SELECT id_categoria FROM categoria WHERE nombre = 'parchis') AS cat_parchis,
+    (SELECT id_tipo_torneo FROM tipo_torneo WHERE nombre = 'Eliminación por serie') AS tt_serie
 )
 INSERT INTO torneo (
   nombre,
@@ -192,23 +105,23 @@ INSERT INTO torneo (
   tipo_generacion_enfrentamientos
 )
 VALUES (
-  'ATL-LIGA-8P',
-  'Liga de Atletismo con series de 8 participantes',
-  NOW() - INTERVAL '5 days',
-  NOW() + INTERVAL '45 days',
-  'en_curso',
-  40,
-  (SELECT cat_atl FROM ids),
-  (SELECT tt_liga FROM ids),
+  'PARCHIS-ELIM-SERIE-01',
+  'Torneo de parchis en formato eliminacion por serie',
+  NOW() + INTERVAL '2 days',
+  NOW() + INTERVAL '35 days',
+  'inscripcion_cerrada',
+  16,
+  (SELECT cat_parchis FROM ids),
+  (SELECT tt_serie FROM ids),
   (SELECT org_id FROM ids),
-  'modo=posiciones;pos1=12;pos2=9;pos3=7;pos4=5;pos5=4;pos6=3;pos7=2;pos8=1;estrategia_multi=balanceada;jornadas_multi=12',
-  '{"dias":["sabado","domingo"],"hora_inicio":"09:00","hora_fin":"14:00"}'::jsonb,
+  'modo=posiciones;pos1=4;pos2=2;pos3=1;pos4=0;rondas_por_serie=3;clasifican_por_serie=2;criterio=desc',
+  '{"dias":["sabado","domingo"],"hora_inicio":"10:00","hora_fin":"14:00"}'::jsonb,
   'balanceada'
 )
 ON CONFLICT (nombre, id_categoria, id_tipo_torneo) DO NOTHING;
 
 -- ------------------------------
--- 6) Inscripciones aceptadas (estado = jugando)
+-- 5) Inscripciones aceptadas
 -- ------------------------------
 INSERT INTO participacion_torneo_equipo (id_torneo, id_equipo, fecha, estado, puntuacion)
 SELECT
@@ -218,12 +131,12 @@ SELECT
   'jugando',
   0
 FROM torneo t
-JOIN equipo e ON e.nombre LIKE 'ATL-TEAM-%'
-WHERE t.nombre = 'ATL-LIGA-8P'
+JOIN equipo e ON e.nombre LIKE 'PARCHIS-TEAM-%'
+WHERE t.nombre = 'PARCHIS-ELIM-SERIE-01'
 ON CONFLICT (id_torneo, id_equipo) DO NOTHING;
 
 -- ------------------------------
--- 7) Asignacion de arbitros al torneo
+-- 6) Arbitros del torneo
 -- ------------------------------
 INSERT INTO arbitro_torneo (id_usuario, id_torneo)
 SELECT
@@ -231,13 +144,8 @@ SELECT
   t.id_torneo
 FROM usuario u
 CROSS JOIN torneo t
-WHERE u.correo IN (
-  'atl_ref_01@app.com',
-  'atl_ref_02@app.com',
-  'atl_ref_03@app.com',
-  'atl_ref_04@app.com'
-)
-  AND t.nombre = 'ATL-LIGA-8P'
+WHERE u.correo = 'parchis_ref_01@app.com'
+  AND t.nombre = 'PARCHIS-ELIM-SERIE-01'
 ON CONFLICT (id_usuario, id_torneo) DO NOTHING;
 
 COMMIT;
@@ -248,7 +156,5 @@ COMMIT;
 --   Get-Content Backend/BD/atletismo.sql -Raw | docker compose exec -T postgres psql -U admin -d app_db
 --
 -- Usuario organizador:
---   atl_org@app.com / password123
--- Usuario jugador (ATL-TEAM-01):
---   atl_player_01@app.com / password123
+--   parchis_org@app.com / password123
 -- =====================================================

@@ -96,6 +96,11 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
       <TextEditingController>[];
   String _estrategiaMulti = 'balanceada';
   final TextEditingController _jornadasMultiCtrl = TextEditingController();
+  final TextEditingController _rondasPorSerieCtrl = TextEditingController(
+    text: '3',
+  );
+  final TextEditingController _clasificadosPorSerieCtrl =
+      TextEditingController(text: '4');
   final TextEditingController _normasExtraCtrl = TextEditingController();
 
   final TextEditingController _limiteEquiposCtrl = TextEditingController();
@@ -151,6 +156,8 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
       ctrl.dispose();
     }
     _jornadasMultiCtrl.dispose();
+    _rondasPorSerieCtrl.dispose();
+    _clasificadosPorSerieCtrl.dispose();
     _normasExtraCtrl.dispose();
     _limiteEquiposCtrl.dispose();
 
@@ -310,6 +317,22 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
           }
         }
       }
+
+      if (_esEliminacionPorSerieSeleccionada) {
+        final rondas = int.tryParse(_rondasPorSerieCtrl.text.trim());
+        if (rondas == null || rondas < 1) {
+          _snack('Rondas por serie debe ser un entero mayor o igual a 1.');
+          return false;
+        }
+
+        final clasificados = int.tryParse(_clasificadosPorSerieCtrl.text.trim());
+        if (clasificados == null || clasificados < 1) {
+          _snack(
+            'Clasificados por serie debe ser un entero mayor o igual a 1.',
+          );
+          return false;
+        }
+      }
       return true;
     }
 
@@ -391,6 +414,18 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
           partes.add('jornadas_multi=$jornadas');
         }
       }
+
+      if (_esEliminacionPorSerieSeleccionada) {
+        final rondas = int.tryParse(_rondasPorSerieCtrl.text.trim());
+        final clasificados = int.tryParse(_clasificadosPorSerieCtrl.text.trim());
+        if (rondas != null && rondas > 0) {
+          partes.add('rondas_por_serie=$rondas');
+        }
+        if (clasificados != null && clasificados > 0) {
+          partes.add('clasifican_por_serie=$clasificados');
+        }
+      }
+
       final base = partes.join(';');
       final extra = _normasExtraCtrl.text.trim();
       return extra.isEmpty ? base : '$base;$extra';
@@ -908,6 +943,8 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
     final participantesPorPartido = _participantesPorPartidoActual;
     final usaPuntosPorPosicion = participantesPorPartido > 2;
     final mostrarConfigLigaMulti = usaPuntosPorPosicion && _esLigaSeleccionada;
+    final mostrarConfigEliminacionPorSerie =
+        usaPuntosPorPosicion && _esEliminacionPorSerieSeleccionada;
 
     if (usaPuntosPorPosicion) {
       _syncPuntosPosicionControllers(participantesPorPartido);
@@ -1011,6 +1048,32 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
             ),
           ),
         ],
+        if (mostrarConfigEliminacionPorSerie) ...[
+          const SizedBox(height: 12),
+          const Text('Configuración de eliminación por serie (multi):'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _rondasPorSerieCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Rondas por serie',
+              helperText:
+                  'Repeticiones de la misma serie antes de eliminar.',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _clasificadosPorSerieCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Clasificados por serie',
+              helperText:
+                  'Cuántos participantes avanzan en etapas no finales.',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         TextField(
           controller: _normasExtraCtrl,
@@ -1028,6 +1091,11 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
   bool get _esLigaSeleccionada {
     final nombre = _tipoSeleccionado?.nombre.toLowerCase().trim();
     return nombre == 'liga';
+  }
+
+  bool get _esEliminacionPorSerieSeleccionada {
+    final nombre = _tipoSeleccionado?.nombre.toLowerCase().trim();
+    return nombre == 'eliminación por serie';
   }
 
   int get _participantesPorPartidoActual {

@@ -9,6 +9,7 @@ INSERT INTO tipo_torneo (nombre, descripcion)
 VALUES
 	('Liga', 'Todos contra todos (puntos por victoria/empate)'),
 	('Eliminación directa', 'Bracket: el perdedor queda eliminado'),
+	('Eliminación por serie', 'Eliminación multi por bloques de series repetidas y clasificación por puntos'),
 	('Serie + final (con tiempos)', 'Series y final por mejores tiempos'),
 	('Eliminatorias por rondas', 'Rondas sucesivas con clasificacion por puestos/tiempos'),
 	('Eliminación progresiva', 'Cada ronda elimina un porcentaje de participantes')
@@ -30,11 +31,11 @@ JOIN tipo_torneo tt ON (
 	OR (c.nombre = 'Baloncesto 5' AND tt.nombre IN ('Liga', 'Eliminación directa'))
 	OR (
 		c.nombre = 'Atletismo'
-		AND tt.nombre IN ('Liga', 'Serie + final (con tiempos)', 'Eliminatorias por rondas', 'Eliminación progresiva')
+		AND tt.nombre IN ('Liga', 'Eliminación por serie', 'Serie + final (con tiempos)', 'Eliminatorias por rondas', 'Eliminación progresiva')
 	)
 	OR (
 		c.nombre = 'Parchís'
-		AND tt.nombre IN ('Eliminatorias por rondas')
+		AND tt.nombre IN ('Eliminación por serie', 'Eliminatorias por rondas')
 	)
 )
 ON CONFLICT (id_categoria, id_tipo_torneo) DO NOTHING;
