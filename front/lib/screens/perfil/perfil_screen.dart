@@ -27,6 +27,7 @@ import 'equipo_info.dart';
 import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
 import 'mitorneo_info.dart';
+import 'gestion_invitaciones.dart';
 
 class PerfilScreen extends StatefulWidget {
   const PerfilScreen({Key? key}) : super(key: key);
@@ -145,6 +146,14 @@ class _PerfilScreenState extends State<PerfilScreen> with SingleTickerProviderSt
     );
     // Forzar refresh siempre al volver
     await _loadAll();
+  }
+
+  void _goToGestionInvitaciones() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (ctx) => const GestionInvitacionesScreen(),
+      ),
+    );
   }
 
   Future<void> _pickProfileImage() async {
@@ -328,6 +337,12 @@ class _PerfilScreenState extends State<PerfilScreen> with SingleTickerProviderSt
                         onPressed: _goToCambiarContrasena,
                         icon: const Icon(Icons.lock),
                         label: const Text('Cambiar contraseña'),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: _goToGestionInvitaciones,
+                        icon: const Icon(Icons.mail_outline),
+                        label: const Text('Ver invitaciones'),
                       ),
                       const SizedBox(height: 32),
                       // Mis torneos
