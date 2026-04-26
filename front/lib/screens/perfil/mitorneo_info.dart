@@ -4,7 +4,9 @@ import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/features/torneos/torneos_refresh.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/screens/perfil/gestion_solicitudes_inscripcion.dart';
+
 import 'package:front/state/jwt_storage.dart';
+import 'gestion_arbitros_torneo.dart';
 
 class MiTorneoInfoScreen extends StatefulWidget {
   final Torneo torneo;
@@ -205,6 +207,21 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
         _buildDetail('Participantes por partido', _torneo.participantesPorPartido?.toString()),
         const SizedBox(height: 16),
         ElevatedButton.icon(
+          onPressed: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => GestionArbitrosTorneoScreen(
+                  torneoNombre: _torneo.nombre,
+                  torneoId: _torneo.id,
+                ),
+              ),
+            );
+          },
+          icon: const Icon(Icons.sports),
+          label: const Text('Gestión de árbitros'),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton.icon(
           onPressed: _generarEnfrentamientos,
           icon: const Icon(Icons.account_tree),
           label: const Text('Generar enfrentamientos'),
@@ -240,6 +257,7 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
       ],
     );
   }
+
 
   Widget _buildEditForm() {
     return Form(

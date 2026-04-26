@@ -8,6 +8,9 @@ const partidosRoutes = require("./partidos.routes");
 const participacionesRoutes = require("./participaciones.routes");
 const estadisticasRoutes = require("./estadisticas.routes");
 
+const invitacionesRoutes = require("./invitaciones.routes");
+const notificacionesRoutes = require("./notificaciones.routes");
+
 const router = express.Router();
 
 router.get("/", (_req, res) => {
@@ -24,6 +27,8 @@ router.get("/", (_req, res) => {
         partidos: "/api/v1/partidos",
         participaciones: "/api/v1/participaciones",
         estadisticas: "/api/v1/estadisticas",
+        invitaciones: "/api/v1/invitaciones",
+        notificaciones: "/api/v1/notificaciones",
       },
     },
   });
@@ -37,5 +42,8 @@ router.use("/torneos", torneosRoutes);
 router.use("/partidos", partidosRoutes);
 router.use("/participaciones", participacionesRoutes);
 router.use("/estadisticas", estadisticasRoutes);
+
+router.use("/invitaciones", invitacionesRoutes);
+router.use("/notificaciones", notificacionesRoutes);
 
 module.exports = router;
