@@ -422,6 +422,7 @@ const registrarPuntuacionesArbitro = async ({
     const torneoInfo = torneoInfoRes.rows[0] || null;
     const esLiga = (torneoInfo?.tipo_torneo || "") === "Liga";
     const esEliminacionDirecta = (torneoInfo?.tipo_torneo || "") === "Eliminación directa";
+    const esEliminacionPorSerie = (torneoInfo?.tipo_torneo || "") === "Eliminación por serie";
     const normaLiga = esLiga
       ? parseNormaPuntuacionLiga(torneoInfo?.norma_puntuacion)
       : null;
@@ -432,8 +433,11 @@ const registrarPuntuacionesArbitro = async ({
       punto: item.punto,
       posicion: item.posicion,
     }));
+    
 
-    if (esLiga && normaLiga?.modo === "posiciones") {
+    const usaReglaPosiciones =
+      (esLiga && normaLiga?.modo === "posiciones") || esEliminacionPorSerie;
+    if (usaReglaPosiciones) {
       const usaPosiciones = puntuacionesNormalizadas.every(
         (item) => item.posicion !== undefined && item.posicion !== null,
       );
@@ -469,6 +473,7 @@ const registrarPuntuacionesArbitro = async ({
         }
       }
     }
+    
 
     const actualizadas = [];
     // Nota: id_participacion_equipo es BIGINT en PG y node-postgres suele
@@ -476,17 +481,27 @@ const registrarPuntuacionesArbitro = async ({
     // desajustes al cruzar con el payload (que suele venir como number).
     const puntosPorParticipacion = new Map();
 
-    if (esEliminacionDirecta) {
+    if (esEliminacionDirecta || esEliminacionPorSerie) {
       const puntos = puntuacionesNormalizadas.map((p) => Number(p.punto));
+
+      if (puntos.some((x) => !Number.isFinite(x))) {
+        throw new AppError(
+          400,
+          "Cada puntuacion debe incluir punto o posicion valida",
+        );
+      }
+
       const max = Math.max(...puntos);
       const countMax = puntos.filter((x) => x === max).length;
       if (countMax !== 1) {
         throw new AppError(
           400,
-          "En eliminación directa no se permite empate: debe haber un ganador único",
+          "En eliminacion no se permite empate: debe haber un ganador unico",
         );
       }
     }
+    
+
 
     for (const item of puntuacionesNormalizadas) {
       const idParticipacionEquipo = item.id_participacion_equipo;
