@@ -9,6 +9,10 @@ router.post("/", controller.crearInvitacion);
 router.post("/arbitro", controller.invitarArbitro);
 // Crear invitación para jugador a equipo
 router.post("/jugador-equipo", controller.invitarJugadorEquipo);
+
+// Consultar invitaciones pendientes por usuario invitado
+router.get("/pendientes/:idUsuario", controller.obtenerPendientesPorUsuario);
+
 // Aceptar invitación
 router.post("/:idInvitacion/aceptar", controller.aceptarInvitacion);
 // Rechazar invitación

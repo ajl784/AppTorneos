@@ -11,6 +11,15 @@ async function crearInvitacion({ tipo, id_torneo, id_equipo, id_usuario_invitado
   return result.rows[0];
 }
 
+// Consultar invitaciones pendientes por id_usuario_invitado
+async function obtenerInvitacionesPendientesPorUsuario(id_usuario_invitado) {
+  const { rows } = await pool.query(
+    `SELECT * FROM invitacion WHERE id_usuario_invitado = $1 AND estado = 'pendiente' ORDER BY fecha_envio DESC`,
+    [id_usuario_invitado]
+  );
+  return rows;
+}
+
 // Lógica de aceptación según tipo
 async function aceptarInvitacion(idInvitacion) {
   // 1. Marcar como aceptada y obtener invitación
@@ -54,4 +63,5 @@ module.exports = {
   crearInvitacion,
   aceptarInvitacion,
   rechazarInvitacion,
+  obtenerInvitacionesPendientesPorUsuario,
 };

@@ -16,6 +16,13 @@ const crearInvitacion = asyncHandler(async (req, res) => {
   created(res, invitacion);
 });
 
+// Consultar invitaciones pendientes por id_usuario_invitado
+const obtenerPendientesPorUsuario = asyncHandler(async (req, res) => {
+  const id_usuario_invitado = parsePositiveInt(req.params.idUsuario, "idUsuario");
+  const invitaciones = await invitacionesService.obtenerInvitacionesPendientesPorUsuario(id_usuario_invitado);
+  ok(res, invitaciones);
+});
+
 const aceptarInvitacion = asyncHandler(async (req, res) => {
   const idInvitacion = parsePositiveInt(req.params.idInvitacion, "idInvitacion");
   const invitacion = await invitacionesService.aceptarInvitacion(idInvitacion);
@@ -82,4 +89,5 @@ module.exports = {
   rechazarInvitacion,
   invitarArbitro,
   invitarJugadorEquipo,
+  obtenerPendientesPorUsuario,
 };
