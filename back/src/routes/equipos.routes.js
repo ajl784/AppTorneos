@@ -16,6 +16,7 @@ router.patch(
 	controller.decidirSolicitudIngresoEquipo,
 );
 router.get("/usuario/:idUsuario", controller.getEquiposByUsuario);
+router.get("/:idEquipo/elo-historial", controller.getEloHistorialEquipo);
 router.get("/:idEquipo/solicitudes", authJwt, controller.listSolicitudesIngresoEquipo);
 router.post("/:idEquipo/solicitudes", authJwt, controller.createSolicitudIngresoEquipo);
 router.get("/:id", controller.getEquipoById);

@@ -33,6 +33,17 @@ const getEquipoById = asyncHandler(async (req, res) => {
   ok(res, data);
 });
 
+const getEloHistorialEquipo = asyncHandler(async (req, res) => {
+  const idEquipo = parsePositiveInt(req.params.idEquipo, "idEquipo");
+  const data = await equiposService.getEloHistorialEquipo(idEquipo);
+
+  if (!data) {
+    throw new AppError(404, "Equipo no encontrado");
+  }
+
+  ok(res, data);
+});
+
 const createEquipo = asyncHandler(async (req, res) => {
   requireFields(req.body, ["nombre", "id_categoria"]);
   const payload = {
@@ -170,6 +181,7 @@ const decidirSolicitudIngresoEquipo = asyncHandler(async (req, res) => {
 module.exports = {
   listEquipos,
   getEquipoById,
+  getEloHistorialEquipo,
   createEquipo,
   updateEquipo,
   deleteEquipo,

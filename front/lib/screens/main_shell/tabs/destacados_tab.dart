@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+import 'package:front/api/api_exception.dart';
 import 'package:front/features/equipos/data/equipos_api.dart';
 import 'package:front/features/equipos/domain/equipo.dart';
 import 'package:front/features/estadisticas/domain/estadisticas_models.dart';
@@ -192,12 +193,12 @@ class _DestacadosTabState extends State<DestacadosTab> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'Líderes por categoría',
+                  'Hall of Fame',
                   style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Solo se muestra el equipo con mayor ELO de cada categoría. Toca cualquiera para abrir su historial y torneos.',
+                  'Solo entra el #1 de cada categoría. Si quieres que tu equipo aparezca aquí, toca una tarjeta y revisa qué nivel hay que alcanzar.',
                   style: theme.textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 16),
@@ -236,70 +237,121 @@ class _HeaderCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
+            const Color(0xFF38BDF8),
             const Color(0xFF7DD3FC),
             const Color(0xFFBAE6FD),
-            theme.colorScheme.primary,
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: const Color(0xFF0C4A6E).withOpacity(0.18),
             blurRadius: 30,
             offset: const Offset(0, 16),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Stack(
+        children: [
+          Positioned(
+            top: -24,
+            right: -18,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.16),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -30,
+            left: -24,
+            child: Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.12),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.22),
+                    borderRadius: BorderRadius.circular(999),
                   ),
-                  child: const Icon(Icons.emoji_events, color: Colors.white, size: 28),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      Icon(Icons.local_fire_department, size: 16, color: Colors.white),
+                      SizedBox(width: 6),
                       Text(
-                        'Equipos destacados',
-                        style: theme.textTheme.headlineSmall?.copyWith(
+                        'Zona de élite',
+                        style: TextStyle(
                           color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Los mejores ELO de cada categoría',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withOpacity(0.9),
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.workspace_premium, color: Colors.white, size: 28),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Hall of Fame',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Solo los líderes absolutos por categoría',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.white.withOpacity(0.95),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _StatChip(label: 'Categorías en disputa', value: categoriaCount.toString()),
+                    _StatChip(label: 'Equipos analizados', value: equipoCount.toString()),
+                    const _StatChip(label: 'Filtro', value: 'Solo #1'),
+                  ],
+                ),
               ],
             ),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _StatChip(label: 'Categorías', value: categoriaCount.toString()),
-                _StatChip(label: 'Equipos evaluados', value: equipoCount.toString()),
-                const _StatChip(label: 'Vista premium', value: 'Top 1'),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -354,6 +406,16 @@ class _CategoryShowcaseCard extends StatelessWidget {
     final team = categoria.equipo;
     final theme = Theme.of(context);
     final elo = team.elo ?? 0;
+    final crownState = elo >= 1900
+        ? 'Defiende el trono'
+        : elo >= 1800
+            ? 'A un paso de la leyenda'
+            : 'En ascenso a la cima';
+    final rarity = elo >= 1900
+        ? 'Legendario'
+        : elo >= 1800
+            ? 'Épico'
+            : 'Competitivo';
 
     return Material(
       color: Colors.transparent,
@@ -382,6 +444,25 @@ class _CategoryShowcaseCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _TagPill(
+                      icon: Icons.verified,
+                      label: crownState,
+                      background: const Color(0xFFDBEAFE),
+                      foreground: const Color(0xFF1D4ED8),
+                    ),
+                    _TagPill(
+                      icon: Icons.shield_moon,
+                      label: rarity,
+                      background: const Color(0xFFE0F2FE),
+                      foreground: const Color(0xFF0369A1),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -450,7 +531,7 @@ class _CategoryShowcaseCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Acceso directo',
+                              'Meta para entrar aquí',
                               style: theme.textTheme.labelMedium?.copyWith(
                                 color: const Color(0xFF0EA5E9),
                                 fontWeight: FontWeight.w700,
@@ -458,7 +539,7 @@ class _CategoryShowcaseCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Ver torneos y evolución',
+                              'Supera este ELO y gana visibilidad en la app',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -467,6 +548,21 @@ class _CategoryShowcaseCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Toca para ver torneos y evolución del líder',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFF0C4A6E),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_rounded, color: Color(0xFF0284C7)),
                   ],
                 ),
               ],
@@ -552,6 +648,46 @@ class _EloBlock extends StatelessWidget {
   }
 }
 
+class _TagPill extends StatelessWidget {
+  const _TagPill({
+    required this.icon,
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: foreground),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EquipoDestacadoSheet extends StatefulWidget {
   const _EquipoDestacadoSheet({
     required this.equipo,
@@ -604,17 +740,30 @@ class _EquipoDestacadoSheetState extends State<_EquipoDestacadoSheet> {
   }
 
   Future<_EquipoDetalleData> _loadDetalle() async {
-    final futureHistorial = _equiposApi.getEloHistorialEquipo(widget.equipo.idEquipo);
-    final futureParticipaciones = _loadParticipaciones(widget.equipo.idEquipo);
+    EloHistorialResponse historial;
+    try {
+      historial = await _equiposApi.getEloHistorialEquipo(widget.equipo.idEquipo);
+    } on ApiException catch (e) {
+      // Fallback temporal cuando el backend todavía no expone /equipos/:id/elo-historial.
+      if (e.statusCode == 404) {
+        historial = EloHistorialResponse(
+          equipo: EquipoElo(
+            idEquipo: widget.equipo.idEquipo,
+            nombre: widget.equipo.nombre,
+            eloActual: widget.equipo.elo ?? 0,
+          ),
+          historial: const [],
+        );
+      } else {
+        rethrow;
+      }
+    }
 
-    final results = await Future.wait<dynamic>([
-      futureHistorial,
-      futureParticipaciones,
-    ]);
+    final participaciones = await _loadParticipaciones(widget.equipo.idEquipo);
 
     return _EquipoDetalleData(
-      historial: results[0] as EloHistorialResponse,
-      participaciones: results[1] as List<Participacion>,
+      historial: historial,
+      participaciones: participaciones,
     );
   }
 
@@ -779,6 +928,30 @@ class _EquipoDestacadoSheetState extends State<_EquipoDestacadoSheet> {
                                 maxY: maxY + 40,
                                 gridData: const FlGridData(show: false),
                                 borderData: FlBorderData(show: false),
+                                lineTouchData: LineTouchData(
+                                  touchTooltipData: LineTouchTooltipData(
+                                    tooltipRoundedRadius: 10,
+                                    getTooltipColor: (_) => theme.colorScheme.surface,
+                                    fitInsideHorizontally: true,
+                                    fitInsideVertically: true,
+                                    getTooltipItems: (touchedSpots) {
+                                      return touchedSpots.map((spot) {
+                                        final value = spot.y.round();
+                                        return LineTooltipItem(
+                                          '$value ELO',
+                                          theme.textTheme.bodySmall?.copyWith(
+                                                color: theme.colorScheme.onSurface,
+                                                fontWeight: FontWeight.w700,
+                                              ) ??
+                                              TextStyle(
+                                                color: theme.colorScheme.onSurface,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        );
+                                      }).toList(growable: false);
+                                    },
+                                  ),
+                                ),
                                 titlesData: const FlTitlesData(
                                   topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                                   rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),

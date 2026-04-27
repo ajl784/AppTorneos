@@ -230,6 +230,7 @@ class _MainShellState extends State<MainShell> {
                 unselectedColor: unselectedColor,
                 onTap: () => setState(() => _currentIndex = 1),
               ),
+              const SizedBox(width: 64),
               _NavItem(
                 label: 'Destacados',
                 icon: Icons.workspace_premium,
@@ -238,7 +239,6 @@ class _MainShellState extends State<MainShell> {
                 unselectedColor: unselectedColor,
                 onTap: () => setState(() => _currentIndex = 2),
               ),
-              const SizedBox(width: 64),
               _NavItem(
                 label: 'Estadísticas',
                 icon: Icons.bar_chart,

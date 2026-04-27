@@ -41,6 +41,36 @@ const getEquipoById = async (idEquipo) => {
   return result.rows[0] || null;
 };
 
+const getEloHistorialEquipo = async (idEquipo) => {
+  const equipo = await getEquipoById(idEquipo);
+  if (!equipo) {
+    return null;
+  }
+
+  const historialRes = await pool.query(
+    `SELECT id_historial_elo, creado_en, elo_anterior, elo_nuevo, descripcion
+     FROM historial_elo
+     WHERE id_equipo = $1
+     ORDER BY creado_en ASC, id_historial_elo ASC`,
+    [idEquipo],
+  );
+
+  return {
+    equipo: {
+      id_equipo: Number(equipo.id_equipo),
+      nombre: equipo.nombre,
+      elo_actual: Number(equipo.elo ?? 0),
+    },
+    historial: historialRes.rows.map((row) => ({
+      id_historial_elo: Number(row.id_historial_elo),
+      creado_en: row.creado_en,
+      elo_anterior: Number(row.elo_anterior),
+      elo_nuevo: Number(row.elo_nuevo),
+      descripcion: row.descripcion,
+    })),
+  };
+};
+
 const createEquipo = async ({ nombre, descripcion, elo, id_categoria, id_usuario }) => {
   const client = await pool.connect();
   try {
@@ -343,6 +373,7 @@ const deleteEquipo = async (idEquipo) => {
 module.exports = {
   listEquipos,
   getEquipoById,
+  getEloHistorialEquipo,
   createEquipo,
   updateEquipo,
   deleteEquipo,
