@@ -249,6 +249,12 @@ class _EstadisticasTabState extends State<EstadisticasTab> {
             ),
           ),
           const SizedBox(height: 16),
+          _EloActualSummary(
+            equipoNombre: selectedEquipo?.nombre ?? 'Equipo',
+            eloActual: _eloResponse?.equipo.eloActual,
+            points: _eloResponse?.historial ?? const [],
+          ),
+          const SizedBox(height: 16),
           _EloCard(
             equipoNombre: selectedEquipo?.nombre ?? 'Equipo',
             eloActual: _eloResponse?.equipo.eloActual,
@@ -293,11 +299,6 @@ class _EloCard extends StatelessWidget {
             Text(
               'ELO - $equipoNombre',
               style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              eloActual == null ? 'ELO actual: —' : 'ELO actual: $eloActual',
-              style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 12),
             if (points.isEmpty)
@@ -427,6 +428,102 @@ class _EloCard extends StatelessWidget {
   }
 }
 
+class _EloActualSummary extends StatelessWidget {
+  const _EloActualSummary({
+    required this.equipoNombre,
+    required this.eloActual,
+    required this.points,
+  });
+
+  final String equipoNombre;
+  final int? eloActual;
+  final List<EloPoint> points;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    final currentElo = eloActual ?? (points.isNotEmpty ? points.last.eloNuevo : null);
+    final previousElo = points.length >= 2 ? points[points.length - 2].eloNuevo : null;
+
+    final bool? wentUp = (currentElo == null || previousElo == null)
+      ? null
+      : currentElo > previousElo
+        ? true
+        : currentElo < previousElo
+          ? false
+          : null;
+
+    final IconData trendIcon = (wentUp == null)
+      ? Icons.trending_flat
+      : wentUp
+        ? Icons.trending_up
+        : Icons.trending_down;
+
+    final Color trendColor = (wentUp == null)
+      ? colors.onSurfaceVariant
+      : wentUp
+        ? Colors.green
+        : Colors.red;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Icon(Icons.emoji_events_outlined, color: colors.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('ELO actual', style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 2),
+                  Text(
+                    equipoNombre,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: colors.surfaceVariant,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: colors.outlineVariant),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    trendIcon,
+                    size: 18,
+                    color: trendColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    currentElo?.toString() ?? '—',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _RankingCard extends StatelessWidget {
   const _RankingCard({required this.ranking, required this.selectedEquipoId});
 
@@ -501,25 +598,25 @@ class _RankingRow extends StatelessWidget {
     switch (position) {
       case 1:
         gradientColors = <Color>[
-          colors.tertiary,
-          colors.secondary,
-          colors.primary,
+          Colors.amber.shade200,
+          Colors.amber,
+          Colors.amber.shade700,
         ];
         medalIcon = Icons.workspace_premium;
         break;
       case 2:
         gradientColors = <Color>[
-          colors.surfaceVariant,
-          colors.outlineVariant,
-          colors.onSurfaceVariant,
+          Colors.grey.shade300,
+          Colors.grey,
+          Colors.grey.shade700,
         ];
         medalIcon = Icons.workspace_premium;
         break;
       case 3:
         gradientColors = <Color>[
-          colors.secondary,
-          colors.tertiary,
-          colors.primary,
+          Colors.brown.shade200,
+          Colors.brown,
+          Colors.brown.shade700,
         ];
         medalIcon = Icons.workspace_premium;
         break;
