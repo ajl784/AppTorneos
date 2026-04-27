@@ -57,17 +57,80 @@ const getMultiTeamEloAdjustment = (team, rivals) => {
 
 const parseNormaPuntuacionLiga = (raw) => {
   if (!raw || typeof raw !== "string") return null;
-  const parts = raw
+  const pairs = raw
+    .split(/[;,]/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const separator = part.includes("=") ? "=" : part.includes(":") ? ":" : null;
+      if (!separator) return null;
+      const [key, value] = part.split(separator).map((token) => token.trim());
+      if (!key || !value) return null;
+      return [key.toLowerCase(), value];
+    })
+    .filter((item) => item !== null);
+
+  const config = Object.fromEntries(pairs);
+  const modo = String(config.modo || "").toLowerCase();
+
+  const posiciones = Object.entries(config)
+    .filter(([key]) => /^pos\d+$/.test(key))
+    .map(([key, value]) => ({
+      posicion: Number.parseInt(key.slice(3), 10),
+      puntos: Number.parseInt(String(value), 10),
+    }))
+    .filter(
+      (item) =>
+        Number.isInteger(item.posicion) &&
+        item.posicion >= 1 &&
+        Number.isInteger(item.puntos) &&
+        item.puntos >= 0,
+    )
+    .sort((a, b) => a.posicion - b.posicion);
+
+  if (modo === "posiciones" || posiciones.length > 0) {
+    if (!posiciones.length) return null;
+    return {
+      modo: "posiciones",
+      puntosPorPosicion: posiciones.map((item) => item.puntos),
+    };
+  }
+
+  const victoria = Number.parseInt(String(config.victoria), 10);
+  const empate = Number.parseInt(String(config.empate), 10);
+  const derrota = Number.parseInt(String(config.derrota), 10);
+
+  if (
+    Number.isInteger(victoria) &&
+    Number.isInteger(empate) &&
+    Number.isInteger(derrota) &&
+    victoria >= 0 &&
+    empate >= 0 &&
+    derrota >= 0
+  ) {
+    return { modo: "duelo", victoria, empate, derrota };
+  }
+
+  const legacyParts = raw
     .trim()
     .split(/[^0-9]+/)
     .filter(Boolean)
     .map((x) => Number.parseInt(x, 10))
     .filter((x) => Number.isInteger(x));
 
-  if (parts.length !== 3) return null;
-  const [victoria, empate, derrota] = parts;
-  if (victoria < 0 || empate < 0 || derrota < 0) return null;
-  return { victoria, empate, derrota };
+  if (legacyParts.length === 3) {
+    const [legacyVictoria, legacyEmpate, legacyDerrota] = legacyParts;
+    if (legacyVictoria >= 0 && legacyEmpate >= 0 && legacyDerrota >= 0) {
+      return {
+        modo: "duelo",
+        victoria: legacyVictoria,
+        empate: legacyEmpate,
+        derrota: legacyDerrota,
+      };
+    }
+  }
+
+  return null;
 };
 
 const recomputeClasificacionLiga = async (client, { idTorneo, norma }) => {
@@ -97,10 +160,47 @@ const recomputeClasificacionLiga = async (client, { idTorneo, norma }) => {
     byPartido.set(idPartido, arr);
   }
 
-  const { victoria, empate, derrota } = norma;
+  const esModoPosiciones = norma?.modo === "posiciones";
+  const puntosPorPosicion = Array.isArray(norma?.puntosPorPosicion)
+    ? norma.puntosPorPosicion
+    : [];
+  const victoria = Number.isInteger(norma?.victoria) ? norma.victoria : 3;
+  const empate = Number.isInteger(norma?.empate) ? norma.empate : 1;
+  const derrota = Number.isInteger(norma?.derrota) ? norma.derrota : 0;
 
   for (const entries of byPartido.values()) {
     if (!entries.length) continue;
+
+    if (esModoPosiciones) {
+      const ordenados = entries
+        .slice()
+        .sort((a, b) => {
+          const diff = Number(b.punto) - Number(a.punto);
+          if (diff !== 0) return diff;
+          return (
+            Number(a.id_participacion_equipo) - Number(b.id_participacion_equipo)
+          );
+        });
+
+      let posicionActual = 0;
+      let ultimoPunto = null;
+
+      for (let idx = 0; idx < ordenados.length; idx++) {
+        const entry = ordenados[idx];
+        if (ultimoPunto === null || Number(entry.punto) !== ultimoPunto) {
+          posicionActual = idx + 1;
+          ultimoPunto = Number(entry.punto);
+        }
+
+        const add = puntosPorPosicion[posicionActual - 1] ?? 0;
+        puntosLiga.set(
+          entry.id_participacion_equipo,
+          (puntosLiga.get(entry.id_participacion_equipo) || 0) + add,
+        );
+      }
+
+      continue;
+    }
 
     const puntos = entries.map((e) => e.punto);
     const max = Math.max(...puntos);

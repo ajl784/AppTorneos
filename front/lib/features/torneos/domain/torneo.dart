@@ -16,6 +16,7 @@ class Torneo {
   final Object? encuesta;
   final String? normaPuntuacion;
   final Object? preferenciaHorario;
+  final String? tipoGeneracionEnfrentamientos;
 
   const Torneo({
     required this.id,
@@ -35,6 +36,7 @@ class Torneo {
     this.encuesta,
     this.normaPuntuacion,
     this.preferenciaHorario,
+    this.tipoGeneracionEnfrentamientos,
   });
 
   static int? _intOrNull(dynamic value) {
@@ -90,6 +92,10 @@ class Torneo {
       ),
       preferenciaHorario:
           json['preferencia_horario'] ?? json['preferenciaHorario'],
+      tipoGeneracionEnfrentamientos: _stringOrNull(
+        json['tipo_generacion_enfrentamientos'] ??
+            json['tipoGeneracionEnfrentamientos'],
+      ),
     );
   }
 }
@@ -107,6 +113,7 @@ class TorneoCreate {
   final Object? encuesta;
   final String? normaPuntuacion;
   final Object? preferenciaHorario;
+  final String? tipoGeneracionEnfrentamientos;
 
   const TorneoCreate({
     required this.nombre,
@@ -121,6 +128,7 @@ class TorneoCreate {
     this.encuesta,
     this.normaPuntuacion,
     this.preferenciaHorario,
+    this.tipoGeneracionEnfrentamientos,
   });
 
   Map<String, dynamic> toJson() => {
@@ -136,6 +144,8 @@ class TorneoCreate {
     if (encuesta != null) 'encuesta': encuesta,
     if (normaPuntuacion != null) 'norma_puntuacion': normaPuntuacion,
     if (preferenciaHorario != null) 'preferencia_horario': preferenciaHorario,
+    if (tipoGeneracionEnfrentamientos != null)
+      'tipo_generacion_enfrentamientos': tipoGeneracionEnfrentamientos,
   };
 }
 
@@ -152,6 +162,7 @@ class TorneoUpdate {
   final Object? encuesta;
   final String? normaPuntuacion;
   final Object? preferenciaHorario;
+  final String? tipoGeneracionEnfrentamientos;
 
   const TorneoUpdate({
     this.nombre,
@@ -166,6 +177,7 @@ class TorneoUpdate {
     this.encuesta,
     this.normaPuntuacion,
     this.preferenciaHorario,
+    this.tipoGeneracionEnfrentamientos,
   });
 
   Map<String, dynamic> toJson() => {
@@ -181,5 +193,7 @@ class TorneoUpdate {
     if (encuesta != null) 'encuesta': encuesta,
     if (normaPuntuacion != null) 'norma_puntuacion': normaPuntuacion,
     if (preferenciaHorario != null) 'preferencia_horario': preferenciaHorario,
+    if (tipoGeneracionEnfrentamientos != null)
+      'tipo_generacion_enfrentamientos': tipoGeneracionEnfrentamientos,
   };
 }

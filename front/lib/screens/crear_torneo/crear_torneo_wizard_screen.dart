@@ -92,6 +92,10 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
       TextEditingController(text: '1');
   final TextEditingController _puntosPerderCtrl =
       TextEditingController(text: '0');
+  final List<TextEditingController> _puntosPosicionCtrls =
+      <TextEditingController>[];
+  String _estrategiaMulti = 'balanceada';
+  final TextEditingController _jornadasMultiCtrl = TextEditingController();
   final TextEditingController _normasExtraCtrl = TextEditingController();
 
   final TextEditingController _limiteEquiposCtrl = TextEditingController();
@@ -143,6 +147,10 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
     _puntosGanarCtrl.dispose();
     _puntosEmpatarCtrl.dispose();
     _puntosPerderCtrl.dispose();
+    for (final ctrl in _puntosPosicionCtrls) {
+      ctrl.dispose();
+    }
+    _jornadasMultiCtrl.dispose();
     _normasExtraCtrl.dispose();
     _limiteEquiposCtrl.dispose();
 
@@ -279,6 +287,32 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
   }
 
   bool _validateStep2() {
+    final participantesPorPartido = _participantesPorPartidoActual;
+    if (participantesPorPartido > 2) {
+      _syncPuntosPosicionControllers(participantesPorPartido);
+      for (var idx = 0; idx < _puntosPosicionCtrls.length; idx++) {
+        final value = int.tryParse(_puntosPosicionCtrls[idx].text.trim());
+        if (value == null || value < 0) {
+          _snack(
+            'Los puntos de la posición ${idx + 1} deben ser un entero mayor o igual a 0.',
+          );
+          return false;
+        }
+      }
+
+      if (_esLigaSeleccionada) {
+        final jornadasRaw = _jornadasMultiCtrl.text.trim();
+        if (jornadasRaw.isNotEmpty) {
+          final jornadas = int.tryParse(jornadasRaw);
+          if (jornadas == null || jornadas < 1) {
+            _snack('Jornadas de liga debe ser un entero mayor o igual a 1.');
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
     final ganar = int.tryParse(_puntosGanarCtrl.text.trim());
     final empatar = int.tryParse(_puntosEmpatarCtrl.text.trim());
     final perder = int.tryParse(_puntosPerderCtrl.text.trim());
@@ -341,6 +375,27 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
   }
 
   String _buildNormaPuntuacion() {
+    final participantesPorPartido = _participantesPorPartidoActual;
+    if (participantesPorPartido > 2) {
+      _syncPuntosPosicionControllers(participantesPorPartido);
+      final posiciones = <String>[];
+      for (var idx = 0; idx < _puntosPosicionCtrls.length; idx++) {
+        final valor = int.tryParse(_puntosPosicionCtrls[idx].text.trim()) ?? 0;
+        posiciones.add('pos${idx + 1}=$valor');
+      }
+      final partes = <String>['modo=posiciones', ...posiciones];
+      if (_esLigaSeleccionada) {
+        partes.add('estrategia_multi=$_estrategiaMulti');
+        final jornadas = int.tryParse(_jornadasMultiCtrl.text.trim());
+        if (jornadas != null && jornadas > 0) {
+          partes.add('jornadas_multi=$jornadas');
+        }
+      }
+      final base = partes.join(';');
+      final extra = _normasExtraCtrl.text.trim();
+      return extra.isEmpty ? base : '$base;$extra';
+    }
+
     final ganar = int.tryParse(_puntosGanarCtrl.text.trim()) ?? 0;
     final empatar = int.tryParse(_puntosEmpatarCtrl.text.trim()) ?? 0;
     final perder = int.tryParse(_puntosPerderCtrl.text.trim()) ?? 0;
@@ -348,6 +403,14 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
     final base = 'victoria=$ganar;empate=$empatar;derrota=$perder';
     final extra = _normasExtraCtrl.text.trim();
     return extra.isEmpty ? base : '$base;$extra';
+  }
+
+  String? _buildTipoGeneracionEnfrentamientos() {
+    final participantesPorPartido = _participantesPorPartidoActual;
+    if (_esLigaSeleccionada && participantesPorPartido > 2) {
+      return _estrategiaMulti;
+    }
+    return null;
   }
 
   Map<String, dynamic>? _buildPreferenciaHorario() {
@@ -473,6 +536,7 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
       fechaInicio: _fechaInicio == null ? null : _formatDateTime(_fechaInicio!),
       fechaFin: _fechaFin == null ? null : _formatDateTime(_fechaFin!),
       normaPuntuacion: _buildNormaPuntuacion(),
+      tipoGeneracionEnfrentamientos: _buildTipoGeneracionEnfrentamientos(),
       preferenciaHorario: _buildPreferenciaHorario(),
       encuesta: _buildEncuesta(),
       idOrganizador: _idOrganizador,
@@ -841,47 +905,112 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
   }
 
   Widget _stepPuntos(BuildContext context) {
+    final participantesPorPartido = _participantesPorPartidoActual;
+    final usaPuntosPorPosicion = participantesPorPartido > 2;
+    final mostrarConfigLigaMulti = usaPuntosPorPosicion && _esLigaSeleccionada;
+
+    if (usaPuntosPorPosicion) {
+      _syncPuntosPosicionControllers(participantesPorPartido);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Configura los puntos y normas:'),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _puntosGanarCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Ganar',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _puntosEmpatarCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Empatar',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _puntosPerderCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Perder',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-          ],
+        Text(
+          usaPuntosPorPosicion
+              ? 'Configura los puntos por posición para $participantesPorPartido participantes:'
+              : 'Configura los puntos y normas:',
         ),
+        const SizedBox(height: 12),
+        if (usaPuntosPorPosicion)
+          ..._puntosPosicionCtrls.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final ctrl = entry.value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TextField(
+                controller: ctrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Posición ${idx + 1}',
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            );
+          })
+        else
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _puntosGanarCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Ganar',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _puntosEmpatarCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Empatar',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _puntosPerderCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Perder',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        if (mostrarConfigLigaMulti) ...[
+          const SizedBox(height: 12),
+          const Text('Configuración de generación de enfrentamientos (Liga multi):'),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _estrategiaMulti,
+            items: const [
+              DropdownMenuItem(
+                value: 'balanceada',
+                child: Text('Balanceada (recomendada)'),
+              ),
+              DropdownMenuItem(
+                value: 'rotacion',
+                child: Text('Rotación clásica'),
+              ),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _estrategiaMulti = value);
+            },
+            decoration: const InputDecoration(
+              labelText: 'Estrategia multi',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _jornadasMultiCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Número de jornadas (opcional)',
+              helperText: 'Si lo dejas vacío, el sistema calculará un valor por defecto.',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         TextField(
           controller: _normasExtraCtrl,
@@ -894,6 +1023,33 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
         ),
       ],
     );
+  }
+
+  bool get _esLigaSeleccionada {
+    final nombre = _tipoSeleccionado?.nombre.toLowerCase().trim();
+    return nombre == 'liga';
+  }
+
+  int get _participantesPorPartidoActual {
+    if (_crearCategoriaNueva) {
+      return int.tryParse(_participantesPorPartidaCtrl.text.trim()) ?? 2;
+    }
+    return _categoriaSeleccionada?.participantesPorPartida ?? 2;
+  }
+
+  void _syncPuntosPosicionControllers(int participantesPorPartido) {
+    final objetivo = participantesPorPartido < 2 ? 2 : participantesPorPartido;
+
+    while (_puntosPosicionCtrls.length < objetivo) {
+      final idx = _puntosPosicionCtrls.length;
+      final defaultValue = idx == 0 ? '3' : idx == 1 ? '1' : '0';
+      _puntosPosicionCtrls.add(TextEditingController(text: defaultValue));
+    }
+
+    while (_puntosPosicionCtrls.length > objetivo) {
+      final ctrl = _puntosPosicionCtrls.removeLast();
+      ctrl.dispose();
+    }
   }
 
   Widget _stepLimite(BuildContext context) {

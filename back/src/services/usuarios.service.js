@@ -52,12 +52,25 @@ const getCalendarioUsuario = async ({
       FROM arbitro_partido ap
       JOIN my_arbitro ma ON ma.id_arbitro_torneo = ap.id_arbitro_torneo
     ),
+    my_organizador_torneos AS (
+      SELECT t.id_torneo
+      FROM torneo t
+      WHERE t.id_organizador = $1
+    ),
+    my_organizador_partidos AS (
+      SELECT DISTINCT p.id_partido
+      FROM partido p
+      WHERE p.id_torneo IN (SELECT id_torneo FROM my_organizador_torneos)
+    ),
     my_roles AS (
       SELECT id_partido, true AS es_jugador, false AS es_arbitro
       FROM my_jugador_partidos
       UNION ALL
       SELECT id_partido, false AS es_jugador, true AS es_arbitro
       FROM my_arbitro_partidos
+      UNION ALL
+      SELECT id_partido, false AS es_jugador, false AS es_arbitro
+      FROM my_organizador_partidos
     ),
     my_partidos AS (
       SELECT
