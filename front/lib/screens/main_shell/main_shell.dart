@@ -8,15 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:front/screens/login_register/login_register_screen.dart';
 import 'package:front/screens/main_shell/tabs/calendario_tab.dart';
 import 'package:front/screens/main_shell/tabs/crear_torneo_tab.dart';
+import 'package:front/screens/main_shell/tabs/destacados_tab.dart';
 import 'package:front/screens/main_shell/tabs/estadisticas_tab.dart';
 import 'package:front/screens/main_shell/tabs/inicio_tab.dart';
 import 'package:front/screens/main_shell/tabs/torneos_tab.dart';
-import 'package:front/screens/crear_torneo/crear_torneo_wizard_screen.dart';
 import 'package:front/screens/main_shell/_speed_dial_fab.dart';
 import 'package:front/screens/perfil/perfil_screen.dart';
 import 'package:front/state/auth_state.dart';
 import 'package:front/state/jwt_storage.dart';
-import 'package:front/peticion/api_config.dart';
 import 'package:front/features/usuarios/data/usuarios_api.dart';
 import 'package:front/screens/main_shell/mis_notificaciones.dart';
 
@@ -39,7 +38,6 @@ class _MainShellState extends State<MainShell> {
 
   int _currentIndex = 0;
   ImageProvider? _profileImage;
-  bool _loadingProfileImage = false;
 
   @override
   void initState() {
@@ -94,7 +92,6 @@ class _MainShellState extends State<MainShell> {
       });
       return;
     }
-    setState(() { _loadingProfileImage = true; });
     try {
       // Obtener el usuario logueado y su foto de perfil
       final jwtUser = await JwtStorage.getUser();
@@ -116,8 +113,6 @@ class _MainShellState extends State<MainShell> {
       setState(() {
         _profileImage = null;
       });
-    } finally {
-      setState(() { _loadingProfileImage = false; });
     }
   }
 
@@ -203,6 +198,7 @@ class _MainShellState extends State<MainShell> {
         children: [
           const InicioTab(),
           const TorneosTab(),
+          const DestacadosTab(),
           const EstadisticasTab(),
           const CalendarioTab(),
           const CrearTorneoTab(),
@@ -234,22 +230,30 @@ class _MainShellState extends State<MainShell> {
                 unselectedColor: unselectedColor,
                 onTap: () => setState(() => _currentIndex = 1),
               ),
-              const SizedBox(width: 64),
               _NavItem(
-                label: 'Estadísticas',
-                icon: Icons.bar_chart,
+                label: 'Destacados',
+                icon: Icons.workspace_premium,
                 isSelected: _currentIndex == 2,
                 selectedColor: selectedColor,
                 unselectedColor: unselectedColor,
                 onTap: () => setState(() => _currentIndex = 2),
               ),
+              const SizedBox(width: 64),
               _NavItem(
-                label: 'Calendario',
-                icon: Icons.calendar_month,
+                label: 'Estadísticas',
+                icon: Icons.bar_chart,
                 isSelected: _currentIndex == 3,
                 selectedColor: selectedColor,
                 unselectedColor: unselectedColor,
                 onTap: () => setState(() => _currentIndex = 3),
+              ),
+              _NavItem(
+                label: 'Calendario',
+                icon: Icons.calendar_month,
+                isSelected: _currentIndex == 4,
+                selectedColor: selectedColor,
+                unselectedColor: unselectedColor,
+                onTap: () => setState(() => _currentIndex = 4),
               ),
             ],
           ),

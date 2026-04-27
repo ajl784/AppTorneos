@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:front/api/api_response.dart';
 import 'package:front/api/app_torneos_api_client.dart';
 import 'package:front/features/equipos/domain/equipo.dart';
+import 'package:front/features/estadisticas/domain/estadisticas_models.dart';
 
 class EquiposApi {
   final AppTorneosApiClient _api;
@@ -47,6 +48,18 @@ class EquiposApi {
     }
 
     return Equipo.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  Future<EloHistorialResponse> getEloHistorialEquipo(int idEquipo) async {
+    final res = await _api.getRaw('/equipos/$idEquipo/elo-historial');
+    final data = res.data;
+    if (data is! Map) {
+      throw const FormatException(
+        'Respuesta inesperada (elo-historial no es Map)',
+      );
+    }
+
+    return EloHistorialResponse.fromJson(Map<String, dynamic>.from(data));
   }
 
   Future<Equipo> createEquipo(EquipoCreate payload) async {
