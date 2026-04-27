@@ -64,6 +64,37 @@ class AppTorneosApiClient {
     );
   }
 
+  Future<ApiResponse<dynamic>> postMultipartRaw(
+    String path, {
+    Map<String, String>? fields,
+    List<http.MultipartFile>? files,
+    Map<String, String?>? queryParameters,
+    Map<String, String>? headers,
+  }) async {
+    final uri = buildUri(path, queryParameters: queryParameters);
+    final request = http.MultipartRequest('POST', uri);
+    request.headers.addAll({
+      'Accept': 'application/json',
+      ...?headers,
+    });
+    if (fields != null && fields.isNotEmpty) {
+      request.fields.addAll(fields);
+    }
+    if (files != null && files.isNotEmpty) {
+      request.files.addAll(files);
+    }
+
+    http.StreamedResponse streamed;
+    try {
+      streamed = await _client.send(request);
+    } catch (e) {
+      throw ApiException(statusCode: 0, message: 'Error de red: $e');
+    }
+
+    final response = await http.Response.fromStream(streamed);
+    return _wrapResponse(response);
+  }
+
   Future<ApiResponse<dynamic>> putRaw(
     String path, {
     Object? body,
@@ -167,6 +198,10 @@ class AppTorneosApiClient {
       throw ApiException(statusCode: 0, message: 'Error de red: $e');
     }
 
+    return _wrapResponse(response);
+  }
+
+  ApiResponse<dynamic> _wrapResponse(http.Response response) {
     final decoded = tryDecodeJson(response.body);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
