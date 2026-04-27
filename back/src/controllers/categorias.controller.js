@@ -10,32 +10,54 @@ const {
   asyncHandler,
 } = require("../utils/http");
 
-const { CATEGORY_ICONS_DIR } = require("../middleware/upload-categoria-icon");
+const {
+  CATEGORY_ICONS_DIR,
+  DEFAULT_CATEGORY_ICON,
+} = require("../middleware/upload-categoria-icon");
+
+const withIconUrl = (categoria) => {
+  if (!categoria) {
+    return categoria;
+  }
+
+  return {
+    ...categoria,
+    icono_url: `/api/v1/categorias/${categoria.id_categoria}/icono`,
+  };
+};
 
 const listCategorias = asyncHandler(async (req, res) => {
   const { limit, offset } = parsePagination(req.query);
   const data = await categoriasService.listCategorias({ limit, offset });
-  ok(res, data, { limit, offset, count: data.length });
+  const enriched = data.map(withIconUrl);
+  ok(res, enriched, { limit, offset, count: enriched.length });
 });
 
 const createCategoria = asyncHandler(async (req, res) => {
   requireFields(req.body, ["nombre", "participantes_por_partida"]);
-  if (req.file) {
-    req.body.icono = req.file.filename;
+  req.body.icono = req.file ? req.file.filename : null;
+  let data;
+  try {
+    data = await categoriasService.createCategoria(req.body);
+  } catch (error) {
+    if (req.file) {
+      const imgPath = path.join(CATEGORY_ICONS_DIR, req.file.filename);
+      if (fs.existsSync(imgPath)) {
+        fs.unlinkSync(imgPath);
+      }
+    }
+    throw error;
   }
-  const data = await categoriasService.createCategoria(req.body);
-  created(res, data);
+
+  created(res, withIconUrl(data));
 });
 
 const getCategoriaIcono = asyncHandler(async (req, res) => {
   const idCategoria = parsePositiveInt(req.params.id, "id");
   const icono = await categoriasService.getCategoriaIcono(idCategoria);
+  const iconoFilename = icono || DEFAULT_CATEGORY_ICON;
 
-  if (!icono) {
-    return res.status(404).json({ ok: false, error: { message: "Icono no encontrado" } });
-  }
-
-  const imgPath = path.join(CATEGORY_ICONS_DIR, icono);
+  const imgPath = path.join(CATEGORY_ICONS_DIR, iconoFilename);
   if (!fs.existsSync(imgPath)) {
     return res.status(404).json({ ok: false, error: { message: "Icono no encontrado" } });
   }

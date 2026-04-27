@@ -75,6 +75,7 @@ Recomendacion front:
 
 ### 4.1 Listados y detalle
 
+- `GET /categorias?limit=50&offset=0`
 - `GET /usuarios?limit=50&offset=0&q=`
 - `GET /usuarios/:id`
 - `GET /equipos?limit=50&offset=0&nombre=`
@@ -88,6 +89,8 @@ Recomendacion front:
 
 ### 4.2 CRUD basico
 
+- `POST /categorias` (multipart/form-data, campo archivo `icono` opcional)
+- `GET /categorias/:id/icono`
 - `POST /usuarios`
 - `PUT /usuarios/:id`
 - `DELETE /usuarios/:id`
@@ -103,6 +106,24 @@ Recomendacion front:
 - `POST /participaciones`
 - `PUT /participaciones/:id`
 - `DELETE /participaciones/:id`
+
+Ejemplo de alta de categoria con icono:
+
+```bash
+curl -X POST "http://localhost:3000/api/v1/categorias" \
+  -F "nombre=Futbol 7" \
+  -F "participantes_por_partida=2" \
+  -F "norma=3-1-0" \
+  -F "descripcion=Categoria de prueba" \
+  -F "icono=@./mi-icono.png"
+```
+
+En respuestas de categorias se devuelve:
+
+- `icono`: nombre del archivo en servidor.
+- `icono_url`: ruta para obtener la imagen (`/api/v1/categorias/:id/icono`).
+
+Si no se envia `icono`, el backend usa un icono por defecto.
 
 ### 4.3 Flujo especial: formulario del torneo + solicitudes
 

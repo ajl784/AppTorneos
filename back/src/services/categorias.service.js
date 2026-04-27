@@ -28,7 +28,7 @@ const createCategoria = async (payload) => {
       payload.participantes_por_partida,
       payload.norma || null,
       payload.descripcion || null,
-      payload.icono || null,
+      payload.icono,
     ],
   );
 

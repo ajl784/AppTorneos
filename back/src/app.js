@@ -7,9 +7,21 @@ const { errorHandler } = require("./middleware/error-handler");
 
 const app = express();
 
-pool.query('ALTER TABLE categoria ADD COLUMN IF NOT EXISTS icono TEXT').catch((error) => {
-  console.error('No se pudo asegurar la columna icono en categoria:', error);
-});
+const ensureSchemaColumns = async () => {
+  try {
+    await pool.query("ALTER TABLE categoria ADD COLUMN IF NOT EXISTS icono TEXT");
+    await pool.query("ALTER TABLE torneo ADD COLUMN IF NOT EXISTS encuesta JSONB");
+    await pool.query("ALTER TABLE torneo ADD COLUMN IF NOT EXISTS norma_puntuacion TEXT");
+    await pool.query("ALTER TABLE torneo ADD COLUMN IF NOT EXISTS preferencia_horario JSONB");
+    await pool.query(
+      "ALTER TABLE torneo ADD COLUMN IF NOT EXISTS tipo_generacion_enfrentamientos VARCHAR(30)",
+    );
+  } catch (error) {
+    console.error("No se pudieron asegurar columnas de esquema:", error);
+  }
+};
+
+ensureSchemaColumns();
 
 app.use(
   cors({
