@@ -10,6 +10,8 @@ const app = express();
 const ensureSchemaColumns = async () => {
   try {
     await pool.query("ALTER TABLE categoria ADD COLUMN IF NOT EXISTS icono TEXT");
+    await pool.query("ALTER TABLE categoria ADD COLUMN IF NOT EXISTS icono_bin BYTEA");
+    await pool.query("ALTER TABLE categoria ADD COLUMN IF NOT EXISTS icono_mime TEXT");
     await pool.query("ALTER TABLE torneo ADD COLUMN IF NOT EXISTS encuesta JSONB");
     await pool.query("ALTER TABLE torneo ADD COLUMN IF NOT EXISTS norma_puntuacion TEXT");
     await pool.query("ALTER TABLE torneo ADD COLUMN IF NOT EXISTS preferencia_horario JSONB");

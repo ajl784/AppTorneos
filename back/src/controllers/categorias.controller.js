@@ -11,9 +11,29 @@ const {
 } = require("../utils/http");
 
 const {
-  CATEGORY_ICONS_DIR,
-  DEFAULT_CATEGORY_ICON,
+  DEFAULT_CATEGORY_ICON_SVG,
 } = require("../middleware/upload-categoria-icon");
+
+const CATEGORY_ICONS_DIR = path.join(__dirname, "../../public/category_icons");
+
+const getMimeByFilename = (filename) => {
+  const ext = path.extname(filename || "").toLowerCase();
+  switch (ext) {
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".png":
+      return "image/png";
+    case ".webp":
+      return "image/webp";
+    case ".gif":
+      return "image/gif";
+    case ".svg":
+      return "image/svg+xml";
+    default:
+      return "application/octet-stream";
+  }
+};
 
 const withIconUrl = (categoria) => {
   if (!categoria) {
@@ -35,19 +55,11 @@ const listCategorias = asyncHandler(async (req, res) => {
 
 const createCategoria = asyncHandler(async (req, res) => {
   requireFields(req.body, ["nombre", "participantes_por_partida"]);
-  req.body.icono = req.file ? req.file.filename : null;
-  let data;
-  try {
-    data = await categoriasService.createCategoria(req.body);
-  } catch (error) {
-    if (req.file) {
-      const imgPath = path.join(CATEGORY_ICONS_DIR, req.file.filename);
-      if (fs.existsSync(imgPath)) {
-        fs.unlinkSync(imgPath);
-      }
-    }
-    throw error;
-  }
+  req.body.icono = null;
+  req.body.iconoBin = req.file?.buffer || Buffer.from(DEFAULT_CATEGORY_ICON_SVG, "utf8");
+  req.body.iconoMime = req.file?.mimetype || "image/svg+xml";
+
+  const data = await categoriasService.createCategoria(req.body);
 
   created(res, withIconUrl(data));
 });
@@ -55,14 +67,24 @@ const createCategoria = asyncHandler(async (req, res) => {
 const getCategoriaIcono = asyncHandler(async (req, res) => {
   const idCategoria = parsePositiveInt(req.params.id, "id");
   const icono = await categoriasService.getCategoriaIcono(idCategoria);
-  const iconoFilename = icono || DEFAULT_CATEGORY_ICON;
 
-  const imgPath = path.join(CATEGORY_ICONS_DIR, iconoFilename);
-  if (!fs.existsSync(imgPath)) {
-    return res.status(404).json({ ok: false, error: { message: "Icono no encontrado" } });
+  if (icono?.icono_bin) {
+    const mime = icono.icono_mime || "application/octet-stream";
+    return res.type(mime).send(icono.icono_bin);
   }
 
-  return res.sendFile(imgPath);
+  // Compatibilidad temporal: categorías antiguas con archivo físico.
+  if (icono?.icono) {
+    const imgPath = path.join(CATEGORY_ICONS_DIR, icono.icono);
+    if (fs.existsSync(imgPath)) {
+      const fileBuffer = fs.readFileSync(imgPath);
+      const mime = getMimeByFilename(icono.icono);
+      await categoriasService.updateCategoriaIcono(idCategoria, fileBuffer, mime);
+      return res.type(mime).send(fileBuffer);
+    }
+  }
+
+  return res.type("image/svg+xml").send(DEFAULT_CATEGORY_ICON_SVG);
 });
 
 const listTiposByCategoria = asyncHandler(async (req, res) => {
