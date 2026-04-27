@@ -6,7 +6,8 @@
   "main": "back/nada.js",
   "scripts": {
     "start": "node back/nada.js",
-    "dev": "node back/nada.js"
+    "dev": "node back/nada.js",
+    "migrate:category-icons": "node back/src/scripts/migrate-category-icons-to-db.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

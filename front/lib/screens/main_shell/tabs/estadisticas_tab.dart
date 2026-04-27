@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:fl_chart/fl_chart.dart';
 
+import 'package:front/features/categorias/widgets/categoria_network_avatar.dart';
 import 'package:front/features/estadisticas/data/estadisticas_api.dart';
 import 'package:front/features/estadisticas/domain/estadisticas_models.dart';
 import 'package:front/peticion/api_config.dart';
@@ -548,9 +549,21 @@ class _RankingCard extends StatelessWidget {
             else if (r.categoria == null)
               const Text('Sin categoría asociada todavía para este equipo.')
             else ...[
-              Text(
-                'Categoría: ${r.categoria!.nombre}',
-                style: theme.textTheme.bodyMedium,
+              Row(
+                children: [
+                  CategoriaNetworkAvatar(
+                    categoriaId: r.categoria!.idCategoria,
+                    baseUrl: ApiConfig.baseUrl,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Categoría: ${r.categoria!.nombre}',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               _RankingRow(
