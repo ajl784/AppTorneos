@@ -6,7 +6,6 @@ import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/features/torneos/domain/torneo_formulario.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/state/jwt_storage.dart';
-import 'dart:convert';
 
 
 class UnirseTorneoScreen extends StatefulWidget {
