@@ -61,9 +61,14 @@ class _TorneoDetalleScreenState extends State<TorneoDetalleScreen> {
     return tipo == 'liga';
   }
 
-  static bool _isEliminacionDirecta(Torneo torneo) {
+  static bool _isEliminacion(Torneo torneo) {
     final tipo = _norm(torneo.tipoTorneoNombre ?? '');
-    return tipo == 'eliminacion directa';
+    return tipo.contains('eliminacion') || tipo.contains('eliminatoria');
+  }
+
+  static bool _isEliminacionPorSerie(Torneo torneo) {
+    final tipo = _norm(torneo.tipoTorneoNombre ?? '');
+    return tipo.contains('serie');
   }
 
   static String _prettyEstado(String value) {
@@ -225,7 +230,7 @@ class _TorneoDetalleScreenState extends State<TorneoDetalleScreen> {
     );
   }
 
-  Widget _buildBracket(int torneoId) {
+  Widget _buildBracket(int torneoId, {required bool agrupadoPorSerie}) {
     return FutureBuilder<TorneoPartidos>(
       future: _api.fetchPartidosTorneo(torneoId),
       builder: (context, snapshot) {
@@ -249,7 +254,12 @@ class _TorneoDetalleScreenState extends State<TorneoDetalleScreen> {
           );
         }
 
-        return _BracketChampionsView(partidos: partidos);
+        // En eliminación (normal o por serie) solo mostramos la vista gráfica.
+        // La vista por jornada se muestra únicamente en torneos tipo Liga.
+        return _BracketSeriesView(
+          partidos: partidos,
+          agrupadoPorSerie: agrupadoPorSerie,
+        );
       },
     );
   }
@@ -283,7 +293,8 @@ class _TorneoDetalleScreenState extends State<TorneoDetalleScreen> {
 
           final estadoVisible = _isEstadoVisible(torneo);
           final isLiga = _isLiga(torneo);
-          final isEliminacionDirecta = _isEliminacionDirecta(torneo);
+          final isEliminacion = _isEliminacion(torneo);
+          final isSerie = _isEliminacionPorSerie(torneo);
 
           Widget content;
           if (!estadoVisible) {
@@ -294,9 +305,13 @@ class _TorneoDetalleScreenState extends State<TorneoDetalleScreen> {
               ),
             );
           } else if (isLiga) {
-            content = _buildClasificacion(torneo.id);
-          } else if (isEliminacionDirecta) {
-            content = _buildBracket(torneo.id);
+            content = _LigaDetalleView(
+              api: _api,
+              torneoId: torneo.id,
+              clasificacionBuilder: () => _buildClasificacion(torneo.id),
+            );
+          } else if (isEliminacion) {
+            content = _buildBracket(torneo.id, agrupadoPorSerie: isSerie);
           } else {
             content = const Padding(
               padding: EdgeInsets.all(16),
@@ -319,18 +334,264 @@ class _TorneoDetalleScreenState extends State<TorneoDetalleScreen> {
   }
 }
 
-class _BracketChampionsView extends StatelessWidget {
-  final List<TorneoPartido> partidos;
+enum _LigaModo { clasificacion, jornada }
 
-  const _BracketChampionsView({required this.partidos});
+class _LigaDetalleView extends StatefulWidget {
+  final TorneosApi api;
+  final int torneoId;
+  final Widget Function() clasificacionBuilder;
+
+  const _LigaDetalleView({
+    required this.api,
+    required this.torneoId,
+    required this.clasificacionBuilder,
+  });
+
+  @override
+  State<_LigaDetalleView> createState() => _LigaDetalleViewState();
+}
+
+class _LigaDetalleViewState extends State<_LigaDetalleView> {
+  _LigaModo _modo = _LigaModo.clasificacion;
 
   @override
   Widget build(BuildContext context) {
-    final rounds = <int, List<TorneoPartido>>{};
-    for (final p in partidos) {
-      final ronda = p.ronda;
+    final selection = <_LigaModo>{_modo};
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+          child: SegmentedButton<_LigaModo>(
+            segments: const [
+              ButtonSegment(
+                value: _LigaModo.clasificacion,
+                label: Text('Clasificación'),
+              ),
+              ButtonSegment(
+                value: _LigaModo.jornada,
+                label: Text('Jornada'),
+              ),
+            ],
+            selected: selection,
+            onSelectionChanged: (value) {
+              if (value.isEmpty) return;
+              setState(() => _modo = value.first);
+            },
+          ),
+        ),
+        Expanded(
+          child: _modo == _LigaModo.clasificacion
+              ? widget.clasificacionBuilder()
+              : FutureBuilder<TorneoPartidos>(
+                  future: widget.api.fetchPartidosTorneo(widget.torneoId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (snapshot.hasError) {
+                      return Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text('Error cargando partidos: ${snapshot.error}'),
+                      );
+                    }
+
+                    final partidos = snapshot.data?.partidos ?? const <TorneoPartido>[];
+                    if (partidos.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text('Aún no hay partidos generados.'),
+                      );
+                    }
+
+                    return _PartidosPorJornadaView(partidos: partidos);
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BracketNode {
+  final TorneoPartido display;
+  final List<TorneoPartido> juegos;
+  final int sortKey;
+
+  const _BracketNode({
+    required this.display,
+    required this.juegos,
+    required this.sortKey,
+  });
+}
+
+class _BracketSeriesView extends StatelessWidget {
+  final List<TorneoPartido> partidos;
+  final bool agrupadoPorSerie;
+
+  const _BracketSeriesView({
+    required this.partidos,
+    required this.agrupadoPorSerie,
+  });
+
+  static String _serieGroupKey(TorneoPartido p) {
+    final ronda = p.ronda ?? 0;
+    final next = p.idPartidoSiguiente ?? 0;
+
+    final ids = p.equipos
+        .map((e) => e.idParticipacionEquipo)
+        .where((v) => v > 0)
+        .toList(growable: false)
+      ..sort();
+
+    final participantsKey = ids.join(',');
+    if (participantsKey.isNotEmpty) {
+      return '$ronda|$next|$participantsKey';
+    }
+
+    final ord = p.ordenRonda;
+    final ordBase = (ord == null) ? 0 : (ord >= 10 ? (ord ~/ 10) : ord);
+    return '$ronda|$next|ord:$ordBase';
+  }
+
+  static int _baseOrden(TorneoPartido p) {
+    final ord = p.ordenRonda;
+    if (ord == null) return 0;
+    return ord >= 10 ? (ord ~/ 10) : ord;
+  }
+
+  static String _normEstado(String? v) => (v ?? '').trim().toLowerCase();
+
+  static String? _mergeEstado(List<TorneoPartido> juegos) {
+    if (juegos.isEmpty) return null;
+    final estados = juegos.map((g) => _normEstado(g.estado)).toSet();
+    if (estados.contains('en_curso')) return 'en_curso';
+    if (estados.isNotEmpty && estados.every((e) => e == 'acabado')) return 'acabado';
+    if (estados.contains('planificado')) return 'planificado';
+    return juegos.first.estado;
+  }
+
+  static TorneoPartido _aggregateSerie(List<TorneoPartido> juegos, {required int baseOrden}) {
+    final sorted = [...juegos];
+    sorted.sort((a, b) {
+      final oa = a.ordenRonda ?? 0;
+      final ob = b.ordenRonda ?? 0;
+      if (oa != ob) return oa.compareTo(ob);
+      final fa = a.fechaHora ?? '';
+      final fb = b.fechaHora ?? '';
+      final c = fa.compareTo(fb);
+      if (c != 0) return c;
+      return a.idPartido.compareTo(b.idPartido);
+    });
+
+    final first = sorted.first;
+    final puntosByParticipacion = <int, TorneoPartidoEquipo>{};
+
+    for (final g in sorted) {
+      for (final e in g.equipos) {
+        final prev = puntosByParticipacion[e.idParticipacionEquipo];
+        if (prev == null) {
+          puntosByParticipacion[e.idParticipacionEquipo] = TorneoPartidoEquipo(
+            idParticipacionEquipo: e.idParticipacionEquipo,
+            idEquipo: e.idEquipo,
+            equipoNombre: e.equipoNombre,
+            punto: e.punto,
+          );
+        } else {
+          puntosByParticipacion[e.idParticipacionEquipo] = TorneoPartidoEquipo(
+            idParticipacionEquipo: prev.idParticipacionEquipo,
+            idEquipo: prev.idEquipo,
+            equipoNombre: prev.equipoNombre,
+            punto: prev.punto + e.punto,
+          );
+        }
+      }
+    }
+
+    final equiposAgg = puntosByParticipacion.values.toList(growable: false);
+    equiposAgg.sort((a, b) => a.idParticipacionEquipo.compareTo(b.idParticipacionEquipo));
+
+    int? ganador;
+    final estado = _mergeEstado(sorted);
+    if (estado == 'acabado' && equiposAgg.length >= 2) {
+      final max = equiposAgg.map((e) => e.punto).reduce((a, b) => a > b ? a : b);
+      final maxOnes = equiposAgg.where((e) => e.punto == max).toList(growable: false);
+      if (maxOnes.length == 1) {
+        ganador = maxOnes.first.idParticipacionEquipo;
+      }
+    }
+
+    return TorneoPartido(
+      idPartido: first.idPartido,
+      fechaHora: first.fechaHora,
+      lugar: first.lugar,
+      estado: estado,
+      jornada: first.jornada,
+      ronda: first.ronda,
+      ordenRonda: baseOrden,
+      idPartidoSiguiente: first.idPartidoSiguiente,
+      ganadorIdParticipacionEquipo: ganador,
+      equipos: equiposAgg,
+    );
+  }
+
+  List<_BracketNode> _toNodes() {
+    final inRounds = partidos.where((p) => p.ronda != null).toList(growable: false);
+    if (!agrupadoPorSerie) {
+      return inRounds
+          .map(
+            (p) => _BracketNode(
+              display: p,
+              juegos: [p],
+              sortKey: p.ordenRonda ?? 0,
+            ),
+          )
+          .toList(growable: false);
+    }
+
+    final groups = <String, List<TorneoPartido>>{};
+    for (final p in inRounds) {
+      groups.putIfAbsent(_serieGroupKey(p), () => <TorneoPartido>[]).add(p);
+    }
+
+    final nodes = <_BracketNode>[];
+    for (final entry in groups.entries) {
+      final juegos = entry.value;
+      final baseOrden = juegos.map(_baseOrden).fold<int>(0, (acc, v) => acc == 0 ? v : (v < acc ? v : acc));
+      final display = juegos.length <= 1
+          ? juegos.first
+          : _aggregateSerie(juegos, baseOrden: baseOrden);
+
+      nodes.add(
+        _BracketNode(
+          display: display,
+          juegos: juegos,
+          sortKey: baseOrden,
+        ),
+      );
+    }
+
+    nodes.sort((a, b) {
+      final ra = a.display.ronda ?? 0;
+      final rb = b.display.ronda ?? 0;
+      if (ra != rb) return ra.compareTo(rb);
+      if (a.sortKey != b.sortKey) return a.sortKey.compareTo(b.sortKey);
+      return a.display.idPartido.compareTo(b.display.idPartido);
+    });
+
+    return nodes;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nodes = _toNodes();
+
+    final rounds = <int, List<_BracketNode>>{};
+    for (final n in nodes) {
+      final ronda = n.display.ronda;
       if (ronda == null) continue;
-      rounds.putIfAbsent(ronda, () => <TorneoPartido>[]).add(p);
+      rounds.putIfAbsent(ronda, () => <_BracketNode>[]).add(n);
     }
 
     if (rounds.isEmpty) {
@@ -341,19 +602,18 @@ class _BracketChampionsView extends StatelessWidget {
     }
 
     final orderedRounds = rounds.keys.toList(growable: false)..sort();
-
     for (final r in orderedRounds) {
       rounds[r]!.sort((a, b) {
-        final oa = a.ordenRonda ?? 0;
-        final ob = b.ordenRonda ?? 0;
+        if (a.sortKey != b.sortKey) return a.sortKey.compareTo(b.sortKey);
+        final oa = a.display.ordenRonda ?? 0;
+        final ob = b.display.ordenRonda ?? 0;
         if (oa != ob) return oa.compareTo(ob);
-        return a.idPartido.compareTo(b.idPartido);
+        return a.display.idPartido.compareTo(b.display.idPartido);
       });
     }
 
     final cardWidth = 220.0;
-    // Altura algo mayor para evitar overflow con escalado de texto.
-    final cardHeight = 98.0;
+    final cardHeight = 140.0;
     final roundGap = 72.0;
     final baseGap = 24.0;
 
@@ -386,13 +646,18 @@ class _BracketChampionsView extends StatelessWidget {
         final rect = Rect.fromLTWH(left, top, cardWidth, cardHeight);
         rectsByRound[roundNumber]!.add(rect);
 
+        final node = matches[matchIndex];
         items.add(
           Positioned(
             left: rect.left,
             top: rect.top,
             width: rect.width,
             height: rect.height,
-            child: _MatchCard(partido: matches[matchIndex]),
+            child: _MatchCard(
+              partido: node.display,
+              juegosSerie: node.juegos.length > 1 ? node.juegos : const <TorneoPartido>[],
+              compact: true,
+            ),
           ),
         );
       }
@@ -447,16 +712,87 @@ class _BracketChampionsView extends StatelessWidget {
   }
 }
 
+class _PartidosPorJornadaView extends StatelessWidget {
+  final List<TorneoPartido> partidos;
+
+  const _PartidosPorJornadaView({required this.partidos});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasJornada = partidos.any((p) => p.jornada != null);
+
+    final groups = <int, List<TorneoPartido>>{};
+    for (final p in partidos) {
+      final k = hasJornada
+          ? (p.jornada ?? 0)
+          : (p.ronda ?? 0);
+      groups.putIfAbsent(k, () => <TorneoPartido>[]).add(p);
+    }
+
+    final keys = groups.keys.toList(growable: false)..sort();
+    for (final k in keys) {
+      groups[k]!.sort((a, b) {
+        final fa = a.fechaHora ?? '';
+        final fb = b.fechaHora ?? '';
+        final c = fa.compareTo(fb);
+        if (c != 0) return c;
+        final oa = a.ordenRonda ?? 0;
+        final ob = b.ordenRonda ?? 0;
+        if (oa != ob) return oa.compareTo(ob);
+        return a.idPartido.compareTo(b.idPartido);
+      });
+    }
+
+    final children = <Widget>[];
+    for (final k in keys) {
+      final title = hasJornada ? 'Jornada $k' : 'Ronda $k';
+      children.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+        ),
+      );
+
+      for (final p in groups[k]!) {
+        children.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: _MatchCard(partido: p),
+          ),
+        );
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 12),
+      children: children,
+    );
+  }
+}
+
 class _MatchCard extends StatelessWidget {
   final TorneoPartido partido;
+  final List<TorneoPartido> juegosSerie;
+  final bool compact;
 
-  const _MatchCard({required this.partido});
+  const _MatchCard({
+    required this.partido,
+    this.juegosSerie = const <TorneoPartido>[],
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final equipos = partido.equipos;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+
+    final vPad = compact ? 6.0 : 8.0;
+    final rowGap = compact ? 4.0 : 6.0;
+    final metaGap = compact ? 4.0 : 6.0;
 
     final localDate = _tryParseDate(partido.fechaHora)?.toLocal();
     final fechaLabel = localDate == null
@@ -476,10 +812,18 @@ class _MatchCard extends StatelessWidget {
       }
     }
 
-    Widget rowFor(TorneoPartidoEquipo? e, {required bool top}) {
-      final name = e?.equipoNombre ?? (top ? 'TBD' : 'TBD');
-      final score = e?.punto;
-      final isWinner = winner != null && e != null && winner.idEquipo == e.idEquipo;
+    final sortedEquipos = [...equipos]
+      ..sort((a, b) {
+        final c = b.punto.compareTo(a.punto);
+        if (c != 0) return c;
+        return a.equipoNombre.compareTo(b.equipoNombre);
+      });
+    final preview = sortedEquipos.take(4).toList(growable: false);
+
+    Widget rowFor(TorneoPartidoEquipo e) {
+      final name = (e.equipoNombre).trim().isEmpty ? 'TBD' : e.equipoNombre.trim();
+      final score = e.punto;
+      final isWinner = winner?.idEquipo == e.idEquipo;
 
       return Row(
         children: [
@@ -495,7 +839,7 @@ class _MatchCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            score == null ? '-' : '$score',
+            '$score',
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
             ),
@@ -520,6 +864,8 @@ class _MatchCard extends StatelessWidget {
       b?.equipoNombre,
     );
 
+    final tituloDialog = equipos.length <= 2 ? vsTitle : 'Partido (${equipos.length} equipos)';
+
     return Card(
       elevation: 2,
       clipBehavior: Clip.antiAlias,
@@ -528,27 +874,84 @@ class _MatchCard extends StatelessWidget {
           showDialog<void>(
             context: context,
             builder: (ctx) {
+              final isSerie = juegosSerie.length > 1;
+
+              Widget serieList() {
+                if (!isSerie) return const SizedBox.shrink();
+                final sorted = [...juegosSerie];
+                sorted.sort((a, b) {
+                  final oa = a.ordenRonda ?? 0;
+                  final ob = b.ordenRonda ?? 0;
+                  if (oa != ob) return oa.compareTo(ob);
+                  final fa = a.fechaHora ?? '';
+                  final fb = b.fechaHora ?? '';
+                  final c = fa.compareTo(fb);
+                  if (c != 0) return c;
+                  return a.idPartido.compareTo(b.idPartido);
+                });
+
+                String scoreLine(TorneoPartido g) {
+                  final estado = (g.estado ?? '').trim();
+                  final ord = g.ordenRonda;
+                  final tag = [
+                    if (ord != null) '#$ord',
+                    if (estado.isNotEmpty) estado,
+                  ].join(' · ');
+
+                  final parts = [...g.equipos]
+                    ..sort((a, b) => b.punto.compareTo(a.punto));
+                  final body = parts.isEmpty
+                      ? 'TBD'
+                      : parts
+                          .map((e) => '${(e.equipoNombre).trim().isEmpty ? 'TBD' : e.equipoNombre.trim()}: ${e.punto}')
+                          .join(' · ');
+                  return '$body${tag.isEmpty ? '' : '  ($tag)'}';
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Serie (${sorted.length} partidos)',
+                        style: Theme.of(ctx).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      ...sorted.asMap().entries.map((e) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Text('Juego ${e.key + 1}: ${scoreLine(e.value)}'),
+                        );
+                      }),
+                    ],
+                  ),
+                );
+              }
+
               return AlertDialog(
-                title: Text(vsTitle),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (lugarLabel != null)
-                      Text('Lugar: $lugarLabel'),
-                    if (fechaLabel != null || horaLabel != null)
-                      Text(
-                        'Hora: ${[
-                          if (fechaLabel != null) fechaLabel,
-                          if (horaLabel != null) horaLabel,
-                        ].join(' · ')}',
-                      ),
-                    if (estado != null) Text('Estado: $estado'),
-                    if (partido.ronda != null)
-                      Text(
-                        'Ronda: ${partido.ronda}${partido.ordenRonda != null ? ' · #${partido.ordenRonda}' : ''}',
-                      ),
-                  ],
+                title: Text(tituloDialog),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (lugarLabel != null) Text('Lugar: $lugarLabel'),
+                      if (fechaLabel != null || horaLabel != null)
+                        Text(
+                          'Hora: ${[
+                            if (fechaLabel != null) fechaLabel,
+                            if (horaLabel != null) horaLabel,
+                          ].join(' · ')}',
+                        ),
+                      if (estado != null) Text('Estado: $estado'),
+                      if (partido.ronda != null)
+                        Text(
+                          'Ronda: ${partido.ronda}${partido.ordenRonda != null ? ' · #${partido.ordenRonda}' : ''}',
+                        ),
+                      serieList(),
+                    ],
+                  ),
                 ),
                 actions: [
                   TextButton(
@@ -561,15 +964,42 @@ class _MatchCard extends StatelessWidget {
           );
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: vPad),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              rowFor(a, top: true),
-              const SizedBox(height: 8),
-              rowFor(b, top: false),
+              if (preview.isEmpty) ...[
+                Text('TBD', style: theme.textTheme.bodyMedium),
+              ] else ...[
+                ...preview.asMap().entries.map((e) {
+                  final w = rowFor(e.value);
+                  if (e.key == preview.length - 1) return w;
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: rowGap),
+                    child: w,
+                  );
+                }),
+                if (equipos.length > preview.length) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '+${equipos.length - preview.length} más',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+              if (juegosSerie.length > 1) ...[
+                SizedBox(height: metaGap),
+                Text(
+                  'Serie · ${juegosSerie.length} partidos',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
               if (estado != null) ...[
-                const SizedBox(height: 6),
+                SizedBox(height: metaGap),
                 Text(
                   estado,
                   style: theme.textTheme.labelSmall?.copyWith(
