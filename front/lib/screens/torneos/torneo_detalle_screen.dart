@@ -656,6 +656,7 @@ class _BracketSeriesView extends StatelessWidget {
             child: _MatchCard(
               partido: node.display,
               juegosSerie: node.juegos.length > 1 ? node.juegos : const <TorneoPartido>[],
+              compact: true,
             ),
           ),
         );
@@ -775,10 +776,12 @@ class _PartidosPorJornadaView extends StatelessWidget {
 class _MatchCard extends StatelessWidget {
   final TorneoPartido partido;
   final List<TorneoPartido> juegosSerie;
+  final bool compact;
 
   const _MatchCard({
     required this.partido,
     this.juegosSerie = const <TorneoPartido>[],
+    this.compact = false,
   });
 
   @override
@@ -786,6 +789,10 @@ class _MatchCard extends StatelessWidget {
     final equipos = partido.equipos;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+
+    final vPad = compact ? 6.0 : 8.0;
+    final rowGap = compact ? 4.0 : 6.0;
+    final metaGap = compact ? 4.0 : 6.0;
 
     final localDate = _tryParseDate(partido.fechaHora)?.toLocal();
     final fechaLabel = localDate == null
@@ -957,7 +964,7 @@ class _MatchCard extends StatelessWidget {
           );
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: vPad),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -968,7 +975,7 @@ class _MatchCard extends StatelessWidget {
                   final w = rowFor(e.value);
                   if (e.key == preview.length - 1) return w;
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
+                    padding: EdgeInsets.only(bottom: rowGap),
                     child: w,
                   );
                 }),
@@ -983,7 +990,7 @@ class _MatchCard extends StatelessWidget {
                 ],
               ],
               if (juegosSerie.length > 1) ...[
-                const SizedBox(height: 6),
+                SizedBox(height: metaGap),
                 Text(
                   'Serie · ${juegosSerie.length} partidos',
                   style: theme.textTheme.labelSmall?.copyWith(
@@ -992,7 +999,7 @@ class _MatchCard extends StatelessWidget {
                 ),
               ],
               if (estado != null) ...[
-                const SizedBox(height: 6),
+                SizedBox(height: metaGap),
                 Text(
                   estado,
                   style: theme.textTheme.labelSmall?.copyWith(
