@@ -1,9 +1,13 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:front/api/api_exception.dart';
 import 'package:front/features/categorias/data/categorias_api.dart';
 import 'package:front/features/categorias/domain/categoria.dart';
+import 'package:front/features/categorias/widgets/categoria_icon_avatar.dart';
 import 'package:front/features/tipos_torneo/domain/tipo_torneo.dart';
 import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
@@ -56,7 +60,7 @@ class _PreguntaDraft {
 }
 
 class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
-    int? _idOrganizador;
+  int? _idOrganizador;
   static String _defaultApiBaseUrl() {
     if (kIsWeb) {
       final host = (Uri.base.host.isNotEmpty) ? Uri.base.host : 'localhost';
@@ -83,6 +87,8 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
   final TextEditingController _nombreCategoriaCtrl = TextEditingController();
   final TextEditingController _participantesPorPartidaCtrl =
       TextEditingController(text: '2');
+  Uint8List? _iconoCategoriaBytes;
+  String? _iconoCategoriaNombre;
 
   List<TipoTorneo> _tiposPermitidos = const [];
   TipoTorneo? _tipoSeleccionado;
@@ -120,6 +126,29 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
     super.initState();
     _loadCategorias();
     _loadUser();
+  }
+
+  Future<void> _elegirIconoCategoria() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty) {
+      return;
+    }
+
+    final file = result.files.first;
+    if (file.bytes == null) {
+      if (!mounted) return;
+      _snack('No se pudo leer la imagen seleccionada.');
+      return;
+    }
+
+    setState(() {
+      _iconoCategoriaBytes = file.bytes;
+      _iconoCategoriaNombre = file.name;
+    });
   }
 
   Future<void> _loadUser() async {
@@ -501,6 +530,8 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
             CategoriaCreate(
               nombre: nombreCat,
               participantesPorPartida: participantes,
+              iconoBytes: _iconoCategoriaBytes,
+              iconoNombre: _iconoCategoriaNombre,
             ),
           );
 
@@ -512,6 +543,8 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
           setState(() {
             _crearCategoriaNueva = false;
             _categoriaSeleccionada = created;
+            _iconoCategoriaBytes = null;
+            _iconoCategoriaNombre = null;
             _loading = false;
           });
 
@@ -862,6 +895,9 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
                 _categoriaSeleccionada = null;
                 _tiposPermitidos = const [];
                 _tipoSeleccionado = null;
+              } else {
+                _iconoCategoriaBytes = null;
+                _iconoCategoriaNombre = null;
               }
             });
           },
@@ -888,6 +924,37 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
               border: OutlineInputBorder(),
             ),
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _elegirIconoCategoria,
+                  icon: const Icon(Icons.image),
+                  label: const Text('Elegir icono'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (_iconoCategoriaBytes != null)
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: ClipOval(
+                    child: Image.memory(
+                      _iconoCategoriaBytes!,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (_iconoCategoriaNombre != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Icono seleccionado: $_iconoCategoriaNombre',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ] else ...[
           DropdownButtonFormField<Categoria>(
             value: _categoriaSeleccionada,
@@ -895,7 +962,20 @@ class _CrearTorneoWizardScreenState extends State<CrearTorneoWizardScreen> {
                 .map(
                   (c) => DropdownMenuItem(
                     value: c,
-                    child: Text('${c.nombre} (${c.participantesPorPartida})'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CategoriaIconAvatar(
+                          categoria: c,
+                          baseUrl: _baseUrl,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text('${c.nombre} (${c.participantesPorPartida})'),
+                        ),
+                      ],
+                    ),
                   ),
                 )
                 .toList(growable: false),
