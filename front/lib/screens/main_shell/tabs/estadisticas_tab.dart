@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:fl_chart/fl_chart.dart';
 
+import 'package:front/features/categorias/widgets/categoria_network_avatar.dart';
 import 'package:front/features/estadisticas/data/estadisticas_api.dart';
 import 'package:front/features/estadisticas/domain/estadisticas_models.dart';
 import 'package:front/peticion/api_config.dart';
@@ -199,6 +200,8 @@ class _EstadisticasTabState extends State<EstadisticasTab> {
         ? null
         : _equipos.where((e) => e.idEquipo == selectedId).firstOrNull;
 
+    final theme = Theme.of(context);
+
     return RefreshIndicator(
       onRefresh: _loadInitial,
       child: ListView(
@@ -206,33 +209,51 @@ class _EstadisticasTabState extends State<EstadisticasTab> {
         children: [
           Text(
             'Dashboard',
-            style: Theme.of(context).textTheme.titleLarge,
+            style: theme.textTheme.titleLarge,
           ),
           const SizedBox(height: 12),
-          InputDecorator(
-            decoration: const InputDecoration(
-              labelText: 'Equipo',
-              border: OutlineInputBorder(),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<int>(
-                value: selectedId,
-                isExpanded: true,
-                items: _equipos
-                    .map(
-                      (e) => DropdownMenuItem<int>(
-                        value: e.idEquipo,
-                        child: Text(e.esActual ? '${e.nombre} (actual)' : e.nombre),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged: (value) async {
-                  if (value == null) return;
-                  setState(() => _selectedEquipoId = value);
-                  await _loadEquipoData(value);
-                },
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Equipo', style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int>(
+                    value: selectedId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.groups_outlined),
+                      helperText: 'Selecciona el equipo para ver su ELO y ranking',
+                    ),
+                    items: _equipos
+                        .map(
+                          (e) => DropdownMenuItem<int>(
+                            value: e.idEquipo,
+                            child: Text(
+                              e.esActual ? '${e.nombre} (actual)' : e.nombre,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (value) async {
+                      if (value == null) return;
+                      setState(() => _selectedEquipoId = value);
+                      await _loadEquipoData(value);
+                    },
+                  ),
+                ],
               ),
             ),
+          ),
+          const SizedBox(height: 16),
+          _EloActualSummary(
+            equipoNombre: selectedEquipo?.nombre ?? 'Equipo',
+            eloActual: _eloResponse?.equipo.eloActual,
+            points: _eloResponse?.historial ?? const [],
           ),
           const SizedBox(height: 16),
           _EloCard(
@@ -265,8 +286,9 @@ class _EloCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final axisLabelStyle = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurface,
+      color: colors.onSurfaceVariant,
     );
 
     return Card(
@@ -279,11 +301,6 @@ class _EloCard extends StatelessWidget {
               'ELO - $equipoNombre',
               style: theme.textTheme.titleMedium,
             ),
-            const SizedBox(height: 6),
-            Text(
-              eloActual == null ? 'ELO actual: —' : 'ELO actual: $eloActual',
-              style: theme.textTheme.bodyMedium,
-            ),
             const SizedBox(height: 12),
             if (points.isEmpty)
               const Text('Sin historial de ELO para este equipo.')
@@ -292,8 +309,45 @@ class _EloCard extends StatelessWidget {
                 height: 220,
                 child: LineChart(
                   LineChartData(
-                    gridData: const FlGridData(show: true),
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: false,
+                      getDrawingHorizontalLine: (value) => FlLine(
+                        color: colors.outlineVariant,
+                        strokeWidth: 1,
+                      ),
+                    ),
                     borderData: FlBorderData(show: false),
+                    lineTouchData: LineTouchData(
+                      enabled: true,
+                      handleBuiltInTouches: true,
+                      touchTooltipData: LineTouchTooltipData(
+                        getTooltipColor: (_) => colors.surface,
+                        tooltipRoundedRadius: 10,
+                        tooltipPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        getTooltipItems: (touchedSpots) {
+                          return touchedSpots.map((spot) {
+                            final idx = spot.x.round().clamp(0, points.length - 1);
+                            final d = points[idx].creadoEn;
+                            final dateLabel = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+                            return LineTooltipItem(
+                              '$dateLabel\nELO: ${spot.y.round()}',
+                              theme.textTheme.bodySmall?.copyWith(
+                                    color: colors.onSurface,
+                                    fontWeight: FontWeight.w600,
+                                  ) ??
+                                  TextStyle(
+                                    color: colors.onSurface,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            );
+                          }).toList(growable: false);
+                        },
+                      ),
+                    ),
                     titlesData: FlTitlesData(
                       topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                       rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -330,10 +384,35 @@ class _EloCard extends StatelessWidget {
                     ),
                     lineBarsData: [
                       LineChartBarData(
-                        isCurved: false,
+                        isCurved: true,
                         barWidth: 3,
-                        color: theme.colorScheme.primary,
-                        dotData: const FlDotData(show: false),
+                        color: colors.primary,
+                        belowBarData: BarAreaData(
+                          show: true,
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              colors.primary.withValues(alpha: 0.28),
+                              colors.primary.withValues(alpha: 0.02),
+                            ],
+                          ),
+                        ),
+                        dotData: FlDotData(
+                          show: true,
+                          checkToShowDot: (spot, _) {
+                            final idx = spot.x.round();
+                            return idx == 0 || idx == points.length - 1;
+                          },
+                          getDotPainter: (spot, _, __, ___) {
+                            return FlDotCirclePainter(
+                              radius: 3.2,
+                              color: colors.primary,
+                              strokeWidth: 2,
+                              strokeColor: colors.surface,
+                            );
+                          },
+                        ),
                         spots: List.generate(
                           points.length,
                           (i) => FlSpot(i.toDouble(), points[i].eloNuevo.toDouble()),
@@ -343,6 +422,102 @@ class _EloCard extends StatelessWidget {
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EloActualSummary extends StatelessWidget {
+  const _EloActualSummary({
+    required this.equipoNombre,
+    required this.eloActual,
+    required this.points,
+  });
+
+  final String equipoNombre;
+  final int? eloActual;
+  final List<EloPoint> points;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    final currentElo = eloActual ?? (points.isNotEmpty ? points.last.eloNuevo : null);
+    final previousElo = points.length >= 2 ? points[points.length - 2].eloNuevo : null;
+
+    final bool? wentUp = (currentElo == null || previousElo == null)
+      ? null
+      : currentElo > previousElo
+        ? true
+        : currentElo < previousElo
+          ? false
+          : null;
+
+    final IconData trendIcon = (wentUp == null)
+      ? Icons.trending_flat
+      : wentUp
+        ? Icons.trending_up
+        : Icons.trending_down;
+
+    final Color trendColor = (wentUp == null)
+      ? colors.onSurfaceVariant
+      : wentUp
+        ? Colors.green
+        : Colors.red;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Icon(Icons.emoji_events_outlined, color: colors.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('ELO actual', style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 2),
+                  Text(
+                    equipoNombre,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: colors.surfaceVariant,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: colors.outlineVariant),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    trendIcon,
+                    size: 18,
+                    color: trendColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    currentElo?.toString() ?? '—',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -374,9 +549,21 @@ class _RankingCard extends StatelessWidget {
             else if (r.categoria == null)
               const Text('Sin categoría asociada todavía para este equipo.')
             else ...[
-              Text(
-                'Categoría: ${r.categoria!.nombre}',
-                style: theme.textTheme.bodyMedium,
+              Row(
+                children: [
+                  CategoriaNetworkAvatar(
+                    categoriaId: r.categoria!.idCategoria,
+                    baseUrl: ApiConfig.baseUrl,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Categoría: ${r.categoria!.nombre}',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               _RankingRow(
@@ -413,40 +600,180 @@ class _RankingRow extends StatelessWidget {
   final bool highlighted;
   final String? labelOverride;
 
+  static Widget _medalLeading(BuildContext context, {required int position}) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    // Sin hardcodear colores: usamos primarios del theme.
+    final List<Color> gradientColors;
+    final IconData medalIcon;
+
+    switch (position) {
+      case 1:
+        gradientColors = <Color>[
+          Colors.amber.shade200,
+          Colors.amber,
+          Colors.amber.shade700,
+        ];
+        medalIcon = Icons.workspace_premium;
+        break;
+      case 2:
+        gradientColors = <Color>[
+          Colors.grey.shade300,
+          Colors.grey,
+          Colors.grey.shade700,
+        ];
+        medalIcon = Icons.workspace_premium;
+        break;
+      case 3:
+        gradientColors = <Color>[
+          Colors.brown.shade200,
+          Colors.brown,
+          Colors.brown.shade700,
+        ];
+        medalIcon = Icons.workspace_premium;
+        break;
+      default:
+        gradientColors = <Color>[colors.surfaceVariant, colors.surfaceVariant];
+        medalIcon = Icons.workspace_premium;
+    }
+
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: gradientColors
+                    .map((c) => c.withValues(alpha: 0.22))
+                    .toList(growable: false),
+              ),
+            ),
+            child: Center(
+              child: ShaderMask(
+                shaderCallback: (bounds) => LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: gradientColors,
+                ).createShader(bounds),
+                child: Icon(
+                  medalIcon,
+                  size: 22,
+                  color: colors.surface,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: -4,
+            bottom: -4,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: colors.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: colors.outlineVariant),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                position.toString(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: colors.onSurface,
+                    ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bg = highlighted ? theme.colorScheme.primaryContainer : null;
-    final fg = highlighted ? theme.colorScheme.onPrimaryContainer : null;
+    final colors = theme.colorScheme;
+    final bg = highlighted ? colors.primaryContainer : colors.surface;
+    final fg = highlighted ? colors.onPrimaryContainer : colors.onSurface;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
+    final pos = entry.posicion;
+    final Widget leading = (pos == 1 || pos == 2 || pos == 3)
+        ? _medalLeading(context, position: pos!)
+        : SizedBox(
             width: 40,
             child: Text(
-              entry.posicion?.toString() ?? '—',
+              pos?.toString() ?? '—',
+              textAlign: TextAlign.center,
               style: theme.textTheme.titleSmall?.copyWith(color: fg),
             ),
+          );
+
+    // "Sombreado entre posiciones": cada fila se renderiza como una mini-card
+    // con elevación (shadow) y margen inferior para separar.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: bg,
+        elevation: highlighted ? 0 : 1.5,
+        shadowColor: theme.shadowColor,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: highlighted ? Border.all(color: colors.primary, width: 1) : null,
           ),
-          Expanded(
-            child: Text(
-              labelOverride ?? entry.nombre,
-              style: theme.textTheme.bodyMedium?.copyWith(color: fg),
-              overflow: TextOverflow.ellipsis,
-            ),
+          child: Row(
+            children: [
+              leading,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  labelOverride ?? entry.nombre,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: fg,
+                    fontWeight: highlighted ? FontWeight.w700 : null,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: (highlighted ? colors.primary : colors.surfaceVariant)
+                      .withValues(alpha: highlighted ? 0.14 : 1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.trending_up,
+                      size: 16,
+                      color: highlighted ? colors.primary : colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      entry.elo.toString(),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: highlighted ? colors.primary : colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Text(
-            entry.elo.toString(),
-            style: theme.textTheme.titleSmall?.copyWith(color: fg),
-          ),
-        ],
+        ),
       ),
     );
   }

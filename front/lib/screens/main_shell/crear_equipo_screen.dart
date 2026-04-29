@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/features/categorias/data/categorias_api.dart';
 import 'package:front/features/categorias/domain/categoria.dart';
+import 'package:front/features/categorias/widgets/categoria_icon_avatar.dart';
 import 'package:front/features/equipos/data/equipos_api.dart';
 import 'package:front/features/equipos/domain/equipo.dart';
 import 'package:front/api/api_exception.dart';
@@ -149,7 +150,14 @@ class _CrearEquipoScreenState extends State<CrearEquipoScreen> {
                     .map(
                       (c) => DropdownMenuItem<int>(
                         value: c.idCategoria,
-                        child: Text(c.nombre),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CategoriaIconAvatar(categoria: c, baseUrl: ApiConfig.baseUrl, size: 24),
+                            const SizedBox(width: 8),
+                            Flexible(child: Text(c.nombre)),
+                          ],
+                        ),
                       ),
                     )
                     .toList(),

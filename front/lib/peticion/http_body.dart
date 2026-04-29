@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:front/features/torneos/data/torneos_api.dart';
+import 'package:front/features/categorias/widgets/categoria_network_avatar.dart';
 import 'package:front/features/torneos/torneos_refresh.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
@@ -133,6 +134,7 @@ class _TorneosBodyState extends State<TorneosBody> {
             }
 
             final torneo = torneos[index];
+            final hasCategoria = torneo.categoriaId != null;
 
             final inicio = _formatDate(torneo.fechaInicio);
             final fin = _formatDate(torneo.fechaFin);
@@ -189,12 +191,30 @@ class _TorneosBodyState extends State<TorneosBody> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        torneo.nombre,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: onCard,
-                              fontWeight: FontWeight.w700,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          if (hasCategoria) ...[
+                            CategoriaNetworkAvatar(
+                              categoriaId: torneo.categoriaId!,
+                              baseUrl: ApiConfig.baseUrl,
+                              size: 34,
                             ),
+                            const SizedBox(width: 10),
+                          ],
+                          Expanded(
+                            child: Text(
+                              torneo.nombre,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color: onCard,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 10),
                       if (features.isNotEmpty)

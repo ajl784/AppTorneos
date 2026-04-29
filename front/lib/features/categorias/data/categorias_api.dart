@@ -2,6 +2,8 @@ import 'package:front/api/api_response.dart';
 import 'package:front/api/app_torneos_api_client.dart';
 import 'package:front/features/categorias/domain/categoria.dart';
 import 'package:front/features/tipos_torneo/domain/tipo_torneo.dart';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 class CategoriasApi {
   final AppTorneosApiClient _client;
@@ -31,8 +33,32 @@ class CategoriasApi {
   }
 
   Future<Categoria> createCategoria(CategoriaCreate payload) async {
-    final res = await _client.postRaw('/categorias', body: payload.toJson());
+    final res = payload.iconoBytes == null
+        ? await _client.postRaw('/categorias', body: payload.toFields())
+        : await _client.postMultipartRaw(
+            '/categorias',
+            fields: payload.toFields(),
+            files: [
+              http.MultipartFile.fromBytes(
+                'icono',
+                payload.iconoBytes!,
+                filename: payload.iconoNombre ?? 'icono.jpg',
+                contentType: _guessImageMediaType(payload.iconoNombre),
+              ),
+            ],
+          );
     return Categoria.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  MediaType _guessImageMediaType(String? fileName) {
+    final name = (fileName ?? '').toLowerCase();
+    if (name.endsWith('.png')) return MediaType('image', 'png');
+    if (name.endsWith('.webp')) return MediaType('image', 'webp');
+    if (name.endsWith('.gif')) return MediaType('image', 'gif');
+    if (name.endsWith('.jpg') || name.endsWith('.jpeg')) {
+      return MediaType('image', 'jpeg');
+    }
+    return MediaType('application', 'octet-stream');
   }
 
   Future<List<TipoTorneo>> listTiposTorneoByCategoria(int idCategoria) async {

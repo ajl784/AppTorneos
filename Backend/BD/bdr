@@ -23,7 +23,8 @@ CREATE TABLE categoria (
 	nombre VARCHAR(80) NOT NULL UNIQUE,
 	participantes_por_partida INTEGER NOT NULL CHECK (participantes_por_partida > 0),
 	norma TEXT,
-	descripcion TEXT
+	descripcion TEXT,
+	icono TEXT
 );
 
 -- Restricción opcional de disponibilidad entre categoría y tipo de torneo.

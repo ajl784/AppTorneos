@@ -1,12 +1,16 @@
+import 'dart:typed_data';
+
 class Categoria {
   final int idCategoria;
   final String nombre;
   final int participantesPorPartida;
+  final String? icono;
 
   const Categoria({
     required this.idCategoria,
     required this.nombre,
     required this.participantesPorPartida,
+    this.icono,
   });
 
   static int? _intOrNull(dynamic value) {
@@ -33,8 +37,11 @@ class Categoria {
       idCategoria: id,
       nombre: (json['nombre'] as String?) ?? '',
       participantesPorPartida: participantes,
+      icono: json['icono'] as String?,
     );
   }
+
+  bool get tieneIcono => icono != null && icono!.trim().isNotEmpty;
 
   @override
   bool operator ==(Object other) {
@@ -48,14 +55,18 @@ class Categoria {
 class CategoriaCreate {
   final String nombre;
   final int participantesPorPartida;
+  final Uint8List? iconoBytes;
+  final String? iconoNombre;
 
   const CategoriaCreate({
     required this.nombre,
     required this.participantesPorPartida,
+    this.iconoBytes,
+    this.iconoNombre,
   });
 
-  Map<String, dynamic> toJson() => {
+  Map<String, String> toFields() => {
     'nombre': nombre,
-    'participantes_por_partida': participantesPorPartida,
+    'participantes_por_partida': participantesPorPartida.toString(),
   };
 }
