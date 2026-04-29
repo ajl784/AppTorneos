@@ -405,7 +405,7 @@ class _LigaDetalleViewState extends State<_LigaDetalleView> {
                       );
                     }
 
-                    return _PartidosPorJornadaView(partidos: partidos);
+                    return _JornadaNavigatorView(partidos: partidos);
                   },
                 ),
         ),
@@ -712,26 +712,46 @@ class _BracketSeriesView extends StatelessWidget {
   }
 }
 
-class _PartidosPorJornadaView extends StatelessWidget {
+class _JornadaNavigatorView extends StatefulWidget {
   final List<TorneoPartido> partidos;
 
-  const _PartidosPorJornadaView({required this.partidos});
+  const _JornadaNavigatorView({required this.partidos});
+
+  @override
+  State<_JornadaNavigatorView> createState() => _JornadaNavigatorViewState();
+}
+
+class _JornadaNavigatorViewState extends State<_JornadaNavigatorView> {
+  int _jornada = 1;
+
+  static String _normEstado(String? v) => (v ?? '').trim().toLowerCase();
 
   @override
   Widget build(BuildContext context) {
-    final hasJornada = partidos.any((p) => p.jornada != null);
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
 
     final groups = <int, List<TorneoPartido>>{};
-    for (final p in partidos) {
-      final k = hasJornada
-          ? (p.jornada ?? 0)
-          : (p.ronda ?? 0);
-      groups.putIfAbsent(k, () => <TorneoPartido>[]).add(p);
+    for (final p in widget.partidos) {
+      final j = p.jornada;
+      if (j == null || j <= 0) continue;
+      groups.putIfAbsent(j, () => <TorneoPartido>[]).add(p);
     }
 
-    final keys = groups.keys.toList(growable: false)..sort();
-    for (final k in keys) {
-      groups[k]!.sort((a, b) {
+    final maxJornada = groups.keys.isEmpty
+        ? 1
+        : groups.keys.fold<int>(1, (acc, v) => v > acc ? v : acc);
+
+    final current = _jornada > maxJornada ? maxJornada : _jornada;
+    if (current != _jornada) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _jornada = current);
+      });
+    }
+
+    final partidosJornada = (groups[current] ?? const <TorneoPartido>[]).toList(growable: false)
+      ..sort((a, b) {
         final fa = a.fechaHora ?? '';
         final fb = b.fechaHora ?? '';
         final c = fa.compareTo(fb);
@@ -741,34 +761,175 @@ class _PartidosPorJornadaView extends StatelessWidget {
         if (oa != ob) return oa.compareTo(ob);
         return a.idPartido.compareTo(b.idPartido);
       });
-    }
 
-    final children = <Widget>[];
-    for (final k in keys) {
-      final title = hasJornada ? 'Jornada $k' : 'Ronda $k';
-      children.add(
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Text(
-            title,
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-        ),
-      );
+    Widget resultFor(TorneoPartido partido) {
+      final equipos = partido.equipos;
+      final a = equipos.isNotEmpty ? equipos[0] : null;
+      final b = equipos.length > 1 ? equipos[1] : null;
+      final estado = _normEstado(partido.estado);
 
-      for (final p in groups[k]!) {
-        children.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: _MatchCard(partido: p),
-          ),
+      final showScore = a != null && b != null && (estado == 'en_curso' || estado == 'acabado');
+      if (showScore) {
+        return Text(
+          '${a.punto} - ${b.punto}',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleMedium,
         );
       }
+
+      final label = (estado.isEmpty || estado == 'planificado')
+          ? 'Aún no ha empezado'
+          : (estado == 'en_curso'
+              ? 'En curso'
+              : (estado == 'acabado' ? 'Acabado' : estado));
+
+      return Text(
+        label,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: colors.onSurfaceVariant,
+        ),
+      );
     }
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 12),
-      children: children,
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: current > 1 ? () => setState(() => _jornada = current - 1) : null,
+                icon: const Icon(Icons.chevron_left),
+                tooltip: 'Jornada anterior',
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    'Jornada $current / $maxJornada',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: current < maxJornada ? () => setState(() => _jornada = current + 1) : null,
+                icon: const Icon(Icons.chevron_right),
+                tooltip: 'Jornada siguiente',
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: partidosJornada.isEmpty
+              ? const Center(child: Text('No hay partidos en esta jornada.'))
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                  itemCount: partidosJornada.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final p = partidosJornada[index];
+                    final equipos = p.equipos;
+                    final a = equipos.isNotEmpty ? equipos[0] : null;
+                    final b = equipos.length > 1 ? equipos[1] : null;
+
+                    return Card(
+                      elevation: 2,
+                      clipBehavior: Clip.antiAlias,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _EquipoCell(
+                                equipo: a,
+                                alignLeft: true,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(minWidth: 72, maxWidth: 110),
+                              child: Center(child: resultFor(p)),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _EquipoCell(
+                                equipo: b,
+                                alignLeft: false,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EquipoCell extends StatelessWidget {
+  final TorneoPartidoEquipo? equipo;
+  final bool alignLeft;
+
+  const _EquipoCell({
+    required this.equipo,
+    required this.alignLeft,
+  });
+
+  static String _displayName(TorneoPartidoEquipo? e) {
+    final raw = (e?.equipoNombre ?? '').trim();
+    return raw.isEmpty ? 'TBD' : raw;
+  }
+
+  static String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList(growable: false);
+    if (parts.isEmpty) return '?';
+    final first = parts.first;
+    final last = parts.length > 1 ? parts.last : '';
+    final a = first.isEmpty ? '' : first[0].toUpperCase();
+    final b = last.isEmpty ? '' : last[0].toUpperCase();
+    return (a + b).isEmpty ? '?' : (a + b);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final name = _displayName(equipo);
+    final avatar = CircleAvatar(
+      radius: 14,
+      child: Text(
+        _initials(name),
+        style: theme.textTheme.labelSmall,
+      ),
+    );
+
+    final text = Flexible(
+      child: Text(
+        name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodyMedium,
+      ),
+    );
+
+    return Row(
+      mainAxisAlignment: alignLeft ? MainAxisAlignment.start : MainAxisAlignment.end,
+      children: alignLeft
+          ? [
+              avatar,
+              const SizedBox(width: 8),
+              text,
+            ]
+          : [
+              text,
+              const SizedBox(width: 8),
+              avatar,
+            ],
     );
   }
 }
