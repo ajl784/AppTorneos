@@ -30,16 +30,27 @@ const withIconUrl = (equipo) => {
 const getEquipoIcono = asyncHandler(async (req, res) => {
   const idEquipo = parsePositiveInt(req.params.id, "id");
   const icono = await equiposService.getEquipoIcono(idEquipo);
-  const iconoFilename = icono || DEFAULT_EQUIPO_ICON;
 
-  const imgPath = path.join(EQUIPO_ICONS_DIR, iconoFilename);
-  if (!fs.existsSync(imgPath)) {
+  if (icono?.icono_bin) {
+    const mime = icono.icono_mime || "application/octet-stream";
+    return res.type(mime).send(icono.icono_bin);
+  }
+
+  if (icono?.icono) {
+    const imgPath = path.join(EQUIPO_ICONS_DIR, icono.icono);
+    if (fs.existsSync(imgPath)) {
+      return res.sendFile(imgPath);
+    }
+  }
+
+  const fallbackPath = path.join(EQUIPO_ICONS_DIR, DEFAULT_EQUIPO_ICON);
+  if (!fs.existsSync(fallbackPath)) {
     return res
       .status(404)
       .json({ ok: false, error: { message: "Icono no encontrado" } });
   }
 
-  return res.sendFile(imgPath);
+  return res.sendFile(fallbackPath);
 });
 
 const listEquipos = asyncHandler(async (req, res) => {
@@ -122,8 +133,7 @@ const getEquiposByUsuario = asyncHandler(async (req, res) => {
 });
 
 const createSolicitudIngresoEquipo = asyncHandler(async (req, res) => {
-  const enriched = data.map(withIconUrl);
-  ok(res, enriched);
+  const idEquipo = parsePositiveInt(req.params.idEquipo, "idEquipo");
   requireFields(req.body, ["descripcion"]);
 
   const data = await equiposService.createSolicitudIngresoEquipo({
@@ -234,5 +244,5 @@ module.exports = {
   listSolicitudesIngresoEquipo,
   listSolicitudesIngresoUsuario,
   decidirSolicitudIngresoEquipo,
+  getEquipoIcono,
 };
-    getEquipoIcono,

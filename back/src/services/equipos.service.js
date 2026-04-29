@@ -17,7 +17,7 @@ const listEquipos = async ({ limit, offset, nombre, categoriaId }) => {
   const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
   const result = await pool.query(
-    `SELECT e.id_equipo, e.nombre, e.descripcion, e.elo, e.id_categoria, e.icono, c.nombre AS categoria_nombre
+    `SELECT e.id_equipo, e.nombre, e.descripcion, e.elo, e.id_categoria, c.nombre AS categoria_nombre
      FROM equipo e
      LEFT JOIN categoria c ON c.id_categoria = e.id_categoria
      ${where}
@@ -42,13 +42,14 @@ const getEquipoById = async (idEquipo) => {
 };
 const getEquipoIcono = async (idEquipo) => {
   const result = await pool.query(
-    `SELECT e.icono
+    `SELECT c.icono, c.icono_bin, c.icono_mime
        FROM equipo e
+       LEFT JOIN categoria c ON c.id_categoria = e.id_categoria
        WHERE e.id_equipo = $1`,
     [idEquipo],
   );
 
-  return result.rows[0] ? result.rows[0].icono : null;
+  return result.rows[0] || null;
 };
 
 const createEquipo = async ({
@@ -146,7 +147,7 @@ const updateEquipo = async (idEquipo, payload) => {
 const getEquiposByUsuario = async (idUsuario) => {
   // Devuelve equipos activos del usuario.
   const result = await pool.query(
-    `SELECT e.id_equipo, e.nombre, e.descripcion, e.elo, e.id_categoria, e.icono, c.nombre AS categoria_nombre
+    `SELECT e.id_equipo, e.nombre, e.descripcion, e.elo, e.id_categoria, c.nombre AS categoria_nombre
      FROM equipo e
      INNER JOIN pertenece p ON e.id_equipo = p.id_equipo
      LEFT JOIN categoria c ON c.id_categoria = e.id_categoria
@@ -306,13 +307,8 @@ const decideSolicitudIngresoEquipo = async ({
        FROM solicitud_equipo
        WHERE id_solicitud_equipo = $1
        FOR UPDATE`,
-  const createEquipo = async ({ nombre, descripcion, elo, id_categoria, id_usuario, icono }) => {
-        `INSERT INTO equipo (nombre, descripcion, elo, id_categoria, icono)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING id_equipo`,
-        [nombre, descripcion || null, elo ?? 1200, id_categoria, icono || null],
-      return null;
-    }
+      [idSolicitudEquipo],
+    );
 
     const solicitud = rowResult.rows[0];
 
@@ -373,5 +369,5 @@ module.exports = {
   getSolicitudIngresoById,
   decideSolicitudIngresoEquipo,
   isEntrenadorActivo,
+  getEquipoIcono,
 };
-    getEquipoIcono,

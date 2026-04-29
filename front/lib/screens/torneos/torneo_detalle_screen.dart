@@ -5,6 +5,7 @@ import 'package:front/features/torneos/domain/torneo.dart';
 import 'package:front/features/torneos/domain/torneo_clasificacion.dart';
 import 'package:front/features/torneos/domain/torneo_partidos.dart';
 import 'package:front/peticion/api_config.dart';
+import 'package:front/features/equipos/widgets/equipo_network_avatar.dart';
 
 class TorneoDetalleScreen extends StatefulWidget {
   final int torneoId;
@@ -886,27 +887,31 @@ class _EquipoCell extends StatelessWidget {
     return raw.isEmpty ? 'TBD' : raw;
   }
 
-  static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList(growable: false);
-    if (parts.isEmpty) return '?';
-    final first = parts.first;
-    final last = parts.length > 1 ? parts.last : '';
-    final a = first.isEmpty ? '' : first[0].toUpperCase();
-    final b = last.isEmpty ? '' : last[0].toUpperCase();
-    return (a + b).isEmpty ? '?' : (a + b);
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final name = _displayName(equipo);
-    final avatar = CircleAvatar(
-      radius: 14,
-      child: Text(
-        _initials(name),
-        style: theme.textTheme.labelSmall,
-      ),
-    );
+    
+    final avatar = equipo != null
+        ? EquipoNetworkAvatar(
+            equipoId: equipo!.idEquipo,
+            baseUrl: ApiConfig.baseUrl,
+            size: 28,
+          )
+        : Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              Icons.groups,
+              size: 16,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          );
 
     final text = Flexible(
       child: Text(
