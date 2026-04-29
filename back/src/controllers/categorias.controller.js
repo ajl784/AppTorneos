@@ -34,6 +34,9 @@ const listCategorias = asyncHandler(async (req, res) => {
 });
 
 const createCategoria = asyncHandler(async (req, res) => {
+  console.log("Body:", req.body); // Log the body to verify received data
+  console.log("File:", req.file); // Log the file to verify received file
+
   requireFields(req.body, ["nombre", "participantes_por_partida"]);
   req.body.icono = req.file ? req.file.filename : null;
   let data;
