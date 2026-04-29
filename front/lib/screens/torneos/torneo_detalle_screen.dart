@@ -945,6 +945,27 @@ class _MatchCard extends StatelessWidget {
     this.compact = false,
   });
 
+  static double _meanPoints(List<TorneoPartidoEquipo> equipos) {
+    if (equipos.isEmpty) return 0;
+    final sum = equipos.fold<int>(0, (acc, e) => acc + e.punto);
+    return sum / equipos.length;
+  }
+
+  static bool _isNearMean(int points, double mean) {
+    final band = mean <= 0 ? 1.0 : (mean * 0.15).clamp(1.0, 999999.0);
+    return (points - mean).abs() <= band;
+  }
+
+  static ({Color bg, Color fg, Color border}) _toneColors(ColorScheme colors, int points, double mean) {
+    if (_isNearMean(points, mean)) {
+      return (bg: colors.secondaryContainer, fg: colors.onSecondaryContainer, border: colors.secondary);
+    }
+    if (points > mean) {
+      return (bg: colors.tertiaryContainer, fg: colors.onTertiaryContainer, border: colors.tertiary);
+    }
+    return (bg: colors.errorContainer, fg: colors.onErrorContainer, border: colors.error);
+  }
+
   @override
   Widget build(BuildContext context) {
     final equipos = partido.equipos;
@@ -981,31 +1002,36 @@ class _MatchCard extends StatelessWidget {
       });
     final preview = sortedEquipos.take(4).toList(growable: false);
 
-    Widget rowFor(TorneoPartidoEquipo e) {
+    // Card (cerrada): minimalista y sencilla.
+    // El detalle bonito/estructurado vive en el diálogo al abrir.
+    Widget rowForCard(TorneoPartidoEquipo e) {
       final name = (e.equipoNombre).trim().isEmpty ? 'TBD' : e.equipoNombre.trim();
       final score = e.punto;
       final isWinner = winner?.idEquipo == e.idEquipo;
 
-      return Row(
-        children: [
-          Expanded(
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '$score',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
+            const SizedBox(width: 10),
+            Text(
+              '$score',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: isWinner ? FontWeight.w800 : FontWeight.w700,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
@@ -1037,6 +1063,108 @@ class _MatchCard extends StatelessWidget {
             builder: (ctx) {
               final isSerie = juegosSerie.length > 1;
 
+              List<TorneoPartidoEquipo> _sortedEquiposFor(List<TorneoPartidoEquipo> items) {
+                final copy = [...items];
+                copy.sort((a, b) {
+                  final c = b.punto.compareTo(a.punto);
+                  if (c != 0) return c;
+                  return a.equipoNombre.compareTo(b.equipoNombre);
+                });
+                return copy;
+              }
+
+              Widget equiposTable(
+                List<TorneoPartidoEquipo> items, {
+                double? maxHeight,
+              }) {
+                final rows = _sortedEquiposFor(items);
+                if (rows.isEmpty) return const Text('TBD');
+
+                final mean = _meanPoints(rows);
+
+                Widget row(TorneoPartidoEquipo e) {
+                  final name = (e.equipoNombre).trim().isEmpty ? 'TBD' : e.equipoNombre.trim();
+                  final tone = _toneColors(Theme.of(ctx).colorScheme, e.punto, mean);
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: tone.bg,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: tone.border.withValues(alpha: 0.55)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                                        color: tone.fg,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                '${e.punto}',
+                                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                                      color: tone.fg,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                if (maxHeight == null) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: rows
+                        .asMap()
+                        .entries
+                        .map((e) => Padding(
+                              padding: EdgeInsets.only(bottom: e.key == rows.length - 1 ? 0 : 6),
+                              child: row(e.value),
+                            ))
+                        .toList(growable: false),
+                  );
+                }
+
+                return ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxHeight),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: rows
+                          .asMap()
+                          .entries
+                          .map((e) => Padding(
+                                padding: EdgeInsets.only(bottom: e.key == rows.length - 1 ? 0 : 6),
+                                child: row(e.value),
+                              ))
+                          .toList(growable: false),
+                    ),
+                  ),
+                );
+              }
+
+              String juegoTitle(TorneoPartido g, int index) {
+                final parts = <String>['Juego ${index + 1}'];
+                final ord = g.ordenRonda;
+                if (ord != null) parts.add('#$ord');
+                final estado = (g.estado ?? '').trim();
+                if (estado.isNotEmpty) parts.add(estado);
+                return parts.join(' · ');
+              }
+
               Widget serieList() {
                 if (!isSerie) return const SizedBox.shrink();
                 final sorted = [...juegosSerie];
@@ -1051,24 +1179,6 @@ class _MatchCard extends StatelessWidget {
                   return a.idPartido.compareTo(b.idPartido);
                 });
 
-                String scoreLine(TorneoPartido g) {
-                  final estado = (g.estado ?? '').trim();
-                  final ord = g.ordenRonda;
-                  final tag = [
-                    if (ord != null) '#$ord',
-                    if (estado.isNotEmpty) estado,
-                  ].join(' · ');
-
-                  final parts = [...g.equipos]
-                    ..sort((a, b) => b.punto.compareTo(a.punto));
-                  final body = parts.isEmpty
-                      ? 'TBD'
-                      : parts
-                          .map((e) => '${(e.equipoNombre).trim().isEmpty ? 'TBD' : e.equipoNombre.trim()}: ${e.punto}')
-                          .join(' · ');
-                  return '$body${tag.isEmpty ? '' : '  ($tag)'}';
-                }
-
                 return Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: Column(
@@ -1081,8 +1191,21 @@ class _MatchCard extends StatelessWidget {
                       const SizedBox(height: 8),
                       ...sorted.asMap().entries.map((e) {
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Text('Juego ${e.key + 1}: ${scoreLine(e.value)}'),
+                          padding: EdgeInsets.only(bottom: e.key == sorted.length - 1 ? 0 : 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                juegoTitle(e.value, e.key),
+                                style: Theme.of(ctx).textTheme.labelLarge,
+                              ),
+                              const SizedBox(height: 6),
+                              equiposTable(
+                                e.value.equipos,
+                                maxHeight: 160,
+                              ),
+                            ],
+                          ),
                         );
                       }),
                     ],
@@ -1092,26 +1215,42 @@ class _MatchCard extends StatelessWidget {
 
               return AlertDialog(
                 title: Text(tituloDialog),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (lugarLabel != null) Text('Lugar: $lugarLabel'),
-                      if (fechaLabel != null || horaLabel != null)
-                        Text(
-                          'Hora: ${[
-                            if (fechaLabel != null) fechaLabel,
-                            if (horaLabel != null) horaLabel,
-                          ].join(' · ')}',
-                        ),
-                      if (estado != null) Text('Estado: $estado'),
-                      if (partido.ronda != null)
-                        Text(
-                          'Ronda: ${partido.ronda}${partido.ordenRonda != null ? ' · #${partido.ordenRonda}' : ''}',
-                        ),
-                      serieList(),
-                    ],
+                content: SizedBox(
+                  width: double.maxFinite,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (lugarLabel != null) Text('Lugar: $lugarLabel'),
+                        if (fechaLabel != null || horaLabel != null)
+                          Text(
+                            'Hora: ${[
+                              if (fechaLabel != null) fechaLabel,
+                              if (horaLabel != null) horaLabel,
+                            ].join(' · ')}',
+                          ),
+                        if (estado != null) Text('Estado: $estado'),
+                        if (partido.ronda != null)
+                          Text(
+                            'Ronda: ${partido.ronda}${partido.ordenRonda != null ? ' · #${partido.ordenRonda}' : ''}',
+                          ),
+
+                        if (equipos.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'Equipos',
+                            style: Theme.of(ctx).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 8),
+                          equiposTable(
+                            equipos,
+                            maxHeight: 220,
+                          ),
+                        ],
+                        serieList(),
+                      ],
+                    ),
                   ),
                 ),
                 actions: [
@@ -1129,25 +1268,55 @@ class _MatchCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (preview.isEmpty) ...[
-                Text('TBD', style: theme.textTheme.bodyMedium),
-              ] else ...[
-                ...preview.asMap().entries.map((e) {
-                  final w = rowFor(e.value);
-                  if (e.key == preview.length - 1) return w;
-                  return Padding(
-                    padding: EdgeInsets.only(bottom: rowGap),
-                    child: w,
-                  );
-                }),
-                if (equipos.length > preview.length) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    '+${equipos.length - preview.length} más',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colors.onSurfaceVariant,
+              if (compact) ...[
+                if (sortedEquipos.isEmpty)
+                  Text('TBD', style: theme.textTheme.bodyMedium)
+                else
+                  Expanded(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colors.outlineVariant),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Scrollbar(
+                          child: ListView.separated(
+                            primary: false,
+                            padding: EdgeInsets.zero,
+                            physics: const ClampingScrollPhysics(),
+                            itemCount: sortedEquipos.length,
+                            separatorBuilder: (_, __) => SizedBox(height: rowGap),
+                            itemBuilder: (_, index) => rowForCard(sortedEquipos[index]),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
+              ] else ...[
+                if (preview.isEmpty) ...[
+                  Text('TBD', style: theme.textTheme.bodyMedium),
+                ] else ...[
+                  Column(
+                    children: preview.asMap().entries.map((e) {
+                      final w = rowForCard(e.value);
+                      if (e.key == preview.length - 1) return w;
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: rowGap),
+                        child: w,
+                      );
+                    }).toList(growable: false),
+                  ),
+                  if (equipos.length > preview.length) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '+${equipos.length - preview.length} más',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ],
               ],
               if (juegosSerie.length > 1) ...[
