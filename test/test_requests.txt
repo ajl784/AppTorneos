@@ -1,0 +1,230 @@
+
+========================================
+2026-04-30T10:10:53.412Z
+========================================
+METHOD: PUT
+ENDPOINT: partidos/4
+
+REQUEST PAYLOAD:
+{
+  "estado": "acabado"
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": "4",
+    "id_torneo": "1",
+    "torneo_nombre": "ATLETISMO-ELIM-SERIE-01",
+    "fecha_hora": "2026-05-24T09:54:28.267Z",
+    "lugar": null,
+    "estado": "acabado"
+  },
+  "meta": null
+}
+
+========================================
+2026-04-30T10:10:53.493Z
+========================================
+METHOD: POST
+ENDPOINT: partidos/4/puntuaciones
+
+REQUEST PAYLOAD:
+{
+  "puntuaciones": [
+    {
+      "id_participacion_equipo": 1,
+      "punto": 3
+    },
+    {
+      "id_participacion_equipo": 2,
+      "punto": 1
+    },
+    {
+      "id_participacion_equipo": 3,
+      "punto": 2
+    }
+  ],
+  "id_arbitro_torneo": 1
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": 4,
+    "id_torneo": "1",
+    "puntuaciones_actualizadas": [
+      {
+        "id_participacion_equipo": 1,
+        "punto_partido": 3,
+        "puntuacion_torneo": 3
+      },
+      {
+        "id_participacion_equipo": 2,
+        "punto_partido": 1,
+        "puntuacion_torneo": 1
+      },
+      {
+        "id_participacion_equipo": 3,
+        "punto_partido": 2,
+        "puntuacion_torneo": 2
+      }
+    ],
+    "id_arbitro_torneo": 1,
+    "elo_aplicado": true,
+    "elo_actualizado": [
+      {
+        "id_equipo": "1",
+        "equipo_nombre": "ATLETISMO-TEAM-01",
+        "elo_anterior": 1028,
+        "elo_nuevo": 1047,
+        "delta": 19,
+        "posicion_esperada": 2.2,
+        "posicion_real": 1,
+        "score_esperado": 0.4016,
+        "score_real": 1
+      },
+      {
+        "id_equipo": "2",
+        "equipo_nombre": "ATLETISMO-TEAM-02",
+        "elo_anterior": 1154,
+        "elo_nuevo": 1133,
+        "delta": -21,
+        "posicion_esperada": 1.67,
+        "posicion_real": 3,
+        "score_esperado": 0.6635,
+        "score_real": 0
+      },
+      {
+        "id_equipo": "3",
+        "equipo_nombre": "ATLETISMO-TEAM-03",
+        "elo_anterior": 1044,
+        "elo_nuevo": 1046,
+        "delta": 2,
+        "posicion_esperada": 2.13,
+        "posicion_real": 2,
+        "score_esperado": 0.4349,
+        "score_real": 0.5
+      }
+    ],
+    "avance_ronda": null
+  },
+  "meta": null
+}
+
+========================================
+2026-04-30T10:10:53.505Z
+========================================
+METHOD: PUT
+ENDPOINT: partidos/3
+
+REQUEST PAYLOAD:
+{
+  "estado": "acabado"
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": "3",
+    "id_torneo": "1",
+    "torneo_nombre": "ATLETISMO-ELIM-SERIE-01",
+    "fecha_hora": "2026-05-16T09:54:28.267Z",
+    "lugar": null,
+    "estado": "acabado"
+  },
+  "meta": null
+}
+
+========================================
+2026-04-30T10:10:53.568Z
+========================================
+METHOD: POST
+ENDPOINT: partidos/3/puntuaciones
+
+REQUEST PAYLOAD:
+{
+  "puntuaciones": [
+    {
+      "id_participacion_equipo": 2,
+      "punto": 3
+    },
+    {
+      "id_participacion_equipo": 3,
+      "punto": 1
+    },
+    {
+      "id_participacion_equipo": 4,
+      "punto": 2
+    }
+  ],
+  "id_arbitro_torneo": 1
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": 3,
+    "id_torneo": "1",
+    "puntuaciones_actualizadas": [
+      {
+        "id_participacion_equipo": 2,
+        "punto_partido": 3,
+        "puntuacion_torneo": 4
+      },
+      {
+        "id_participacion_equipo": 3,
+        "punto_partido": 1,
+        "puntuacion_torneo": 3
+      },
+      {
+        "id_participacion_equipo": 4,
+        "punto_partido": 2,
+        "puntuacion_torneo": 2
+      }
+    ],
+    "id_arbitro_torneo": 1,
+    "elo_aplicado": true,
+    "elo_actualizado": [
+      {
+        "id_equipo": "2",
+        "equipo_nombre": "ATLETISMO-TEAM-02",
+        "elo_anterior": 1133,
+        "elo_nuevo": 1145,
+        "delta": 12,
+        "posicion_esperada": 1.72,
+        "posicion_real": 1,
+        "score_esperado": 0.6379,
+        "score_real": 1
+      },
+      {
+        "id_equipo": "3",
+        "equipo_nombre": "ATLETISMO-TEAM-03",
+        "elo_anterior": 1046,
+        "elo_nuevo": 1031,
+        "delta": -15,
+        "posicion_esperada": 2.09,
+        "posicion_real": 3,
+        "score_esperado": 0.4552,
+        "score_real": 0
+      },
+      {
+        "id_equipo": "4",
+        "equipo_nombre": "ATLETISMO-TEAM-04",
+        "elo_anterior": 1023,
+        "elo_nuevo": 1026,
+        "delta": 3,
+        "posicion_esperada": 2.19,
+        "posicion_real": 2,
+        "score_esperado": 0.4069,
+        "score_real": 0.5
+      }
+    ],
+    "avance_ronda": null
+  },
+  "meta": null
+}
