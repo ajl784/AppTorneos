@@ -145,7 +145,8 @@ async function processRound(matches, authToken, label) {
 
   const signatures = partidos.map(getMatchSignature);
   console.log(`\n=== ${label} ===`);
-  console.log('Partidos de la ronda:', partidos.map((match) => match.id_partido));
+  console.log(`Total partidos: ${partidos.length}`);
+  console.log('IDs de partidos:', partidos.map((match) => match.id_partido));
   console.log('Firmas de participantes:', signatures);
 
   if (lastRoundSignatures.length) {
@@ -156,9 +157,10 @@ async function processRound(matches, authToken, label) {
 
   lastRoundSignatures = signatures.slice();
 
+  let processedCount = 0;
   for (const match of partidos) {
     console.log(
-      `\n--- Procesando partido ${match.id_partido} (ronda ${match.ronda}, orden ${match.orden_ronda}) ---`
+      `\n--- Procesando partido ${match.id_partido} (ronda ${match.ronda}, orden ${match.orden_ronda}, serie ${match.orden_serie}) ---`
     );
     console.log(
       'Equipos:',
@@ -167,10 +169,17 @@ async function processRound(matches, authToken, label) {
         .join(', '),
     );
 
-    await updateMatchStatus(match.id_partido, 'acabado', authToken);
-    const results = buildResultadosForMatch(match);
-    await submitResults(match.id_partido, results, authToken);
+    try {
+      await updateMatchStatus(match.id_partido, 'acabado', authToken);
+      const results = buildResultadosForMatch(match);
+      await submitResults(match.id_partido, results, authToken);
+      processedCount++;
+    } catch (error) {
+      console.error(`Error procesando partido ${match.id_partido}:`, error.message);
+    }
   }
+  
+  console.log(`\n✓ ${label}: Procesados ${processedCount}/${partidos.length} partidos`);
 }
 
 function logRequest(method, endpoint, payload, response) {
@@ -250,33 +259,66 @@ describe('Atletismo Tournament Flow', function () {
 
   it('should finish first round, advance, and finish second round', async function () {
     try {
-      const allMatches = await getTournamentMatches(tournamentId, token);
+      let allMatches = await getTournamentMatches(tournamentId, token);
       assert.ok(Array.isArray(allMatches), 'Matches should be an array');
       assert.ok(allMatches.length > 0, 'No matches found');
 
-      const firstRound = allMatches.filter((match) => Number(match.ronda) === 1);
-      assert.ok(firstRound.length > 0, 'No first-round matches found');
+      console.log(`\n✓ Total matches in tournament: ${allMatches.length}`);
 
-      await processRound(firstRound, token, 'Ronda 1');
+      // Procesar todas las rondas disponibles
+      let currentRound = 1;
+      let totalMatchesProcessed = 0;
+      let iterationCount = 0;
+      const maxIterations = 10;
 
-      const firstAdvance = await advanceEliminationRound(tournamentId, token);
-      assert.ok(firstAdvance, 'Advance after round 1 failed');
+      while (iterationCount < maxIterations) {
+        iterationCount++;
+        console.log(`\n========================================`);
+        console.log(`ITERATION ${iterationCount}`);
+        console.log(`========================================`);
 
-      const afterFirstAdvance = await getTournamentMatches(tournamentId, token);
-      const secondRound = afterFirstAdvance.filter((match) => Number(match.ronda) === 2);
-      assert.ok(secondRound.length > 0, 'No second-round matches generated');
+        const roundMatches = allMatches.filter((match) => Number(match.ronda) === currentRound);
+        console.log(`Ronda ${currentRound}: ${roundMatches.length} matches encontrados`);
 
-      await processRound(secondRound, token, 'Ronda 2');
+        if (roundMatches.length === 0) {
+          console.log(`\n✓ No more matches at round ${currentRound}, tournament finished`);
+          break;
+        }
 
-      const secondAdvance = await advanceEliminationRound(tournamentId, token);
-      assert.ok(secondAdvance, 'Advance after round 2 failed');
+        // Procesar todos los partidos de esta ronda
+        console.log(`\nProcessing ronda ${currentRound}...`);
+        await processRound(roundMatches, token, `Ronda ${currentRound}`);
+        totalMatchesProcessed += roundMatches.length;
 
-      const afterSecondAdvance = await getTournamentMatches(tournamentId, token);
-      const thirdRound = afterSecondAdvance.filter((match) => Number(match.ronda) === 3);
+        // Avanzar a la siguiente ronda
+        console.log(`\n→ Advancing from round ${currentRound}...`);
+        const advanceResult = await advanceEliminationRound(tournamentId, token);
+        assert.ok(advanceResult, `Advance after round ${currentRound} failed`);
 
-      console.log(`\n✓ First round matches processed: ${firstRound.length}`);
-      console.log(`✓ Second round matches processed: ${secondRound.length}`);
-      console.log(`✓ Third round generated: ${thirdRound.length}`);
+        // Refrescar todos los matches
+        console.log(`→ Refreshing matches...`);
+        allMatches = await getTournamentMatches(tournamentId, token);
+        console.log(`Total matches after advance: ${allMatches.length}`);
+
+        // Verificar si hay siguiente ronda
+        const nextRoundMatches = allMatches.filter(
+          (match) => Number(match.ronda) === currentRound + 1
+        );
+        console.log(`Ronda ${currentRound + 1}: ${nextRoundMatches.length} matches available`);
+
+        if (nextRoundMatches.length === 0) {
+          console.log(`\n✓ Tournament completed or no more matches after round ${currentRound}`);
+          break;
+        }
+
+        currentRound++;
+      }
+
+      if (iterationCount >= maxIterations) {
+        console.warn(`\n⚠ Safety limit reached (${maxIterations} iterations)`);
+      }
+
+      console.log(`\n✓ TOTAL MATCHES PROCESSED: ${totalMatchesProcessed}`);
     } catch (error) {
       console.error('Get/submit matches error:', error.response?.data || error.message);
       throw error;

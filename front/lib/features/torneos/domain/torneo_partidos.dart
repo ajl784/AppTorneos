@@ -2,6 +2,7 @@ class TorneoPartidos {
   final int idTorneo;
   final String torneoNombre;
   final String? tipoTorneoNombre;
+  final String? normaPuntuacion;
   final List<TorneoPartido> partidos;
 
   const TorneoPartidos({
@@ -9,6 +10,7 @@ class TorneoPartidos {
     required this.torneoNombre,
     required this.partidos,
     this.tipoTorneoNombre,
+    this.normaPuntuacion,
   });
 
   static int? _intOrNull(dynamic value) {
@@ -45,6 +47,7 @@ class TorneoPartidos {
           '',
       tipoTorneoNombre:
           _stringOrNull(json['tipo_torneo_nombre'] ?? json['tipoTorneoNombre']),
+      normaPuntuacion: _stringOrNull(json['norma_puntuacion'] ?? json['normaPuntuacion']),
       partidos: items,
     );
   }
@@ -58,6 +61,7 @@ class TorneoPartido {
   final int? jornada;
   final int? ronda;
   final int? ordenRonda;
+  final int? ordenSerie;
   final int? idPartidoSiguiente;
   final int? ganadorIdParticipacionEquipo;
   final List<TorneoPartidoEquipo> equipos;
@@ -71,6 +75,7 @@ class TorneoPartido {
     this.jornada,
     this.ronda,
     this.ordenRonda,
+    this.ordenSerie,
     this.idPartidoSiguiente,
     this.ganadorIdParticipacionEquipo,
   });
@@ -113,6 +118,7 @@ class TorneoPartido {
       jornada: _intOrNull(json['jornada']),
       ronda: _intOrNull(json['ronda']),
       ordenRonda: _intOrNull(json['orden_ronda'] ?? json['ordenRonda']),
+      ordenSerie: _intOrNull(json['orden_serie'] ?? json['ordenSerie']),
       idPartidoSiguiente:
           _intOrNull(json['id_partido_siguiente'] ?? json['idPartidoSiguiente']),
       ganadorIdParticipacionEquipo: _intOrNull(

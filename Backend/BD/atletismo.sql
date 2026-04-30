@@ -109,7 +109,7 @@ VALUES (
   NOW() + INTERVAL '1 day',
   NOW() + INTERVAL '30 days',
   'inscripcion_cerrada',
-  16,
+  32,
   (SELECT cat_atletismo FROM ids),
   (SELECT tt_serie FROM ids),
   (SELECT org_id FROM ids),
@@ -145,6 +145,8 @@ SELECT
 FROM torneo t
 JOIN equipo e ON e.nombre LIKE 'ATLETISMO-TEAM-%'
 WHERE t.nombre = 'ATLETISMO-ELIM-SERIE-01'
+ORDER BY e.id_equipo ASC
+LIMIT 32
 ON CONFLICT (id_torneo, id_equipo) DO NOTHING;
 
 COMMIT;

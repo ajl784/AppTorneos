@@ -246,7 +246,8 @@ class _TorneoDetalleScreenState extends State<TorneoDetalleScreen> {
           );
         }
 
-        final partidos = snapshot.data?.partidos ?? const <TorneoPartido>[];
+        final partidosData = snapshot.data;
+        final partidos = partidosData?.partidos ?? const <TorneoPartido>[];
 
         if (partidos.isEmpty) {
           return const Padding(
@@ -260,6 +261,8 @@ class _TorneoDetalleScreenState extends State<TorneoDetalleScreen> {
         return _BracketSeriesView(
           partidos: partidos,
           agrupadoPorSerie: agrupadoPorSerie,
+          normaPuntuacion: partidosData?.normaPuntuacion,
+          tipoTorneoNombre: partidosData?.tipoTorneoNombre,
         );
       },
     );
@@ -430,14 +433,38 @@ class _BracketNode {
 class _BracketSeriesView extends StatelessWidget {
   final List<TorneoPartido> partidos;
   final bool agrupadoPorSerie;
+  final String? normaPuntuacion;
+  final String? tipoTorneoNombre;
 
   const _BracketSeriesView({
     required this.partidos,
     required this.agrupadoPorSerie,
+    this.normaPuntuacion,
+    this.tipoTorneoNombre,
   });
+
+  /// Parse rondas_por_serie from norma_puntuacion
+  static int _getRondasPorSerie(String? norma) {
+    if (norma == null || norma.isEmpty) return 1;
+    final parts = norma.split(';');
+    for (final part in parts) {
+      if (part.startsWith('rondas_por_serie=')) {
+        final val = int.tryParse(part.substring('rondas_por_serie='.length));
+        if (val != null && val > 0) return val;
+      }
+    }
+    return 1;
+  }
+
+  /// Determina si es un torneo de eliminación por serie
+  bool _isEliminacionPorSerie() {
+    final tipo = tipoTorneoNombre ?? '';
+    return tipo.toLowerCase().contains('serie');
+  }
 
   static String _serieGroupKey(TorneoPartido p) {
     final ronda = p.ronda ?? 0;
+    final ordenSerie = p.ordenSerie ?? 0;
     final next = p.idPartidoSiguiente ?? 0;
 
     final ids = p.equipos
@@ -448,18 +475,23 @@ class _BracketSeriesView extends StatelessWidget {
 
     final participantsKey = ids.join(',');
     if (participantsKey.isNotEmpty) {
-      return '$ronda|$next|$participantsKey';
+      return '$ronda|$ordenSerie|$next|$participantsKey';
     }
 
     final ord = p.ordenRonda;
     final ordBase = (ord == null) ? 0 : (ord >= 10 ? (ord ~/ 10) : ord);
-    return '$ronda|$next|ord:$ordBase';
+    return '$ronda|$ordenSerie|$next|ord:$ordBase';
   }
 
   static int _baseOrden(TorneoPartido p) {
     final ord = p.ordenRonda;
     if (ord == null) return 0;
     return ord >= 10 ? (ord ~/ 10) : ord;
+  }
+
+  static int _getSerie(TorneoPartido p) {
+    final serie = p.ordenSerie;
+    return serie != null && serie > 0 ? serie : 0;
   }
 
   static String _normEstado(String? v) => (v ?? '').trim().toLowerCase();
@@ -539,6 +571,9 @@ class _BracketSeriesView extends StatelessWidget {
 
   List<_BracketNode> _toNodes() {
     final inRounds = partidos.where((p) => p.ronda != null).toList(growable: false);
+    final rondasPorSerie = _getRondasPorSerie(normaPuntuacion);
+    final esEliminacionPorSerie = _isEliminacionPorSerie();
+    
     if (!agrupadoPorSerie) {
       return inRounds
           .map(
@@ -551,9 +586,25 @@ class _BracketSeriesView extends StatelessWidget {
           .toList(growable: false);
     }
 
+    // Si es "Eliminación por serie", agrupar por (bloque, serie) para evitar mostrar nuevas columnas
+    // dentro del mismo bloque de serie. Si no, agrupar por ronda normal.
     final groups = <String, List<TorneoPartido>>{};
     for (final p in inRounds) {
-      groups.putIfAbsent(_serieGroupKey(p), () => <TorneoPartido>[]).add(p);
+      final ronda = p.ronda ?? 0;
+      
+      String fullKey;
+      if (esEliminacionPorSerie && rondasPorSerie > 1) {
+        // Para eliminación por serie: agrupar SOLO por bloque y serie
+        // Esto agrupa todas las subrondas (ronda 1 y 2) de la misma serie en UNA tarjeta
+        final bloque = ((ronda - 1) ~/ rondasPorSerie);
+        final serie = p.ordenSerie ?? 0;
+        fullKey = '$bloque|$serie';
+      } else {
+        // Para otros torneos: solo agrupar por ronda
+        fullKey = _serieGroupKey(p);
+      }
+      
+      groups.putIfAbsent(fullKey, () => <TorneoPartido>[]).add(p);
     }
 
     final nodes = <_BracketNode>[];
@@ -576,7 +627,19 @@ class _BracketSeriesView extends StatelessWidget {
     nodes.sort((a, b) {
       final ra = a.display.ronda ?? 0;
       final rb = b.display.ronda ?? 0;
-      if (ra != rb) return ra.compareTo(rb);
+      
+      if (esEliminacionPorSerie && rondasPorSerie > 1) {
+        final blockeA = ((ra - 1) ~/ rondasPorSerie);
+        final blockeB = ((rb - 1) ~/ rondasPorSerie);
+        if (blockeA != blockeB) return blockeA.compareTo(blockeB);
+        if (ra != rb) return ra.compareTo(rb);
+        final serieA = a.display.ordenSerie ?? 0;
+        final serieB = b.display.ordenSerie ?? 0;
+        if (serieA != serieB) return serieA.compareTo(serieB);
+      } else {
+        if (ra != rb) return ra.compareTo(rb);
+      }
+      
       if (a.sortKey != b.sortKey) return a.sortKey.compareTo(b.sortKey);
       return a.display.idPartido.compareTo(b.display.idPartido);
     });
@@ -587,28 +650,40 @@ class _BracketSeriesView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nodes = _toNodes();
+    final rondasPorSerie = _getRondasPorSerie(normaPuntuacion);
+    final esEliminacionPorSerie = _isEliminacionPorSerie();
 
-    final rounds = <int, List<_BracketNode>>{};
+    // Agrupar nodos por "bloque visual" (solo si es eliminación por serie con subrondas)
+    final roundsMap = <int, List<_BracketNode>>{};
     for (final n in nodes) {
       final ronda = n.display.ronda;
       if (ronda == null) continue;
-      rounds.putIfAbsent(ronda, () => <_BracketNode>[]).add(n);
+      
+      // Si es "Eliminación por serie" con subrondas, agrupar por bloque; si no, agrupar por ronda
+      final displayRound = (esEliminacionPorSerie && rondasPorSerie > 1) 
+          ? ((ronda - 1) ~/ rondasPorSerie)  
+          : ronda;
+      
+      roundsMap.putIfAbsent(displayRound, () => <_BracketNode>[]).add(n);
     }
 
-    if (rounds.isEmpty) {
+    if (roundsMap.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(16),
         child: Text('Aún no hay rondas para mostrar.'),
       );
     }
 
-    final orderedRounds = rounds.keys.toList(growable: false)..sort();
+    final orderedRounds = roundsMap.keys.toList(growable: false)..sort();
     for (final r in orderedRounds) {
-      rounds[r]!.sort((a, b) {
+      roundsMap[r]!.sort((a, b) {
         if (a.sortKey != b.sortKey) return a.sortKey.compareTo(b.sortKey);
         final oa = a.display.ordenRonda ?? 0;
         final ob = b.display.ordenRonda ?? 0;
         if (oa != ob) return oa.compareTo(ob);
+        final serieA = a.display.ordenSerie ?? 0;
+        final serieB = b.display.ordenSerie ?? 0;
+        if (serieA != serieB) return serieA.compareTo(serieB);
         return a.display.idPartido.compareTo(b.display.idPartido);
       });
     }
@@ -619,7 +694,7 @@ class _BracketSeriesView extends StatelessWidget {
     final baseGap = 24.0;
 
     final firstRound = orderedRounds.first;
-    final totalMatchesFirst = rounds[firstRound]!.length;
+    final totalMatchesFirst = roundsMap[firstRound]!.length;
     final totalWidth = orderedRounds.length * cardWidth +
         (orderedRounds.length - 1) * roundGap +
         24;
@@ -634,7 +709,7 @@ class _BracketSeriesView extends StatelessWidget {
 
     for (var roundIndex = 0; roundIndex < orderedRounds.length; roundIndex++) {
       final roundNumber = orderedRounds[roundIndex];
-      final matches = rounds[roundNumber]!;
+      final matches = roundsMap[roundNumber]!;
 
       final step = initialStep * (1 << roundIndex);
       final topOffset = (step - cardHeight) / 2;
@@ -643,11 +718,12 @@ class _BracketSeriesView extends StatelessWidget {
       rectsByRound[roundNumber] = <Rect>[];
 
       for (var matchIndex = 0; matchIndex < matches.length; matchIndex++) {
+        final node = matches[matchIndex];
+
         final top = 12 + topOffset + matchIndex * step;
         final rect = Rect.fromLTWH(left, top, cardWidth, cardHeight);
         rectsByRound[roundNumber]!.add(rect);
 
-        final node = matches[matchIndex];
         items.add(
           Positioned(
             left: rect.left,
@@ -671,7 +747,9 @@ class _BracketSeriesView extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Text(
-              'Ronda $roundNumber',
+              (esEliminacionPorSerie && rondasPorSerie > 1)
+                  ? 'Bloque ${roundNumber + 1}'
+                  : 'Ronda $roundNumber',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleSmall,
             ),
