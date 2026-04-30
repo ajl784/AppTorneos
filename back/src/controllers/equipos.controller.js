@@ -9,6 +9,49 @@ const {
   asyncHandler,
 } = require("../utils/http");
 const { AppError } = require("../utils/errors");
+const fs = require("fs");
+const path = require("path");
+const {
+  EQUIPO_ICONS_DIR,
+  DEFAULT_EQUIPO_ICON,
+} = require("../middleware/upload-equipo-icon");
+
+const withIconUrl = (equipo) => {
+  if (!equipo) {
+    return equipo;
+  }
+
+  return {
+    ...equipo,
+    icono_url: `/api/v1/equipos/${equipo.id_equipo}/icono`,
+  };
+};
+
+const getEquipoIcono = asyncHandler(async (req, res) => {
+  const idEquipo = parsePositiveInt(req.params.id, "id");
+  const icono = await equiposService.getEquipoIcono(idEquipo);
+
+  if (icono?.icono_bin) {
+    const mime = icono.icono_mime || "application/octet-stream";
+    return res.type(mime).send(icono.icono_bin);
+  }
+
+  if (icono?.icono) {
+    const imgPath = path.join(EQUIPO_ICONS_DIR, icono.icono);
+    if (fs.existsSync(imgPath)) {
+      return res.sendFile(imgPath);
+    }
+  }
+
+  const fallbackPath = path.join(EQUIPO_ICONS_DIR, DEFAULT_EQUIPO_ICON);
+  if (!fs.existsSync(fallbackPath)) {
+    return res
+      .status(404)
+      .json({ ok: false, error: { message: "Icono no encontrado" } });
+  }
+
+  return res.sendFile(fallbackPath);
+});
 
 const listEquipos = asyncHandler(async (req, res) => {
   const { limit, offset } = parsePagination(req.query);
@@ -19,7 +62,8 @@ const listEquipos = asyncHandler(async (req, res) => {
     categoriaId: req.query.categoriaId,
   });
 
-  ok(res, data, { limit, offset, count: data.length });
+  const enriched = data.map(withIconUrl);
+  ok(res, enriched, { limit, offset, count: enriched.length });
 });
 
 const getEquipoById = asyncHandler(async (req, res) => {
@@ -30,7 +74,7 @@ const getEquipoById = asyncHandler(async (req, res) => {
     throw new AppError(404, "Equipo no encontrado");
   }
 
-  ok(res, data);
+  ok(res, withIconUrl(data));
 });
 
 const getEloHistorialEquipo = asyncHandler(async (req, res) => {
@@ -55,8 +99,20 @@ const createEquipo = asyncHandler(async (req, res) => {
     payload.id_usuario = parsePositiveInt(req.body.id_usuario, "id_usuario");
   }
 
-  const data = await equiposService.createEquipo(payload);
-  created(res, data);
+  payload.icono = req.file ? req.file.filename : null;
+  let data;
+  try {
+    data = await equiposService.createEquipo(payload);
+  } catch (error) {
+    if (req.file) {
+      const imgPath = path.join(EQUIPO_ICONS_DIR, req.file.filename);
+      if (fs.existsSync(imgPath)) {
+        fs.unlinkSync(imgPath);
+      }
+    }
+    throw error;
+  }
+  created(res, withIconUrl(data));
 });
 
 const updateEquipo = asyncHandler(async (req, res) => {
@@ -112,7 +168,10 @@ const listSolicitudesIngresoEquipo = asyncHandler(async (req, res) => {
   });
 
   if (!isEntrenador) {
-    throw new AppError(403, "Solo el entrenador del equipo puede ver solicitudes");
+    throw new AppError(
+      403,
+      "Solo el entrenador del equipo puede ver solicitudes",
+    );
   }
 
   const data = await equiposService.listSolicitudesIngresoEquipo({
@@ -149,9 +208,13 @@ const decidirSolicitudIngresoEquipo = asyncHandler(async (req, res) => {
     throw new AppError(400, "aceptar debe ser booleano");
   }
 
-  const idEntrenadorDecisor = parsePositiveInt(req.user.id_usuario, "id_usuario");
+  const idEntrenadorDecisor = parsePositiveInt(
+    req.user.id_usuario,
+    "id_usuario",
+  );
 
-  const solicitud = await equiposService.getSolicitudIngresoById(idSolicitudEquipo);
+  const solicitud =
+    await equiposService.getSolicitudIngresoById(idSolicitudEquipo);
   if (!solicitud) {
     throw new AppError(404, "Solicitud de ingreso no encontrada");
   }
@@ -162,7 +225,10 @@ const decidirSolicitudIngresoEquipo = asyncHandler(async (req, res) => {
   });
 
   if (!isEntrenador) {
-    throw new AppError(403, "Solo el entrenador del equipo puede decidir solicitudes");
+    throw new AppError(
+      403,
+      "Solo el entrenador del equipo puede decidir solicitudes",
+    );
   }
 
   const data = await equiposService.decideSolicitudIngresoEquipo({
@@ -190,4 +256,5 @@ module.exports = {
   listSolicitudesIngresoEquipo,
   listSolicitudesIngresoUsuario,
   decidirSolicitudIngresoEquipo,
+  getEquipoIcono,
 };

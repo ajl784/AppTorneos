@@ -7,6 +7,7 @@ import 'package:front/features/usuarios/data/usuarios_api.dart';
 import 'package:front/features/usuarios/domain/usuario.dart';
 import 'package:front/features/equipos/data/equipos_api.dart';
 import 'package:front/features/equipos/domain/equipo.dart';
+import 'package:front/features/equipos/widgets/equipo_network_avatar.dart';
 import 'package:front/features/categorias/widgets/categoria_network_avatar.dart';
 
 // Platform imports
@@ -481,23 +482,11 @@ class _PerfilScreenState extends State<PerfilScreen> {
                                     padding: const EdgeInsets.all(12),
                                     child: Row(
                                       children: [
-                                        if (equipo.idCategoria != null)
-                                          CategoriaNetworkAvatar(
-                                            categoriaId: equipo.idCategoria!,
-                                            baseUrl: ApiConfig.baseUrl,
-                                            size: 36,
-                                          )
-                                        else
-                                          CircleAvatar(
-                                            radius: 18,
-                                            backgroundColor:
-                                                theme.colorScheme.surfaceContainerHighest,
-                                            child: Icon(
-                                              Icons.groups,
-                                              color: theme.colorScheme.primary,
-                                              size: 18,
-                                            ),
-                                          ),
+                                        EquipoNetworkAvatar(
+                                          equipoId: equipo.idEquipo,
+                                          baseUrl: ApiConfig.baseUrl,
+                                          size: 36,
+                                        ),
                                         const SizedBox(width: 10),
                                         Expanded(
                                           child: Column(
@@ -509,7 +498,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                                                 style: theme.textTheme.bodyLarge?.copyWith(
                                                   fontWeight: FontWeight.w600,
                                                 ),
-                                                maxLines: 2,
+                                                maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                               if (equipo.categoriaNombre != null &&
