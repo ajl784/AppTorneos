@@ -5,6 +5,7 @@ class Equipo {
   final int? elo;
   final int? idCategoria;
   final String? categoriaNombre;
+  final String? iconoUrl;
 
   const Equipo({
     required this.idEquipo,
@@ -13,6 +14,7 @@ class Equipo {
     this.elo,
     this.idCategoria,
     this.categoriaNombre,
+    this.iconoUrl,
   });
 
   static int? _intOrNull(dynamic value) {
@@ -42,6 +44,7 @@ class Equipo {
       elo: _intOrNull(json['elo']),
       idCategoria: _intOrNull(json['id_categoria'] ?? json['idCategoria']),
       categoriaNombre: _stringOrNull(json['categoria_nombre'] ?? json['categoriaNombre']),
+      iconoUrl: _stringOrNull(json['icono_url'] ?? json['iconoUrl']),
     );
   }
 
@@ -53,6 +56,7 @@ class Equipo {
       'elo': elo,
       'id_categoria': idCategoria,
       'categoria_nombre': categoriaNombre,
+      'icono_url': iconoUrl,
     };
   }
 }

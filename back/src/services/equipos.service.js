@@ -40,8 +40,25 @@ const getEquipoById = async (idEquipo) => {
 
   return result.rows[0] || null;
 };
+const getEquipoIcono = async (idEquipo) => {
+  const result = await pool.query(
+    `SELECT c.icono, c.icono_bin, c.icono_mime
+       FROM equipo e
+       LEFT JOIN categoria c ON c.id_categoria = e.id_categoria
+       WHERE e.id_equipo = $1`,
+    [idEquipo],
+  );
 
-const createEquipo = async ({ nombre, descripcion, elo, id_categoria, id_usuario }) => {
+  return result.rows[0] || null;
+};
+
+const createEquipo = async ({
+  nombre,
+  descripcion,
+  elo,
+  id_categoria,
+  id_usuario,
+}) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -156,7 +173,11 @@ const isEntrenadorActivo = async ({ idEquipo, idUsuario }) => {
   return result.rows.length > 0;
 };
 
-const createSolicitudIngresoEquipo = async ({ idEquipo, idUsuario, respuesta }) => {
+const createSolicitudIngresoEquipo = async ({
+  idEquipo,
+  idUsuario,
+  respuesta,
+}) => {
   const existing = await pool.query(
     `SELECT id_solicitud_equipo
      FROM solicitud_equipo
@@ -289,11 +310,6 @@ const decideSolicitudIngresoEquipo = async ({
       [idSolicitudEquipo],
     );
 
-    if (!rowResult.rows.length) {
-      await client.query("ROLLBACK");
-      return null;
-    }
-
     const solicitud = rowResult.rows[0];
 
     if (solicitud.estado !== "pendiente") {
@@ -353,4 +369,5 @@ module.exports = {
   getSolicitudIngresoById,
   decideSolicitudIngresoEquipo,
   isEntrenadorActivo,
+  getEquipoIcono,
 };

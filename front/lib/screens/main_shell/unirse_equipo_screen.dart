@@ -5,6 +5,7 @@ import 'package:front/features/categorias/domain/categoria.dart';
 import 'package:front/features/categorias/widgets/categoria_icon_avatar.dart';
 import 'package:front/features/equipos/data/equipos_api.dart';
 import 'package:front/features/equipos/domain/equipo.dart';
+import 'package:front/features/equipos/widgets/equipo_network_avatar.dart';
 import 'package:front/state/jwt_storage.dart';
 
 class UnirseEquipoScreen extends StatefulWidget {
@@ -227,6 +228,11 @@ class _UnirseEquipoScreenState extends State<UnirseEquipoScreen> {
                     final equipo = _equipos[index];
                     return Card(
                       child: ListTile(
+                        leading: EquipoNetworkAvatar(
+                          equipoId: equipo.idEquipo,
+                          baseUrl: ApiConfig.baseUrl,
+                          size: 32,
+                        ),
                         title: Text(equipo.nombre),
                         subtitle: Text(equipo.descripcion ?? 'Sin descripción'),
                         trailing: ElevatedButton(
