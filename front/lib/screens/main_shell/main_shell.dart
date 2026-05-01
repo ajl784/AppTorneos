@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front/screens/login_register/login_register_screen.dart';
 import 'package:front/screens/main_shell/tabs/calendario_tab.dart';
+import 'package:front/screens/main_shell/tabs/categorias_tab.dart';
 import 'package:front/screens/main_shell/tabs/crear_torneo_tab.dart';
 import 'package:front/screens/main_shell/tabs/destacados_tab.dart';
 import 'package:front/screens/main_shell/tabs/estadisticas_tab.dart';
@@ -198,6 +199,7 @@ class _MainShellState extends State<MainShell> {
         children: [
           const InicioTab(),
           const TorneosTab(),
+          const CategoriasTab(),
           const DestacadosTab(),
           const EstadisticasTab(),
           const CalendarioTab(),
@@ -230,30 +232,38 @@ class _MainShellState extends State<MainShell> {
                 unselectedColor: unselectedColor,
                 onTap: () => setState(() => _currentIndex = 1),
               ),
-              const SizedBox(width: 64),
               _NavItem(
-                label: 'Destacados',
-                icon: Icons.workspace_premium,
+                label: 'Categorías',
+                icon: Icons.category,
                 isSelected: _currentIndex == 2,
                 selectedColor: selectedColor,
                 unselectedColor: unselectedColor,
                 onTap: () => setState(() => _currentIndex = 2),
               ),
+              const SizedBox(width: 64),
               _NavItem(
-                label: 'Estadísticas',
-                icon: Icons.bar_chart,
+                label: 'Destacados',
+                icon: Icons.workspace_premium,
                 isSelected: _currentIndex == 3,
                 selectedColor: selectedColor,
                 unselectedColor: unselectedColor,
                 onTap: () => setState(() => _currentIndex = 3),
               ),
               _NavItem(
-                label: 'Calendario',
-                icon: Icons.calendar_month,
+                label: 'Estadísticas',
+                icon: Icons.bar_chart,
                 isSelected: _currentIndex == 4,
                 selectedColor: selectedColor,
                 unselectedColor: unselectedColor,
                 onTap: () => setState(() => _currentIndex = 4),
+              ),
+              _NavItem(
+                label: 'Calendario',
+                icon: Icons.calendar_month,
+                isSelected: _currentIndex == 5,
+                selectedColor: selectedColor,
+                unselectedColor: unselectedColor,
+                onTap: () => setState(() => _currentIndex = 5),
               ),
             ],
           ),
