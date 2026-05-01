@@ -9,7 +9,19 @@ const crearNotificacion = asyncHandler(async (req, res) => {
 
 const getNotificacionesUsuario = asyncHandler(async (req, res) => {
   const idUsuario = parsePositiveInt(req.params.idUsuario, "idUsuario");
-  const data = await notificacionesService.getNotificaciones({ id_usuario_destino: idUsuario });
+  
+  // Construir objeto de filtros base
+  const filtros = { id_usuario_destino: idUsuario };
+  
+  // Agregar filtros opcionales desde query string
+  if (req.query.tipo) {
+    filtros.tipo = req.query.tipo;
+  }
+  if (req.query.leida !== undefined) {
+    filtros.leida = req.query.leida; // se pasa como string "true"/"false"
+  }
+  
+  const data = await notificacionesService.getNotificaciones(filtros);
   ok(res, data);
 });
 
