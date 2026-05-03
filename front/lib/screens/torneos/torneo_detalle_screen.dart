@@ -914,6 +914,72 @@ class _JornadaNavigatorViewState extends State<_JornadaNavigatorView> {
                     final a = equipos.isNotEmpty ? equipos[0] : null;
                     final b = equipos.length > 1 ? equipos[1] : null;
 
+                    // Si el partido tiene más de dos equipos, mostrar un ExpansionTile
+                    // con la fecha/hora y, al desplegar, el ranking de puntos.
+                    if (p.equipos.length > 2) {
+                      final equiposMulti = [...p.equipos];
+                      equiposMulti.sort((x, y) => y.punto.compareTo(x.punto));
+                      final allZero = equiposMulti.every((e) => e.punto == 0);
+
+                      DateTime? dt = _MatchCard._tryParseDate(p.fechaHora)?.toLocal();
+                      String subtitle;
+                      if (dt == null) {
+                        subtitle = p.lugar != null && p.lugar!.trim().isNotEmpty ? p.lugar!.trim() : '';
+                      } else {
+                        final hora = TimeOfDay.fromDateTime(dt).format(context);
+                        subtitle = '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} · $hora';
+                      }
+
+                      return Card(
+                        elevation: 2,
+                        clipBehavior: Clip.antiAlias,
+                        child: ExpansionTile(
+                          title: Text('Partido (${p.equipos.length} equipos)'),
+                          subtitle: subtitle.isEmpty ? null : Text(subtitle),
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  ...equiposMulti.asMap().entries.map((entry) {
+                                    final idx = entry.key;
+                                    final e = entry.value;
+                                    final name = (e.equipoNombre ?? '').trim().isEmpty ? 'TBD' : e.equipoNombre!.trim();
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 14,
+                                            child: Text('${idx + 1}', style: Theme.of(context).textTheme.bodySmall),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(child: Text(name)),
+                                          const SizedBox(width: 12),
+                                          Text('${e.punto}', style: Theme.of(context).textTheme.bodyMedium),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(growable: false),
+                                  if (allZero) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Aún no se tienen los resultados.',
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: colors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    // Partidos 1v1 existentes (comportamiento previo)
                     return Card(
                       elevation: 2,
                       clipBehavior: Clip.antiAlias,

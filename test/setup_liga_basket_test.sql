@@ -68,6 +68,36 @@ SELECT 'Equipo Parchís F', 'Equipo de prueba F', 1200, c.id_categoria
 FROM categoria c WHERE c.nombre = 'Parchís'
 ON CONFLICT (nombre) DO NOTHING;
 
+INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
+SELECT 'Equipo Parchís G', 'Equipo de prueba G', 1200, c.id_categoria
+FROM categoria c WHERE c.nombre = 'Parchís'
+ON CONFLICT (nombre) DO NOTHING;
+
+INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
+SELECT 'Equipo Parchís H', 'Equipo de prueba H', 1200, c.id_categoria
+FROM categoria c WHERE c.nombre = 'Parchís'
+ON CONFLICT (nombre) DO NOTHING;
+
+INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
+SELECT 'Equipo Parchís I', 'Equipo de prueba I', 1200, c.id_categoria
+FROM categoria c WHERE c.nombre = 'Parchís'
+ON CONFLICT (nombre) DO NOTHING;
+
+INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
+SELECT 'Equipo Parchís J', 'Equipo de prueba J', 1200, c.id_categoria
+FROM categoria c WHERE c.nombre = 'Parchís'
+ON CONFLICT (nombre) DO NOTHING;
+
+INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
+SELECT 'Equipo Parchís K', 'Equipo de prueba K', 1200, c.id_categoria
+FROM categoria c WHERE c.nombre = 'Parchís'
+ON CONFLICT (nombre) DO NOTHING;
+
+INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
+SELECT 'Equipo Parchís L', 'Equipo de prueba L', 1200, c.id_categoria
+FROM categoria c WHERE c.nombre = 'Parchís'
+ON CONFLICT (nombre) DO NOTHING;
+
 -- 6. Crear torneo Liga Parchís
 INSERT INTO torneo (
   nombre, descripcion, fecha_inicio, fecha_fin, estado,
@@ -104,8 +134,12 @@ SELECT t.id_torneo, e.id_equipo, 'jugando', 0
 FROM torneo t
 JOIN equipo e ON e.id_categoria = t.id_categoria
 WHERE t.nombre = 'Liga Parchís'
-AND e.nombre IN ('Equipo Parchís A', 'Equipo Parchís B', 'Equipo Parchís C', 
-                   'Equipo Parchís D', 'Equipo Parchís E', 'Equipo Parchís F')
+AND e.nombre IN (
+  'Equipo Parchís A', 'Equipo Parchís B', 'Equipo Parchís C',
+  'Equipo Parchís D', 'Equipo Parchís E', 'Equipo Parchís F',
+  'Equipo Parchís G', 'Equipo Parchís H', 'Equipo Parchís I',
+  'Equipo Parchís J', 'Equipo Parchís K', 'Equipo Parchís L'
+)
 ON CONFLICT (id_torneo, id_equipo) DO UPDATE SET
   estado = 'jugando';
 
