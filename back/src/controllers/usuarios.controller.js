@@ -30,10 +30,18 @@ const parseDateYmdOrNull = (value, fieldName) => {
 
 const listUsuarios = asyncHandler(async (req, res) => {
   const { limit, offset } = parsePagination(req.query);
+  const { q, email, username } = req.query;
+  // Validar que solo uno de q, email, username esté presente
+  const filters = [q, email, username].filter((v) => v !== undefined && v !== null);
+  if (filters.length > 1) {
+    throw new AppError(400, "Solo se puede usar uno de 'q', 'email' o 'username'");
+  }
   const data = await usuariosService.listUsuarios({
     limit,
     offset,
-    q: req.query.q,
+    q,
+    email,
+    username,
   });
 
   ok(res, data, { limit, offset, count: data.length });

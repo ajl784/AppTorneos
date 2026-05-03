@@ -1,4 +1,5 @@
 const { pool } = require("../db/pool");
+const notificacionesService = require('./notificaciones.service');
 
 const listParticipaciones = async ({
   limit,
@@ -182,7 +183,7 @@ const listSolicitudesByTorneo = async ({ idTorneo, estado }) => {
   return result.rows;
 };
 
-const createSolicitudByTorneo = async ({ idTorneo, idEquipo, respuesta }) => {
+/*const createSolicitudByTorneo = async ({ idTorneo, idEquipo, respuesta }) => {
   const result = await pool.query(
     `INSERT INTO participacion_torneo_equipo (id_torneo, id_equipo, respuesta, estado, puntuacion)
      VALUES ($1, $2, $3::jsonb, 'pendiente', 0)
@@ -191,7 +192,65 @@ const createSolicitudByTorneo = async ({ idTorneo, idEquipo, respuesta }) => {
   );
 
   return getParticipacionById(result.rows[0].id_participacion_equipo);
+};*/
+
+const createSolicitudByTorneo = async ({ idTorneo, idEquipo, respuesta }) => {
+  // Iniciar transacción (opcional pero recomendado)
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Insertar la solicitud
+    const insertResult = await client.query(
+      `INSERT INTO participacion_torneo_equipo (id_torneo, id_equipo, respuesta, estado, puntuacion)
+       VALUES ($1, $2, $3::jsonb, 'pendiente', 0)
+       RETURNING id_participacion_equipo`,
+      [idTorneo, idEquipo, respuesta ? JSON.stringify(respuesta) : null]
+    );
+    const idParticipacion = insertResult.rows[0].id_participacion_equipo;
+
+    // 2. Obtener datos del torneo (nombre y dueño)
+    const torneoResult = await client.query(
+      `SELECT nombre, id_organizador FROM torneo WHERE id_torneo = $1`,
+      [idTorneo]
+    );
+    if (torneoResult.rows.length === 0) {
+      throw new Error('Torneo no encontrado');
+    }
+    const { nombre: nombreTorneo, id_organizador: idOwner } = torneoResult.rows[0];
+
+    // 3. Obtener nombre del equipo
+    const equipoResult = await client.query(
+      `SELECT nombre FROM equipo WHERE id_equipo = $1`,
+      [idEquipo]
+    );
+    if (equipoResult.rows.length === 0) {
+      throw new Error('Equipo no encontrado');
+    }
+    const nombreEquipo = equipoResult.rows[0].nombre;
+
+    // 4. Crear la notificación para el dueño del torneo
+    const notificacionData = {
+      id_usuario_destino: idOwner,
+      tipo: 'solicitud_equipo',
+      titulo: `Solicitud de unión al torneo ${nombreTorneo}`,
+      mensaje: `El equipo "${nombreEquipo}" ha solicitado unirse a tu torneo "${nombreTorneo}"`,
+      datos: JSON.stringify({ id_torneo: idTorneo, id_equipo: idEquipo, id_participacion: idParticipacion })
+    };
+    await notificacionesService.crearNotificacion(notificacionData);
+
+    await client.query('COMMIT');
+
+    // 5. Retornar la participación completa (usando la función auxiliar)
+    return getParticipacionById(idParticipacion);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
+
 
 const decideSolicitud = async ({ idParticipacionEquipo, aceptar }) => {
   const estado = aceptar ? "jugando" : "eliminado";

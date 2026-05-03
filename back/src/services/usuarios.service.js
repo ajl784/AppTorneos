@@ -149,13 +149,20 @@ const getCalendarioUsuario = async ({
   return result.rows;
 };
 
-const listUsuarios = async ({ limit, offset, q }) => {
+const listUsuarios = async ({ limit, offset, q, email, username }) => {
   const values = [limit, offset];
   let where = "";
 
+  // Solo uno de q, email, username puede estar presente
   if (q) {
     values.push(`%${q}%`);
     where = `WHERE correo ILIKE $${values.length} OR nombre_usuario ILIKE $${values.length}`;
+  } else if (email) {
+    values.push(email);
+    where = `WHERE LOWER(correo) = LOWER($${values.length})`;
+  } else if (username) {
+    values.push(username);
+    where = `WHERE LOWER(nombre_usuario) = LOWER($${values.length})`;
   }
 
   const result = await pool.query(
@@ -167,6 +174,10 @@ const listUsuarios = async ({ limit, offset, q }) => {
     values,
   );
 
+  // Si se busca por email o username, solo debe devolver 0 o 1 resultado exacto
+  if (email || username) {
+    return result.rows.length === 1 ? [result.rows[0]] : [];
+  }
   return result.rows;
 };
 
