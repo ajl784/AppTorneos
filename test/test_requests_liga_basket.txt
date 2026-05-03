@@ -1,0 +1,810 @@
+
+========================================
+2026-05-03T08:22:30.412Z
+========================================
+METHOD: PUT
+ENDPOINT: partidos/1
+
+REQUEST PAYLOAD:
+{
+  "estado": "acabado"
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": "1",
+    "id_torneo": "1",
+    "torneo_nombre": "Liga Parchís",
+    "fecha_hora": "2026-04-20T08:22:15.419Z",
+    "lugar": null,
+    "estado": "acabado"
+  },
+  "meta": null
+}
+
+========================================
+2026-05-03T08:22:30.545Z
+========================================
+METHOD: POST
+ENDPOINT: partidos/1/puntuaciones
+
+REQUEST PAYLOAD:
+{
+  "puntuaciones": [
+    {
+      "id_participacion_equipo": 1,
+      "punto": 4
+    },
+    {
+      "id_participacion_equipo": 2,
+      "punto": 3
+    },
+    {
+      "id_participacion_equipo": 3,
+      "punto": 2
+    },
+    {
+      "id_participacion_equipo": 4,
+      "punto": 1
+    }
+  ],
+  "id_arbitro_torneo": 1
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": 1,
+    "id_torneo": "1",
+    "puntuaciones_actualizadas": [
+      {
+        "id_participacion_equipo": 1,
+        "punto_partido": 4,
+        "puntuacion_torneo": 1
+      },
+      {
+        "id_participacion_equipo": 2,
+        "punto_partido": 3,
+        "puntuacion_torneo": 1
+      },
+      {
+        "id_participacion_equipo": 3,
+        "punto_partido": 2,
+        "puntuacion_torneo": 1
+      },
+      {
+        "id_participacion_equipo": 4,
+        "punto_partido": 1,
+        "puntuacion_torneo": 1
+      }
+    ],
+    "id_arbitro_torneo": 1,
+    "elo_aplicado": true,
+    "elo_actualizado": [
+      {
+        "id_equipo": "1",
+        "equipo_nombre": "Equipo Parchís A",
+        "elo_anterior": 1200,
+        "elo_nuevo": 1216,
+        "delta": 16,
+        "posicion_esperada": 2.5,
+        "posicion_real": 1,
+        "score_esperado": 0.5,
+        "score_real": 1
+      },
+      {
+        "id_equipo": "2",
+        "equipo_nombre": "Equipo Parchís B",
+        "elo_anterior": 1200,
+        "elo_nuevo": 1205,
+        "delta": 5,
+        "posicion_esperada": 2.5,
+        "posicion_real": 2,
+        "score_esperado": 0.5,
+        "score_real": 0.6667
+      },
+      {
+        "id_equipo": "3",
+        "equipo_nombre": "Equipo Parchís C",
+        "elo_anterior": 1200,
+        "elo_nuevo": 1195,
+        "delta": -5,
+        "posicion_esperada": 2.5,
+        "posicion_real": 3,
+        "score_esperado": 0.5,
+        "score_real": 0.3333
+      },
+      {
+        "id_equipo": "4",
+        "equipo_nombre": "Equipo Parchís D",
+        "elo_anterior": 1200,
+        "elo_nuevo": 1184,
+        "delta": -16,
+        "posicion_esperada": 2.5,
+        "posicion_real": 4,
+        "score_esperado": 0.5,
+        "score_real": 0
+      }
+    ],
+    "avance_ronda": null
+  },
+  "meta": null
+}
+
+========================================
+2026-05-03T08:22:30.556Z
+========================================
+METHOD: PUT
+ENDPOINT: partidos/2
+
+REQUEST PAYLOAD:
+{
+  "estado": "acabado"
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": "2",
+    "id_torneo": "1",
+    "torneo_nombre": "Liga Parchís",
+    "fecha_hora": "2026-04-28T08:22:15.419Z",
+    "lugar": null,
+    "estado": "acabado"
+  },
+  "meta": null
+}
+
+========================================
+2026-05-03T08:22:30.596Z
+========================================
+METHOD: POST
+ENDPOINT: partidos/2/puntuaciones
+
+REQUEST PAYLOAD:
+{
+  "puntuaciones": [
+    {
+      "id_participacion_equipo": 1,
+      "punto": 4
+    },
+    {
+      "id_participacion_equipo": 2,
+      "punto": 3
+    },
+    {
+      "id_participacion_equipo": 5,
+      "punto": 2
+    },
+    {
+      "id_participacion_equipo": 6,
+      "punto": 1
+    }
+  ],
+  "id_arbitro_torneo": 1
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": 2,
+    "id_torneo": "1",
+    "puntuaciones_actualizadas": [
+      {
+        "id_participacion_equipo": 1,
+        "punto_partido": 4,
+        "puntuacion_torneo": 2
+      },
+      {
+        "id_participacion_equipo": 2,
+        "punto_partido": 3,
+        "puntuacion_torneo": 2
+      },
+      {
+        "id_participacion_equipo": 5,
+        "punto_partido": 2,
+        "puntuacion_torneo": 1
+      },
+      {
+        "id_participacion_equipo": 6,
+        "punto_partido": 1,
+        "puntuacion_torneo": 1
+      }
+    ],
+    "id_arbitro_torneo": 1,
+    "elo_aplicado": true,
+    "elo_actualizado": [
+      {
+        "id_equipo": "1",
+        "equipo_nombre": "Equipo Parchís A",
+        "elo_anterior": 1216,
+        "elo_nuevo": 1231,
+        "delta": 15,
+        "posicion_esperada": 2.44,
+        "posicion_real": 1,
+        "score_esperado": 0.5206,
+        "score_real": 1
+      },
+      {
+        "id_equipo": "2",
+        "equipo_nombre": "Equipo Parchís B",
+        "elo_anterior": 1205,
+        "elo_nuevo": 1210,
+        "delta": 5,
+        "posicion_esperada": 2.5,
+        "posicion_real": 2,
+        "score_esperado": 0.4995,
+        "score_real": 0.6667
+      },
+      {
+        "id_equipo": "5",
+        "equipo_nombre": "Equipo Parchís E",
+        "elo_anterior": 1200,
+        "elo_nuevo": 1195,
+        "delta": -5,
+        "posicion_esperada": 2.53,
+        "posicion_real": 3,
+        "score_esperado": 0.4899,
+        "score_real": 0.3333
+      },
+      {
+        "id_equipo": "6",
+        "equipo_nombre": "Equipo Parchís F",
+        "elo_anterior": 1200,
+        "elo_nuevo": 1184,
+        "delta": -16,
+        "posicion_esperada": 2.53,
+        "posicion_real": 4,
+        "score_esperado": 0.4899,
+        "score_real": 0
+      }
+    ],
+    "avance_ronda": null
+  },
+  "meta": null
+}
+
+========================================
+2026-05-03T08:22:30.608Z
+========================================
+METHOD: PUT
+ENDPOINT: partidos/3
+
+REQUEST PAYLOAD:
+{
+  "estado": "acabado"
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": "3",
+    "id_torneo": "1",
+    "torneo_nombre": "Liga Parchís",
+    "fecha_hora": "2026-05-06T08:22:15.419Z",
+    "lugar": null,
+    "estado": "acabado"
+  },
+  "meta": null
+}
+
+========================================
+2026-05-03T08:22:30.653Z
+========================================
+METHOD: POST
+ENDPOINT: partidos/3/puntuaciones
+
+REQUEST PAYLOAD:
+{
+  "puntuaciones": [
+    {
+      "id_participacion_equipo": 3,
+      "punto": 4
+    },
+    {
+      "id_participacion_equipo": 4,
+      "punto": 3
+    },
+    {
+      "id_participacion_equipo": 5,
+      "punto": 2
+    },
+    {
+      "id_participacion_equipo": 6,
+      "punto": 1
+    }
+  ],
+  "id_arbitro_torneo": 1
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": 3,
+    "id_torneo": "1",
+    "puntuaciones_actualizadas": [
+      {
+        "id_participacion_equipo": 3,
+        "punto_partido": 4,
+        "puntuacion_torneo": 2
+      },
+      {
+        "id_participacion_equipo": 4,
+        "punto_partido": 3,
+        "puntuacion_torneo": 2
+      },
+      {
+        "id_participacion_equipo": 5,
+        "punto_partido": 2,
+        "puntuacion_torneo": 2
+      },
+      {
+        "id_participacion_equipo": 6,
+        "punto_partido": 1,
+        "puntuacion_torneo": 2
+      }
+    ],
+    "id_arbitro_torneo": 1,
+    "elo_aplicado": true,
+    "elo_actualizado": [
+      {
+        "id_equipo": "3",
+        "equipo_nombre": "Equipo Parchís C",
+        "elo_anterior": 1195,
+        "elo_nuevo": 1211,
+        "delta": 16,
+        "posicion_esperada": 2.47,
+        "posicion_real": 1,
+        "score_esperado": 0.5105,
+        "score_real": 1
+      },
+      {
+        "id_equipo": "4",
+        "equipo_nombre": "Equipo Parchís D",
+        "elo_anterior": 1184,
+        "elo_nuevo": 1190,
+        "delta": 6,
+        "posicion_esperada": 2.53,
+        "posicion_real": 2,
+        "score_esperado": 0.4895,
+        "score_real": 0.6667
+      },
+      {
+        "id_equipo": "5",
+        "equipo_nombre": "Equipo Parchís E",
+        "elo_anterior": 1195,
+        "elo_nuevo": 1189,
+        "delta": -6,
+        "posicion_esperada": 2.47,
+        "posicion_real": 3,
+        "score_esperado": 0.5105,
+        "score_real": 0.3333
+      },
+      {
+        "id_equipo": "6",
+        "equipo_nombre": "Equipo Parchís F",
+        "elo_anterior": 1184,
+        "elo_nuevo": 1168,
+        "delta": -16,
+        "posicion_esperada": 2.53,
+        "posicion_real": 4,
+        "score_esperado": 0.4895,
+        "score_real": 0
+      }
+    ],
+    "avance_ronda": null
+  },
+  "meta": null
+}
+
+========================================
+2026-05-03T08:22:30.664Z
+========================================
+METHOD: PUT
+ENDPOINT: partidos/4
+
+REQUEST PAYLOAD:
+{
+  "estado": "acabado"
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": "4",
+    "id_torneo": "1",
+    "torneo_nombre": "Liga Parchís",
+    "fecha_hora": "2026-05-14T08:22:15.419Z",
+    "lugar": null,
+    "estado": "acabado"
+  },
+  "meta": null
+}
+
+========================================
+2026-05-03T08:22:30.703Z
+========================================
+METHOD: POST
+ENDPOINT: partidos/4/puntuaciones
+
+REQUEST PAYLOAD:
+{
+  "puntuaciones": [
+    {
+      "id_participacion_equipo": 1,
+      "punto": 4
+    },
+    {
+      "id_participacion_equipo": 2,
+      "punto": 3
+    },
+    {
+      "id_participacion_equipo": 3,
+      "punto": 2
+    },
+    {
+      "id_participacion_equipo": 5,
+      "punto": 1
+    }
+  ],
+  "id_arbitro_torneo": 1
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": 4,
+    "id_torneo": "1",
+    "puntuaciones_actualizadas": [
+      {
+        "id_participacion_equipo": 1,
+        "punto_partido": 4,
+        "puntuacion_torneo": 3
+      },
+      {
+        "id_participacion_equipo": 2,
+        "punto_partido": 3,
+        "puntuacion_torneo": 3
+      },
+      {
+        "id_participacion_equipo": 3,
+        "punto_partido": 2,
+        "puntuacion_torneo": 3
+      },
+      {
+        "id_participacion_equipo": 5,
+        "punto_partido": 1,
+        "puntuacion_torneo": 3
+      }
+    ],
+    "id_arbitro_torneo": 1,
+    "elo_aplicado": true,
+    "elo_actualizado": [
+      {
+        "id_equipo": "1",
+        "equipo_nombre": "Equipo Parchís A",
+        "elo_anterior": 1231,
+        "elo_nuevo": 1246,
+        "delta": 15,
+        "posicion_esperada": 2.38,
+        "posicion_real": 1,
+        "score_esperado": 0.5397,
+        "score_real": 1
+      },
+      {
+        "id_equipo": "2",
+        "equipo_nombre": "Equipo Parchís B",
+        "elo_anterior": 1210,
+        "elo_nuevo": 1215,
+        "delta": 5,
+        "posicion_esperada": 2.5,
+        "posicion_real": 2,
+        "score_esperado": 0.4995,
+        "score_real": 0.6667
+      },
+      {
+        "id_equipo": "3",
+        "equipo_nombre": "Equipo Parchís C",
+        "elo_anterior": 1211,
+        "elo_nuevo": 1206,
+        "delta": -5,
+        "posicion_esperada": 2.5,
+        "posicion_real": 3,
+        "score_esperado": 0.5014,
+        "score_real": 0.3333
+      },
+      {
+        "id_equipo": "5",
+        "equipo_nombre": "Equipo Parchís E",
+        "elo_anterior": 1189,
+        "elo_nuevo": 1174,
+        "delta": -15,
+        "posicion_esperada": 2.62,
+        "posicion_real": 4,
+        "score_esperado": 0.4593,
+        "score_real": 0
+      }
+    ],
+    "avance_ronda": null
+  },
+  "meta": null
+}
+
+========================================
+2026-05-03T08:22:30.715Z
+========================================
+METHOD: PUT
+ENDPOINT: partidos/5
+
+REQUEST PAYLOAD:
+{
+  "estado": "acabado"
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": "5",
+    "id_torneo": "1",
+    "torneo_nombre": "Liga Parchís",
+    "fecha_hora": "2026-05-22T08:22:15.419Z",
+    "lugar": null,
+    "estado": "acabado"
+  },
+  "meta": null
+}
+
+========================================
+2026-05-03T08:22:30.755Z
+========================================
+METHOD: POST
+ENDPOINT: partidos/5/puntuaciones
+
+REQUEST PAYLOAD:
+{
+  "puntuaciones": [
+    {
+      "id_participacion_equipo": 1,
+      "punto": 4
+    },
+    {
+      "id_participacion_equipo": 2,
+      "punto": 3
+    },
+    {
+      "id_participacion_equipo": 4,
+      "punto": 2
+    },
+    {
+      "id_participacion_equipo": 6,
+      "punto": 1
+    }
+  ],
+  "id_arbitro_torneo": 1
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": 5,
+    "id_torneo": "1",
+    "puntuaciones_actualizadas": [
+      {
+        "id_participacion_equipo": 1,
+        "punto_partido": 4,
+        "puntuacion_torneo": 4
+      },
+      {
+        "id_participacion_equipo": 2,
+        "punto_partido": 3,
+        "puntuacion_torneo": 4
+      },
+      {
+        "id_participacion_equipo": 4,
+        "punto_partido": 2,
+        "puntuacion_torneo": 3
+      },
+      {
+        "id_participacion_equipo": 6,
+        "punto_partido": 1,
+        "puntuacion_torneo": 3
+      }
+    ],
+    "id_arbitro_torneo": 1,
+    "elo_aplicado": true,
+    "elo_actualizado": [
+      {
+        "id_equipo": "1",
+        "equipo_nombre": "Equipo Parchís A",
+        "elo_anterior": 1246,
+        "elo_nuevo": 1259,
+        "delta": 13,
+        "posicion_esperada": 2.27,
+        "posicion_real": 1,
+        "score_esperado": 0.5783,
+        "score_real": 1
+      },
+      {
+        "id_equipo": "2",
+        "equipo_nombre": "Equipo Parchís B",
+        "elo_anterior": 1215,
+        "elo_nuevo": 1220,
+        "delta": 5,
+        "posicion_esperada": 2.44,
+        "posicion_real": 2,
+        "score_esperado": 0.5196,
+        "score_real": 0.6667
+      },
+      {
+        "id_equipo": "4",
+        "equipo_nombre": "Equipo Parchís D",
+        "elo_anterior": 1190,
+        "elo_nuevo": 1186,
+        "delta": -4,
+        "posicion_esperada": 2.58,
+        "posicion_real": 3,
+        "score_esperado": 0.4719,
+        "score_real": 0.3333
+      },
+      {
+        "id_equipo": "6",
+        "equipo_nombre": "Equipo Parchís F",
+        "elo_anterior": 1168,
+        "elo_nuevo": 1154,
+        "delta": -14,
+        "posicion_esperada": 2.71,
+        "posicion_real": 4,
+        "score_esperado": 0.4303,
+        "score_real": 0
+      }
+    ],
+    "avance_ronda": null
+  },
+  "meta": null
+}
+
+========================================
+2026-05-03T08:22:30.766Z
+========================================
+METHOD: PUT
+ENDPOINT: partidos/6
+
+REQUEST PAYLOAD:
+{
+  "estado": "acabado"
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": "6",
+    "id_torneo": "1",
+    "torneo_nombre": "Liga Parchís",
+    "fecha_hora": "2026-05-30T08:22:15.419Z",
+    "lugar": null,
+    "estado": "acabado"
+  },
+  "meta": null
+}
+
+========================================
+2026-05-03T08:22:30.807Z
+========================================
+METHOD: POST
+ENDPOINT: partidos/6/puntuaciones
+
+REQUEST PAYLOAD:
+{
+  "puntuaciones": [
+    {
+      "id_participacion_equipo": 3,
+      "punto": 4
+    },
+    {
+      "id_participacion_equipo": 4,
+      "punto": 3
+    },
+    {
+      "id_participacion_equipo": 5,
+      "punto": 2
+    },
+    {
+      "id_participacion_equipo": 6,
+      "punto": 1
+    }
+  ],
+  "id_arbitro_torneo": 1
+}
+
+RESPONSE:
+{
+  "ok": true,
+  "data": {
+    "id_partido": 6,
+    "id_torneo": "1",
+    "puntuaciones_actualizadas": [
+      {
+        "id_participacion_equipo": 3,
+        "punto_partido": 4,
+        "puntuacion_torneo": 4
+      },
+      {
+        "id_participacion_equipo": 4,
+        "punto_partido": 3,
+        "puntuacion_torneo": 4
+      },
+      {
+        "id_participacion_equipo": 5,
+        "punto_partido": 2,
+        "puntuacion_torneo": 4
+      },
+      {
+        "id_participacion_equipo": 6,
+        "punto_partido": 1,
+        "puntuacion_torneo": 4
+      }
+    ],
+    "id_arbitro_torneo": 1,
+    "elo_aplicado": true,
+    "elo_actualizado": [
+      {
+        "id_equipo": "3",
+        "equipo_nombre": "Equipo Parchís C",
+        "elo_anterior": 1206,
+        "elo_nuevo": 1220,
+        "delta": 14,
+        "posicion_esperada": 2.35,
+        "posicion_real": 1,
+        "score_esperado": 0.5497,
+        "score_real": 1
+      },
+      {
+        "id_equipo": "4",
+        "equipo_nombre": "Equipo Parchís D",
+        "elo_anterior": 1186,
+        "elo_nuevo": 1191,
+        "delta": 5,
+        "posicion_esperada": 2.47,
+        "posicion_real": 2,
+        "score_esperado": 0.5115,
+        "score_real": 0.6667
+      },
+      {
+        "id_equipo": "5",
+        "equipo_nombre": "Equipo Parchís E",
+        "elo_anterior": 1174,
+        "elo_nuevo": 1169,
+        "delta": -5,
+        "posicion_esperada": 2.53,
+        "posicion_real": 3,
+        "score_esperado": 0.4885,
+        "score_real": 0.3333
+      },
+      {
+        "id_equipo": "6",
+        "equipo_nombre": "Equipo Parchís F",
+        "elo_anterior": 1154,
+        "elo_nuevo": 1140,
+        "delta": -14,
+        "posicion_esperada": 2.65,
+        "posicion_real": 4,
+        "score_esperado": 0.4503,
+        "score_real": 0
+      }
+    ],
+    "avance_ronda": null
+  },
+  "meta": null
+}

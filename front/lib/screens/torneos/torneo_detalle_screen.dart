@@ -974,11 +974,11 @@ class _EquipoCell extends StatelessWidget {
         ? EquipoNetworkAvatar(
             equipoId: equipo!.idEquipo,
             baseUrl: ApiConfig.baseUrl,
-            size: 28,
+            size: 36,
           )
         : Container(
-            width: 28,
-            height: 28,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest,
               shape: BoxShape.circle,
@@ -986,7 +986,7 @@ class _EquipoCell extends StatelessWidget {
             alignment: Alignment.center,
             child: Icon(
               Icons.groups,
-              size: 16,
+              size: 20,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           );
