@@ -40,6 +40,37 @@ const createPartido = asyncHandler(async (req, res) => {
 
 const updatePartido = asyncHandler(async (req, res) => {
   const idPartido = parsePositiveInt(req.params.id, "id");
+  const partido = await partidosService.getPartidoById(idPartido);
+  if (!partido) throw new AppError(404, "Partido no encontrado");
+
+  // Si se intenta modificar la fecha/hora, validar que:
+  // 1. El partido está en estado "planificado"
+  // 2. Solo el organizador del torneo puede hacerlo
+  if (req.body && req.body.fecha_hora !== undefined) {
+    if (partido.estado !== "planificado") {
+      throw new AppError(
+        400,
+        `No se puede modificar la fecha de un partido en estado "${partido.estado}". Solo se permiten cambios en partidos planificados.`
+      );
+    }
+
+    const torneo = await require("../services/torneos.service").getTorneoById(
+      partido.id_torneo
+    );
+    if (!req.user || torneo.id_organizador !== req.user.id_usuario) {
+      throw new AppError(
+        403,
+        "No tienes permiso para modificar la fecha del partido"
+      );
+    }
+
+    // Validar que la fecha sea un datetime válido
+    const nuevaFecha = new Date(req.body.fecha_hora);
+    if (isNaN(nuevaFecha.getTime())) {
+      throw new AppError(400, "fecha_hora debe ser una fecha válida en formato ISO");
+    }
+  }
+
   const data = await partidosService.updatePartido(idPartido, req.body || {});
 
   if (!data) {

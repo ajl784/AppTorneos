@@ -6,7 +6,7 @@ async function crearNotificacion({ id_usuario_destino, tipo, titulo, mensaje, da
     `INSERT INTO notificacion (id_usuario_destino, tipo, titulo, mensaje, datos)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [id_usuario_destino, tipo, titulo, mensaje, datos]
+    [id_usuario_destino, tipo, titulo, mensaje, datos ? JSON.stringify(datos) : null]
   );
   return result.rows[0];
 }
