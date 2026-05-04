@@ -55,6 +55,7 @@ CREATE TABLE equipo (
 	id_equipo BIGSERIAL PRIMARY KEY,
 	nombre VARCHAR(120) NOT NULL UNIQUE,
 	descripcion TEXT,
+	icono VARCHAR(255),
 	elo INTEGER NOT NULL DEFAULT 1200 CHECK (elo >= 0),
 	id_categoria BIGINT NOT NULL REFERENCES categoria(id_categoria)
 );

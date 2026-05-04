@@ -5,6 +5,44 @@
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- =====================================================
+-- Compatibilidad con esquemas antiguos
+-- (si la BD ya existía sin orden_serie, lo añadimos)
+-- =====================================================
+DO $$
+BEGIN
+	IF to_regclass('public.partido') IS NOT NULL THEN
+		-- Columna + default + NOT NULL
+		ALTER TABLE partido
+			ADD COLUMN IF NOT EXISTS orden_serie INTEGER;
+
+		ALTER TABLE partido
+			ALTER COLUMN orden_serie SET DEFAULT 0;
+
+		UPDATE partido
+		SET orden_serie = 0
+		WHERE orden_serie IS NULL;
+
+		ALTER TABLE partido
+			ALTER COLUMN orden_serie SET NOT NULL;
+
+		-- CHECK (evita duplicar si ya existe alguno equivalente)
+		IF NOT EXISTS (
+			SELECT 1
+			FROM pg_constraint c
+			WHERE c.conrelid = 'public.partido'::regclass
+				AND c.contype = 'c'
+				AND pg_get_constraintdef(c.oid) LIKE '%orden_serie%'
+		) THEN
+			ALTER TABLE partido
+				ADD CONSTRAINT check_orden_serie CHECK (orden_serie >= 0);
+		END IF;
+
+		-- Índice
+		EXECUTE 'CREATE INDEX IF NOT EXISTS idx_partido_serie ON partido (id_torneo, ronda, orden_serie)';
+	END IF;
+END $$;
+
 INSERT INTO tipo_torneo (nombre, descripcion)
 VALUES
 	('Liga', 'Todos contra todos (puntos por victoria/empate)'),
@@ -97,15 +135,6 @@ JOIN usuario u ON u.correo = 'admin@app.com'
 WHERE c.nombre = 'Fútbol 11'
 ON CONFLICT (nombre, id_categoria, id_tipo_torneo) DO NOTHING;
 
--- Asignación de árbitros a torneos de seed
--- Nota: arbitro_torneo es por torneo (id_torneo NOT NULL)
-INSERT INTO arbitro_torneo (id_usuario, id_torneo)
-SELECT u.id_usuario, t.id_torneo
-FROM usuario u
-JOIN torneo t ON t.nombre IN ('Liga Primavera', 'Copa Relámpago')
-WHERE u.correo IN ('ref_01@app.com', 'ref_02@app.com')
-ON CONFLICT (id_usuario, id_torneo) DO NOTHING;
-
 INSERT INTO torneo (
 	nombre,
 	descripcion,
@@ -138,6 +167,15 @@ JOIN tipo_torneo tt ON tt.nombre = 'Eliminación directa'
 JOIN usuario u ON u.correo = 'admin@app.com'
 WHERE c.nombre = 'Fútbol 11'
 ON CONFLICT (nombre, id_categoria, id_tipo_torneo) DO NOTHING;
+
+-- Asignación de árbitros a torneos de seed
+-- Nota: arbitro_torneo es por torneo (id_torneo NOT NULL)
+INSERT INTO arbitro_torneo (id_usuario, id_torneo)
+SELECT u.id_usuario, t.id_torneo
+FROM usuario u
+JOIN torneo t ON t.nombre IN ('Liga Primavera', 'Copa Relámpago')
+WHERE u.correo IN ('ref_01@app.com', 'ref_02@app.com')
+ON CONFLICT (id_usuario, id_torneo) DO NOTHING;
 
 INSERT INTO torneo (
 	nombre,
