@@ -59,10 +59,15 @@ class PartidosApi {
     return Partido.fromJson(Map<String, dynamic>.from(data));
   }
 
-  Future<Partido> updatePartido(int idPartido, PartidoUpdate payload) async {
+  Future<Partido> updatePartido(
+    int idPartido,
+    PartidoUpdate payload, {
+    String? token,
+  }) async {
     final res = await _api.putRaw(
       '/partidos/$idPartido',
       body: payload.toJson(),
+      headers: token == null ? null : {'Authorization': 'Bearer $token'},
     );
     final data = res.data;
     if (data is! Map) {

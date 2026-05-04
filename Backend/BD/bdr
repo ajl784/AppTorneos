@@ -161,18 +161,24 @@ CREATE TABLE partido (
 	jornada INTEGER,
 	ronda INTEGER,
 	orden_ronda INTEGER,
+	orden_serie INTEGER NOT NULL DEFAULT 0,
 	id_partido_siguiente BIGINT REFERENCES partido(id_partido) ON DELETE SET NULL,
 	ganador_id_participacion_equipo BIGINT REFERENCES participacion_torneo_equipo(id_participacion_equipo) ON DELETE SET NULL,
 	CHECK (estado IN ('planificado', 'en_curso', 'acabado', 'cancelado')),
 	CHECK (jornada IS NULL OR jornada > 0),
 	CHECK (ronda IS NULL OR ronda > 0),
-	CHECK (orden_ronda IS NULL OR orden_ronda > 0)
+	CHECK (orden_ronda IS NULL OR orden_ronda > 0),
+	CHECK (orden_serie >= 0)
 );
 
 -- Evita duplicados en bracket (solo cuando hay ronda)
 CREATE UNIQUE INDEX uq_partido_torneo_ronda_orden
 ON partido (id_torneo, ronda, orden_ronda)
 WHERE ronda IS NOT NULL AND orden_ronda IS NOT NULL;
+
+-- Índice para búsquedas rápidas por serie
+CREATE INDEX idx_partido_serie 
+ON partido (id_torneo, ronda, orden_serie);
 
 CREATE TABLE participacion_partido (
 	id_participacion_partido BIGSERIAL PRIMARY KEY,

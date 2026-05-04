@@ -271,4 +271,24 @@ class TorneosApi {
       Map<String, dynamic>.from(data),
     );
   }
+
+  /// Obtiene las participaciones (equipos inscritos) de un torneo
+  Future<List<Map<String, dynamic>>> getParticipacionesTorneo(int idTorneo) async {
+    final res = await _api.getRaw('/torneos/$idTorneo/participaciones');
+    if (res.data is List) {
+      return (res.data as List).cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  /// Elimina una participación (equipo del torneo)
+  Future<void> deleteParticipacion(
+    int idParticipacionEquipo, {
+    String? token,
+  }) async {
+    await _api.deleteRaw(
+      '/participaciones/$idParticipacionEquipo',
+      headers: token == null ? null : {'Authorization': 'Bearer $token'},
+    );
+  }
 }

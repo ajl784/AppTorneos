@@ -1387,12 +1387,24 @@ async function avanzarRondaEliminacion(idTorneo) {
       }
 
       if (clasificados.length <= 1) {
+        const campeon = clasificados[0] || null;
+        if (campeon) {
+          await client.query(
+            `UPDATE torneo SET estado = 'finalizado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
+            [campeon, idTorneo],
+          );
+        } else {
+          await client.query(
+            `UPDATE torneo SET estado = 'finalizado' WHERE id_torneo = $1`,
+            [idTorneo],
+          );
+        }
         await client.query("COMMIT");
         return {
           ok: true,
           torneoFinalizado: true,
           modo: "eliminacion_por_serie",
-          campeonIdParticipacionEquipo: clasificados[0] || null,
+          campeonIdParticipacionEquipo: campeon,
         };
       }
 
@@ -1512,11 +1524,20 @@ async function avanzarRondaEliminacion(idTorneo) {
       clasificados = ganadores.map((g) => g.id_participacion_equipo);
     } else if (torneo.tipo === "Serie + final (con tiempos)") {
       if (rondaActual >= 2) {
+        const campeon = ganadores[0].id_participacion_equipo;
+        if (campeon) {
+          await client.query(
+            `UPDATE torneo SET estado = 'finalizado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
+            [campeon, idTorneo],
+          );
+        } else {
+          await client.query(`UPDATE torneo SET estado = 'finalizado' WHERE id_torneo = $1`, [idTorneo]);
+        }
         await client.query("COMMIT");
         return {
           ok: true,
           torneoFinalizado: true,
-          campeonIdParticipacionEquipo: ganadores[0].id_participacion_equipo,
+          campeonIdParticipacionEquipo: campeon,
         };
       }
 
@@ -1586,11 +1607,20 @@ async function avanzarRondaEliminacion(idTorneo) {
     }
 
     if (clasificados.length <= 1) {
+      const campeon = clasificados[0] || null;
+      if (campeon) {
+        await client.query(
+          `UPDATE torneo SET estado = 'finalizado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
+          [campeon, idTorneo],
+        );
+      } else {
+        await client.query(`UPDATE torneo SET estado = 'finalizado' WHERE id_torneo = $1`, [idTorneo]);
+      }
       await client.query("COMMIT");
       return {
         ok: true,
         torneoFinalizado: true,
-        campeonIdParticipacionEquipo: clasificados[0] || null,
+        campeonIdParticipacionEquipo: campeon,
       };
     }
 
@@ -1709,11 +1739,40 @@ async function generarEnfrentamientos(idTorneo) {
   }
 }
 
+const getParticipacionesTorneo = async (idTorneo) => {
+  const result = await pool.query(
+    `SELECT
+       pte.id_participacion_equipo,
+       pte.id_torneo,
+       pte.id_equipo,
+       pte.estado,
+       pte.puntuacion,
+       e.nombre AS equipo_nombre,
+       e.elo
+     FROM participacion_torneo_equipo pte
+     JOIN equipo e ON e.id_equipo = pte.id_equipo
+     WHERE pte.id_torneo = $1
+     ORDER BY pte.id_participacion_equipo ASC`,
+    [idTorneo],
+  );
+
+  return result.rows.map((r) => ({
+    id_participacion_equipo: Number(r.id_participacion_equipo),
+    id_torneo: Number(r.id_torneo),
+    id_equipo: Number(r.id_equipo),
+    equipo_nombre: r.equipo_nombre,
+    estado: r.estado,
+    puntuacion: Number(r.puntuacion),
+    elo: Number(r.elo),
+  }));
+};
+
 module.exports = {
   listTorneos,
   getTorneoById,
   getClasificacionTorneo,
   getPartidosTorneo,
+  getParticipacionesTorneo,
   createTorneo,
   updateTorneo,
   deleteTorneo,

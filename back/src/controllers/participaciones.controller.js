@@ -56,14 +56,19 @@ const updateParticipacion = asyncHandler(async (req, res) => {
 
 const deleteParticipacion = asyncHandler(async (req, res) => {
   const idParticipacion = parsePositiveInt(req.params.id, "id");
-  const deleted =
-    await participacionesService.deleteParticipacion(idParticipacion);
+  // Verificar que el usuario autenticado es el organizador del torneo
+  const participacion = await participacionesService.getParticipacionById(idParticipacion);
+  if (!participacion) throw new AppError(404, "Participacion no encontrada");
 
-  if (!deleted) {
-    throw new AppError(404, "Participacion no encontrada");
+  const torneo = await require("../services/torneos.service").getTorneoById(participacion.id_torneo);
+  if (!req.user || torneo.id_organizador !== req.user.id_usuario) {
+    throw new AppError(403, "No tienes permiso para eliminar esta participación");
   }
 
-  ok(res, { deleted: true });
+  const result = await participacionesService.deleteParticipacionAndConsequences(idParticipacion);
+  if (!result) throw new AppError(404, "Participacion no encontrada");
+
+  ok(res, result);
 });
 
 const listSolicitudesByTorneo = asyncHandler(async (req, res) => {

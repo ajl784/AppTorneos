@@ -157,11 +157,23 @@ const getPartidosTorneo = asyncHandler(async (req, res) => {
   ok(res, data);
 });
 
+const getParticipacionesTorneo = asyncHandler(async (req, res) => {
+  const idTorneo = parsePositiveInt(req.params.id, "id");
+  const data = await torneosService.getParticipacionesTorneo(idTorneo);
+
+  if (!Array.isArray(data)) {
+    throw new AppError(404, "Torneo no encontrado");
+  }
+
+  ok(res, data);
+});
+
 module.exports = {
   listTorneos,
   getTorneoById,
   getClasificacionTorneo,
   getPartidosTorneo,
+  getParticipacionesTorneo,
   createTorneo,
   updateTorneo,
   deleteTorneo,
