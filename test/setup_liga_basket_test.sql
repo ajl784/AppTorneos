@@ -158,6 +158,27 @@ JOIN torneo t ON t.nombre = 'Liga Parchís'
 WHERE u.correo = 'arbitro_parchis@app.com'
 ON CONFLICT (id_usuario, id_torneo) DO NOTHING;
 
+
+
+INSERT INTO categoria (nombre, participantes_por_partida, norma, descripcion)
+VALUES ('atletismo', 8, 'Carreras de atletismo con 8 participantes por serie', 'Categoría para torneos de atletismo')
+ON CONFLICT (nombre) DO NOTHING;
+
+-- Tipo de torneo Eliminación por serie
+INSERT INTO tipo_torneo (nombre, descripcion)
+VALUES ('Eliminación por serie', 'Eliminacion multi por bloques de series y clasificacion por puntos')
+ON CONFLICT (nombre) DO NOTHING;
+
+-- Relación categoria-tipo_torneo
+INSERT INTO categoria_tipo_torneo (id_categoria, id_tipo_torneo)
+SELECT c.id_categoria, t.id_tipo_torneo
+FROM categoria c
+JOIN tipo_torneo t ON t.nombre = 'Eliminación por serie'
+WHERE c.nombre = 'atletismo'
+ON CONFLICT (id_categoria, id_tipo_torneo) DO NOTHING;
+
+-- Torneo de atletismo (si no existe)
+
 -- Verificar setup
 SELECT '=== LIGA PARCHÍS SETUP ===' as info;
 
@@ -170,13 +191,34 @@ LEFT JOIN usuario u ON u.id_usuario = t.id_organizador
 WHERE t.nombre = 'Liga Parchís'
 GROUP BY t.id_torneo, t.nombre, t.estado, t.limite_equipos, u.nombre;
 
-SELECT '✓ Usuarios creados:' as info;
-SELECT correo, nombre, apellidos FROM usuario 
-WHERE correo IN ('organizador_parchis@app.com', 'arbitro_parchis@app.com');
+SELECT '✓ Usuarios creados (con credenciales para login):' as info;
+SELECT correo, nombre, apellidos, 'password123' as password FROM usuario 
+WHERE correo IN (
+  'organizador_parchis@app.com', 
+  'arbitro_parchis@app.com',
+  'jugador_parchis@app.com',
+  'jugador_atletismo@app.com',
+  'admin@app.com'
+);
 
-SELECT '✓ Equipos en torneo:' as info;
+SELECT '✓ Equipos en Liga Parchís:' as info;
 SELECT pte.estado, COUNT(*) as cantidad
 FROM participacion_torneo_equipo pte
 JOIN torneo t ON t.id_torneo = pte.id_torneo
 WHERE t.nombre = 'Liga Parchís'
 GROUP BY pte.estado;
+
+SELECT '✓ Equipos en Atletismo Test:' as info;
+SELECT pte.estado, COUNT(*) as cantidad
+FROM participacion_torneo_equipo pte
+JOIN torneo t ON t.id_torneo = pte.id_torneo
+WHERE t.nombre = 'Atletismo Test'
+GROUP BY pte.estado;
+
+SELECT '✓ Pertenencias de usuarios a equipos:' as info;
+SELECT u.correo, e.nombre as equipo, c.nombre as categoria
+FROM pertenece p
+JOIN usuario u ON u.id_usuario = p.id_usuario
+JOIN equipo e ON e.id_equipo = p.id_equipo
+JOIN categoria c ON c.id_categoria = e.id_categoria
+WHERE u.correo IN ('jugador_parchis@app.com', 'jugador_atletismo@app.com');
