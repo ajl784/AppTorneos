@@ -37,6 +37,13 @@ VALUES ('arbitro_parchis@app.com', 'arbitro_parchis',
         'Árbitro', 'Parchís')
 ON CONFLICT (correo) DO NOTHING;
 
+-- Admin
+INSERT INTO usuario (correo, nombre_usuario, password_hash, nombre, apellidos)
+VALUES ('admin@app.com', 'admin',
+        crypt('password123', gen_salt('bf')),
+        'Admin', 'Sistema')
+ON CONFLICT (correo) DO NOTHING;
+
 -- 5. Crear equipos de prueba
 INSERT INTO equipo (nombre, descripcion, elo, id_categoria)
 SELECT 'Equipo Parchís A', 'Equipo de prueba A', 1200, c.id_categoria
