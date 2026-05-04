@@ -1,9 +1,9 @@
 
 ========================================
-2026-05-03T18:43:05.650Z
+2026-05-04T12:22:15.110Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/1
+ENDPOINT: partidos/15
 
 REQUEST PAYLOAD:
 {
@@ -14,10 +14,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "1",
+    "id_partido": "15",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-04-20T18:41:16.158Z",
+    "fecha_hora": "2026-04-20T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -25,10 +25,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:05.730Z
+2026-05-04T12:22:15.159Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/1/puntuaciones
+ENDPOINT: partidos/15/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -57,7 +57,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 1,
+    "id_partido": 15,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -135,10 +135,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:05.743Z
+2026-05-04T12:22:15.172Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/2
+ENDPOINT: partidos/16
 
 REQUEST PAYLOAD:
 {
@@ -149,10 +149,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "2",
+    "id_partido": "16",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-04-20T18:41:16.158Z",
+    "fecha_hora": "2026-04-20T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -160,10 +160,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:05.789Z
+2026-05-04T12:22:15.209Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/2/puntuaciones
+ENDPOINT: partidos/16/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -192,7 +192,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 2,
+    "id_partido": 16,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -270,10 +270,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:05.807Z
+2026-05-04T12:22:15.220Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/3
+ENDPOINT: partidos/17
 
 REQUEST PAYLOAD:
 {
@@ -284,10 +284,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "3",
+    "id_partido": "17",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-04-20T18:41:16.158Z",
+    "fecha_hora": "2026-04-20T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -295,10 +295,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:05.847Z
+2026-05-04T12:22:15.251Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/3/puntuaciones
+ENDPOINT: partidos/17/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -327,7 +327,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 3,
+    "id_partido": 17,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -405,10 +405,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:05.860Z
+2026-05-04T12:22:15.264Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/4
+ENDPOINT: partidos/18
 
 REQUEST PAYLOAD:
 {
@@ -419,10 +419,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "4",
+    "id_partido": "18",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-04-28T18:41:16.158Z",
+    "fecha_hora": "2026-04-28T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -430,10 +430,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:05.905Z
+2026-05-04T12:22:15.301Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/4/puntuaciones
+ENDPOINT: partidos/18/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -462,7 +462,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 4,
+    "id_partido": 18,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -540,10 +540,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:05.918Z
+2026-05-04T12:22:15.312Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/5
+ENDPOINT: partidos/19
 
 REQUEST PAYLOAD:
 {
@@ -554,10 +554,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "5",
+    "id_partido": "19",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-04-28T18:41:16.158Z",
+    "fecha_hora": "2026-04-28T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -565,10 +565,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:05.969Z
+2026-05-04T12:22:15.352Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/5/puntuaciones
+ENDPOINT: partidos/19/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -597,7 +597,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 5,
+    "id_partido": 19,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -675,10 +675,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:05.982Z
+2026-05-04T12:22:15.364Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/6
+ENDPOINT: partidos/20
 
 REQUEST PAYLOAD:
 {
@@ -689,10 +689,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "6",
+    "id_partido": "20",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-04-28T18:41:16.158Z",
+    "fecha_hora": "2026-04-28T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -700,10 +700,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.026Z
+2026-05-04T12:22:15.401Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/6/puntuaciones
+ENDPOINT: partidos/20/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -732,7 +732,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 6,
+    "id_partido": 20,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -810,10 +810,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.040Z
+2026-05-04T12:22:15.412Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/7
+ENDPOINT: partidos/21
 
 REQUEST PAYLOAD:
 {
@@ -824,10 +824,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "7",
+    "id_partido": "21",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-05-06T18:41:16.158Z",
+    "fecha_hora": "2026-05-06T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -835,10 +835,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.084Z
+2026-05-04T12:22:15.447Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/7/puntuaciones
+ENDPOINT: partidos/21/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -867,7 +867,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 7,
+    "id_partido": 21,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -945,10 +945,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.098Z
+2026-05-04T12:22:15.459Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/8
+ENDPOINT: partidos/22
 
 REQUEST PAYLOAD:
 {
@@ -959,10 +959,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "8",
+    "id_partido": "22",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-05-06T18:41:16.158Z",
+    "fecha_hora": "2026-05-06T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -970,10 +970,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.144Z
+2026-05-04T12:22:15.489Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/8/puntuaciones
+ENDPOINT: partidos/22/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -1002,7 +1002,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 8,
+    "id_partido": 22,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -1080,10 +1080,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.160Z
+2026-05-04T12:22:15.500Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/9
+ENDPOINT: partidos/23
 
 REQUEST PAYLOAD:
 {
@@ -1094,10 +1094,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "9",
+    "id_partido": "23",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-05-06T18:41:16.158Z",
+    "fecha_hora": "2026-05-06T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -1105,10 +1105,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.201Z
+2026-05-04T12:22:15.538Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/9/puntuaciones
+ENDPOINT: partidos/23/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -1137,7 +1137,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 9,
+    "id_partido": 23,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -1215,10 +1215,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.214Z
+2026-05-04T12:22:15.550Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/10
+ENDPOINT: partidos/24
 
 REQUEST PAYLOAD:
 {
@@ -1229,10 +1229,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "10",
+    "id_partido": "24",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-05-14T18:41:16.158Z",
+    "fecha_hora": "2026-05-14T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -1240,10 +1240,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.252Z
+2026-05-04T12:22:15.583Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/10/puntuaciones
+ENDPOINT: partidos/24/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -1272,7 +1272,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 10,
+    "id_partido": 24,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -1299,17 +1299,6 @@ RESPONSE:
     "id_arbitro_torneo": 1,
     "elo_aplicado": true,
     "elo_actualizado": [
-      {
-        "id_equipo": "1",
-        "equipo_nombre": "Equipo Parchís A",
-        "elo_anterior": 1247,
-        "elo_nuevo": 1262,
-        "delta": 15,
-        "posicion_esperada": 2.37,
-        "posicion_real": 1,
-        "score_esperado": 0.5449,
-        "score_real": 1
-      },
       {
         "id_equipo": "3",
         "equipo_nombre": "Equipo Parchís C",
@@ -1342,6 +1331,17 @@ RESPONSE:
         "posicion_real": 3,
         "score_esperado": 0.5048,
         "score_real": 0.3333
+      },
+      {
+        "id_equipo": "1",
+        "equipo_nombre": "Equipo Parchís A",
+        "elo_anterior": 1247,
+        "elo_nuevo": 1262,
+        "delta": 15,
+        "posicion_esperada": 2.37,
+        "posicion_real": 1,
+        "score_esperado": 0.5449,
+        "score_real": 1
       }
     ],
     "avance_ronda": null
@@ -1350,10 +1350,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.266Z
+2026-05-04T12:22:15.595Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/11
+ENDPOINT: partidos/25
 
 REQUEST PAYLOAD:
 {
@@ -1364,10 +1364,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "11",
+    "id_partido": "25",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-05-14T18:41:16.158Z",
+    "fecha_hora": "2026-05-14T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -1375,10 +1375,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.303Z
+2026-05-04T12:22:15.630Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/11/puntuaciones
+ENDPOINT: partidos/25/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -1407,7 +1407,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 11,
+    "id_partido": 25,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -1434,17 +1434,6 @@ RESPONSE:
     "id_arbitro_torneo": 1,
     "elo_aplicado": true,
     "elo_actualizado": [
-      {
-        "id_equipo": "2",
-        "equipo_nombre": "Equipo Parchís B",
-        "elo_anterior": 1216,
-        "elo_nuevo": 1231,
-        "delta": 15,
-        "posicion_esperada": 2.38,
-        "posicion_real": 1,
-        "score_esperado": 0.5392,
-        "score_real": 1
-      },
       {
         "id_equipo": "4",
         "equipo_nombre": "Equipo Parchís D",
@@ -1477,6 +1466,17 @@ RESPONSE:
         "posicion_real": 3,
         "score_esperado": 0.501,
         "score_real": 0.3333
+      },
+      {
+        "id_equipo": "2",
+        "equipo_nombre": "Equipo Parchís B",
+        "elo_anterior": 1216,
+        "elo_nuevo": 1231,
+        "delta": 15,
+        "posicion_esperada": 2.38,
+        "posicion_real": 1,
+        "score_esperado": 0.5392,
+        "score_real": 1
       }
     ],
     "avance_ronda": null
@@ -1485,10 +1485,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.315Z
+2026-05-04T12:22:15.641Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/12
+ENDPOINT: partidos/26
 
 REQUEST PAYLOAD:
 {
@@ -1499,10 +1499,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "12",
+    "id_partido": "26",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-05-14T18:41:16.158Z",
+    "fecha_hora": "2026-05-14T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -1510,10 +1510,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.352Z
+2026-05-04T12:22:15.674Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/12/puntuaciones
+ENDPOINT: partidos/26/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -1542,7 +1542,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 12,
+    "id_partido": 26,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -1569,6 +1569,17 @@ RESPONSE:
     "id_arbitro_torneo": 1,
     "elo_aplicado": true,
     "elo_actualizado": [
+      {
+        "id_equipo": "12",
+        "equipo_nombre": "Equipo Parchís L",
+        "elo_anterior": 1154,
+        "elo_nuevo": 1140,
+        "delta": -14,
+        "posicion_esperada": 2.66,
+        "posicion_real": 4,
+        "score_esperado": 0.4475,
+        "score_real": 0
+      },
       {
         "id_equipo": "6",
         "equipo_nombre": "Equipo Parchís F",
@@ -1601,17 +1612,6 @@ RESPONSE:
         "posicion_real": 1,
         "score_esperado": 0.543,
         "score_real": 1
-      },
-      {
-        "id_equipo": "12",
-        "equipo_nombre": "Equipo Parchís L",
-        "elo_anterior": 1154,
-        "elo_nuevo": 1140,
-        "delta": -14,
-        "posicion_esperada": 2.66,
-        "posicion_real": 4,
-        "score_esperado": 0.4475,
-        "score_real": 0
       }
     ],
     "avance_ronda": null
@@ -1620,10 +1620,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.365Z
+2026-05-04T12:22:15.691Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/13
+ENDPOINT: partidos/27
 
 REQUEST PAYLOAD:
 {
@@ -1634,10 +1634,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "13",
+    "id_partido": "27",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-05-22T18:41:16.158Z",
+    "fecha_hora": "2026-05-22T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -1645,10 +1645,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.405Z
+2026-05-04T12:22:15.722Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/13/puntuaciones
+ENDPOINT: partidos/27/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -1677,7 +1677,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 13,
+    "id_partido": 27,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -1705,17 +1705,6 @@ RESPONSE:
     "elo_aplicado": true,
     "elo_actualizado": [
       {
-        "id_equipo": "1",
-        "equipo_nombre": "Equipo Parchís A",
-        "elo_anterior": 1262,
-        "elo_nuevo": 1275,
-        "delta": 13,
-        "posicion_esperada": 2.19,
-        "posicion_real": 1,
-        "score_esperado": 0.6047,
-        "score_real": 1
-      },
-      {
         "id_equipo": "3",
         "equipo_nombre": "Equipo Parchís C",
         "elo_anterior": 1231,
@@ -1725,6 +1714,17 @@ RESPONSE:
         "posicion_real": 2,
         "score_esperado": 0.547,
         "score_real": 0.6667
+      },
+      {
+        "id_equipo": "1",
+        "equipo_nombre": "Equipo Parchís A",
+        "elo_anterior": 1262,
+        "elo_nuevo": 1275,
+        "delta": 13,
+        "posicion_esperada": 2.19,
+        "posicion_real": 1,
+        "score_esperado": 0.6047,
+        "score_real": 1
       },
       {
         "id_equipo": "8",
@@ -1755,10 +1755,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.417Z
+2026-05-04T12:22:15.733Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/14
+ENDPOINT: partidos/28
 
 REQUEST PAYLOAD:
 {
@@ -1769,10 +1769,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "14",
+    "id_partido": "28",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-05-22T18:41:16.158Z",
+    "fecha_hora": "2026-05-22T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -1780,10 +1780,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.456Z
+2026-05-04T12:22:15.764Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/14/puntuaciones
+ENDPOINT: partidos/28/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -1812,7 +1812,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 14,
+    "id_partido": 28,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -1851,17 +1851,6 @@ RESPONSE:
         "score_real": 0.3333
       },
       {
-        "id_equipo": "2",
-        "equipo_nombre": "Equipo Parchís B",
-        "elo_anterior": 1231,
-        "elo_nuevo": 1245,
-        "delta": 14,
-        "posicion_esperada": 2.35,
-        "posicion_real": 1,
-        "score_esperado": 0.5486,
-        "score_real": 1
-      },
-      {
         "id_equipo": "4",
         "equipo_nombre": "Equipo Parchís D",
         "elo_anterior": 1201,
@@ -1871,6 +1860,17 @@ RESPONSE:
         "posicion_real": 2,
         "score_esperado": 0.4914,
         "score_real": 0.6667
+      },
+      {
+        "id_equipo": "2",
+        "equipo_nombre": "Equipo Parchís B",
+        "elo_anterior": 1231,
+        "elo_nuevo": 1245,
+        "delta": 14,
+        "posicion_esperada": 2.35,
+        "posicion_real": 1,
+        "score_esperado": 0.5486,
+        "score_real": 1
       },
       {
         "id_equipo": "11",
@@ -1890,10 +1890,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.469Z
+2026-05-04T12:22:15.776Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/15
+ENDPOINT: partidos/29
 
 REQUEST PAYLOAD:
 {
@@ -1904,10 +1904,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "15",
+    "id_partido": "29",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-05-22T18:41:16.158Z",
+    "fecha_hora": "2026-05-22T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -1915,10 +1915,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.522Z
+2026-05-04T12:22:15.808Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/15/puntuaciones
+ENDPOINT: partidos/29/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -1947,7 +1947,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 15,
+    "id_partido": 29,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -2025,10 +2025,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.539Z
+2026-05-04T12:22:15.820Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/16
+ENDPOINT: partidos/30
 
 REQUEST PAYLOAD:
 {
@@ -2039,10 +2039,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "16",
+    "id_partido": "30",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-05-30T18:41:16.158Z",
+    "fecha_hora": "2026-05-30T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -2050,10 +2050,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.587Z
+2026-05-04T12:22:15.853Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/16/puntuaciones
+ENDPOINT: partidos/30/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -2082,7 +2082,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 16,
+    "id_partido": 30,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -2160,10 +2160,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.599Z
+2026-05-04T12:22:15.865Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/17
+ENDPOINT: partidos/31
 
 REQUEST PAYLOAD:
 {
@@ -2174,10 +2174,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "17",
+    "id_partido": "31",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-05-30T18:41:16.158Z",
+    "fecha_hora": "2026-05-30T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -2185,10 +2185,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.638Z
+2026-05-04T12:22:15.899Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/17/puntuaciones
+ENDPOINT: partidos/31/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -2217,7 +2217,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 17,
+    "id_partido": 31,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -2295,10 +2295,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.650Z
+2026-05-04T12:22:15.910Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/18
+ENDPOINT: partidos/32
 
 REQUEST PAYLOAD:
 {
@@ -2309,10 +2309,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "18",
+    "id_partido": "32",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-05-30T18:41:16.158Z",
+    "fecha_hora": "2026-05-30T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -2320,10 +2320,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.691Z
+2026-05-04T12:22:15.944Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/18/puntuaciones
+ENDPOINT: partidos/32/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -2352,7 +2352,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 18,
+    "id_partido": 32,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -2430,10 +2430,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.703Z
+2026-05-04T12:22:15.956Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/19
+ENDPOINT: partidos/33
 
 REQUEST PAYLOAD:
 {
@@ -2444,10 +2444,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "19",
+    "id_partido": "33",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-06-07T18:41:16.158Z",
+    "fecha_hora": "2026-06-07T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -2455,10 +2455,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.747Z
+2026-05-04T12:22:15.990Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/19/puntuaciones
+ENDPOINT: partidos/33/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -2487,7 +2487,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 19,
+    "id_partido": 33,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -2514,6 +2514,17 @@ RESPONSE:
     "id_arbitro_torneo": 1,
     "elo_aplicado": true,
     "elo_actualizado": [
+      {
+        "id_equipo": "6",
+        "equipo_nombre": "Equipo Parchís F",
+        "elo_anterior": 1208,
+        "elo_nuevo": 1204,
+        "delta": -4,
+        "posicion_esperada": 2.62,
+        "posicion_real": 3,
+        "score_esperado": 0.4594,
+        "score_real": 0.3333
+      },
       {
         "id_equipo": "4",
         "equipo_nombre": "Equipo Parchís D",
@@ -2546,17 +2557,6 @@ RESPONSE:
         "posicion_real": 4,
         "score_esperado": 0.4632,
         "score_real": 0
-      },
-      {
-        "id_equipo": "6",
-        "equipo_nombre": "Equipo Parchís F",
-        "elo_anterior": 1208,
-        "elo_nuevo": 1204,
-        "delta": -4,
-        "posicion_esperada": 2.62,
-        "posicion_real": 3,
-        "score_esperado": 0.4594,
-        "score_real": 0.3333
       }
     ],
     "avance_ronda": null
@@ -2565,10 +2565,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.759Z
+2026-05-04T12:22:16.001Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/20
+ENDPOINT: partidos/34
 
 REQUEST PAYLOAD:
 {
@@ -2579,10 +2579,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "20",
+    "id_partido": "34",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-06-07T18:41:16.158Z",
+    "fecha_hora": "2026-06-07T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -2590,10 +2590,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.803Z
+2026-05-04T12:22:16.036Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/20/puntuaciones
+ENDPOINT: partidos/34/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -2622,7 +2622,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 20,
+    "id_partido": 34,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -2650,28 +2650,6 @@ RESPONSE:
     "elo_aplicado": true,
     "elo_actualizado": [
       {
-        "id_equipo": "3",
-        "equipo_nombre": "Equipo Parchís C",
-        "elo_anterior": 1249,
-        "elo_nuevo": 1253,
-        "delta": 4,
-        "posicion_esperada": 2.4,
-        "posicion_real": 2,
-        "score_esperado": 0.5332,
-        "score_real": 0.6667
-      },
-      {
-        "id_equipo": "8",
-        "equipo_nombre": "Equipo Parchís H",
-        "elo_anterior": 1182,
-        "elo_nuevo": 1169,
-        "delta": -13,
-        "posicion_esperada": 2.78,
-        "posicion_real": 4,
-        "score_esperado": 0.4062,
-        "score_real": 0
-      },
-      {
         "id_equipo": "5",
         "equipo_nombre": "Equipo Parchís E",
         "elo_anterior": 1237,
@@ -2692,6 +2670,28 @@ RESPONSE:
         "posicion_real": 1,
         "score_esperado": 0.5503,
         "score_real": 1
+      },
+      {
+        "id_equipo": "3",
+        "equipo_nombre": "Equipo Parchís C",
+        "elo_anterior": 1249,
+        "elo_nuevo": 1253,
+        "delta": 4,
+        "posicion_esperada": 2.4,
+        "posicion_real": 2,
+        "score_esperado": 0.5332,
+        "score_real": 0.6667
+      },
+      {
+        "id_equipo": "8",
+        "equipo_nombre": "Equipo Parchís H",
+        "elo_anterior": 1182,
+        "elo_nuevo": 1169,
+        "delta": -13,
+        "posicion_esperada": 2.78,
+        "posicion_real": 4,
+        "score_esperado": 0.4062,
+        "score_real": 0
       }
     ],
     "avance_ronda": null
@@ -2700,10 +2700,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.815Z
+2026-05-04T12:22:16.048Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/21
+ENDPOINT: partidos/35
 
 REQUEST PAYLOAD:
 {
@@ -2714,10 +2714,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "21",
+    "id_partido": "35",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-06-07T18:41:16.158Z",
+    "fecha_hora": "2026-06-07T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -2725,10 +2725,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.858Z
+2026-05-04T12:22:16.082Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/21/puntuaciones
+ENDPOINT: partidos/35/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -2757,7 +2757,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 21,
+    "id_partido": 35,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -2784,17 +2784,6 @@ RESPONSE:
     "id_arbitro_torneo": 1,
     "elo_aplicado": true,
     "elo_actualizado": [
-      {
-        "id_equipo": "11",
-        "equipo_nombre": "Equipo Parchís K",
-        "elo_anterior": 1141,
-        "elo_nuevo": 1136,
-        "delta": -5,
-        "posicion_esperada": 2.5,
-        "posicion_real": 3,
-        "score_esperado": 0.5015,
-        "score_real": 0.3333
-      },
       {
         "id_equipo": "10",
         "equipo_nombre": "Equipo Parchís J",
@@ -2827,6 +2816,17 @@ RESPONSE:
         "posicion_real": 1,
         "score_esperado": 0.5587,
         "score_real": 1
+      },
+      {
+        "id_equipo": "11",
+        "equipo_nombre": "Equipo Parchís K",
+        "elo_anterior": 1141,
+        "elo_nuevo": 1136,
+        "delta": -5,
+        "posicion_esperada": 2.5,
+        "posicion_real": 3,
+        "score_esperado": 0.5015,
+        "score_real": 0.3333
       }
     ],
     "avance_ronda": null
@@ -2835,10 +2835,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.872Z
+2026-05-04T12:22:16.094Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/22
+ENDPOINT: partidos/36
 
 REQUEST PAYLOAD:
 {
@@ -2849,10 +2849,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "22",
+    "id_partido": "36",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-06-15T18:41:16.158Z",
+    "fecha_hora": "2026-06-15T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -2860,10 +2860,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.918Z
+2026-05-04T12:22:16.126Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/22/puntuaciones
+ENDPOINT: partidos/36/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -2892,7 +2892,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 22,
+    "id_partido": 36,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -2920,17 +2920,6 @@ RESPONSE:
     "elo_aplicado": true,
     "elo_actualizado": [
       {
-        "id_equipo": "1",
-        "equipo_nombre": "Equipo Parchís A",
-        "elo_anterior": 1300,
-        "elo_nuevo": 1311,
-        "delta": 11,
-        "posicion_esperada": 2.03,
-        "posicion_real": 1,
-        "score_esperado": 0.6582,
-        "score_real": 1
-      },
-      {
         "id_equipo": "6",
         "equipo_nombre": "Equipo Parchís F",
         "elo_anterior": 1204,
@@ -2940,6 +2929,17 @@ RESPONSE:
         "posicion_real": 2,
         "score_esperado": 0.4809,
         "score_real": 0.6667
+      },
+      {
+        "id_equipo": "1",
+        "equipo_nombre": "Equipo Parchís A",
+        "elo_anterior": 1300,
+        "elo_nuevo": 1311,
+        "delta": 11,
+        "posicion_esperada": 2.03,
+        "posicion_real": 1,
+        "score_esperado": 0.6582,
+        "score_real": 1
       },
       {
         "id_equipo": "8",
@@ -2970,10 +2970,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.931Z
+2026-05-04T12:22:16.137Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/23
+ENDPOINT: partidos/37
 
 REQUEST PAYLOAD:
 {
@@ -2984,10 +2984,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "23",
+    "id_partido": "37",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-06-15T18:41:16.158Z",
+    "fecha_hora": "2026-06-15T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -2995,10 +2995,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.974Z
+2026-05-04T12:22:16.177Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/23/puntuaciones
+ENDPOINT: partidos/37/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -3027,7 +3027,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 23,
+    "id_partido": 37,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -3066,17 +3066,6 @@ RESPONSE:
         "score_real": 0.3333
       },
       {
-        "id_equipo": "3",
-        "equipo_nombre": "Equipo Parchís C",
-        "elo_anterior": 1253,
-        "elo_nuevo": 1256,
-        "delta": 3,
-        "posicion_esperada": 2.24,
-        "posicion_real": 2,
-        "score_esperado": 0.5871,
-        "score_real": 0.6667
-      },
-      {
         "id_equipo": "2",
         "equipo_nombre": "Equipo Parchís B",
         "elo_anterior": 1272,
@@ -3086,6 +3075,17 @@ RESPONSE:
         "posicion_real": 1,
         "score_esperado": 0.6214,
         "score_real": 1
+      },
+      {
+        "id_equipo": "3",
+        "equipo_nombre": "Equipo Parchís C",
+        "elo_anterior": 1253,
+        "elo_nuevo": 1256,
+        "delta": 3,
+        "posicion_esperada": 2.24,
+        "posicion_real": 2,
+        "score_esperado": 0.5871,
+        "score_real": 0.6667
       },
       {
         "id_equipo": "12",
@@ -3105,10 +3105,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:06.985Z
+2026-05-04T12:22:16.188Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/24
+ENDPOINT: partidos/38
 
 REQUEST PAYLOAD:
 {
@@ -3119,10 +3119,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "24",
+    "id_partido": "38",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-06-15T18:41:16.158Z",
+    "fecha_hora": "2026-06-15T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -3130,10 +3130,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.027Z
+2026-05-04T12:22:16.231Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/24/puntuaciones
+ENDPOINT: partidos/38/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -3162,7 +3162,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 24,
+    "id_partido": 38,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -3212,17 +3212,6 @@ RESPONSE:
         "score_real": 0.6667
       },
       {
-        "id_equipo": "11",
-        "equipo_nombre": "Equipo Parchís K",
-        "elo_anterior": 1136,
-        "elo_nuevo": 1123,
-        "delta": -13,
-        "posicion_esperada": 2.75,
-        "posicion_real": 4,
-        "score_esperado": 0.4155,
-        "score_real": 0
-      },
-      {
         "id_equipo": "10",
         "equipo_nombre": "Equipo Parchís J",
         "elo_anterior": 1139,
@@ -3232,6 +3221,17 @@ RESPONSE:
         "posicion_real": 3,
         "score_esperado": 0.4211,
         "score_real": 0.3333
+      },
+      {
+        "id_equipo": "11",
+        "equipo_nombre": "Equipo Parchís K",
+        "elo_anterior": 1136,
+        "elo_nuevo": 1123,
+        "delta": -13,
+        "posicion_esperada": 2.75,
+        "posicion_real": 4,
+        "score_esperado": 0.4155,
+        "score_real": 0
       }
     ],
     "avance_ronda": null
@@ -3240,10 +3240,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.040Z
+2026-05-04T12:22:16.244Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/25
+ENDPOINT: partidos/39
 
 REQUEST PAYLOAD:
 {
@@ -3254,10 +3254,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "25",
+    "id_partido": "39",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-06-23T18:41:16.158Z",
+    "fecha_hora": "2026-06-23T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -3265,10 +3265,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.091Z
+2026-05-04T12:22:16.365Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/25/puntuaciones
+ENDPOINT: partidos/39/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -3297,7 +3297,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 25,
+    "id_partido": 39,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -3324,6 +3324,17 @@ RESPONSE:
     "id_arbitro_torneo": 1,
     "elo_aplicado": true,
     "elo_actualizado": [
+      {
+        "id_equipo": "10",
+        "equipo_nombre": "Equipo Parchís J",
+        "elo_anterior": 1136,
+        "elo_nuevo": 1135,
+        "delta": -1,
+        "posicion_esperada": 2.87,
+        "posicion_real": 3,
+        "score_esperado": 0.377,
+        "score_real": 0.3333
+      },
       {
         "id_equipo": "1",
         "equipo_nombre": "Equipo Parchís A",
@@ -3356,17 +3367,6 @@ RESPONSE:
         "posicion_real": 4,
         "score_esperado": 0.3011,
         "score_real": 0
-      },
-      {
-        "id_equipo": "10",
-        "equipo_nombre": "Equipo Parchís J",
-        "elo_anterior": 1136,
-        "elo_nuevo": 1135,
-        "delta": -1,
-        "posicion_esperada": 2.87,
-        "posicion_real": 3,
-        "score_esperado": 0.377,
-        "score_real": 0.3333
       }
     ],
     "avance_ronda": null
@@ -3375,10 +3375,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.104Z
+2026-05-04T12:22:16.380Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/26
+ENDPOINT: partidos/40
 
 REQUEST PAYLOAD:
 {
@@ -3389,10 +3389,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "26",
+    "id_partido": "40",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-06-23T18:41:16.158Z",
+    "fecha_hora": "2026-06-23T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -3400,10 +3400,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.149Z
+2026-05-04T12:22:16.419Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/26/puntuaciones
+ENDPOINT: partidos/40/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -3432,7 +3432,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 26,
+    "id_partido": 40,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -3459,6 +3459,17 @@ RESPONSE:
     "id_arbitro_torneo": 1,
     "elo_aplicado": true,
     "elo_actualizado": [
+      {
+        "id_equipo": "11",
+        "equipo_nombre": "Equipo Parchís K",
+        "elo_anterior": 1123,
+        "elo_nuevo": 1111,
+        "delta": -12,
+        "posicion_esperada": 2.9,
+        "posicion_real": 4,
+        "score_esperado": 0.3665,
+        "score_real": 0
+      },
       {
         "id_equipo": "6",
         "equipo_nombre": "Equipo Parchís F",
@@ -3491,17 +3502,6 @@ RESPONSE:
         "posicion_real": 1,
         "score_esperado": 0.6141,
         "score_real": 1
-      },
-      {
-        "id_equipo": "11",
-        "equipo_nombre": "Equipo Parchís K",
-        "elo_anterior": 1123,
-        "elo_nuevo": 1111,
-        "delta": -12,
-        "posicion_esperada": 2.9,
-        "posicion_real": 4,
-        "score_esperado": 0.3665,
-        "score_real": 0
       }
     ],
     "avance_ronda": null
@@ -3510,10 +3510,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.160Z
+2026-05-04T12:22:16.431Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/27
+ENDPOINT: partidos/41
 
 REQUEST PAYLOAD:
 {
@@ -3524,10 +3524,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "27",
+    "id_partido": "41",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-06-23T18:41:16.158Z",
+    "fecha_hora": "2026-06-23T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -3535,10 +3535,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.202Z
+2026-05-04T12:22:16.470Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/27/puntuaciones
+ENDPOINT: partidos/41/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -3567,7 +3567,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 27,
+    "id_partido": 41,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -3645,10 +3645,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.215Z
+2026-05-04T12:22:16.483Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/28
+ENDPOINT: partidos/42
 
 REQUEST PAYLOAD:
 {
@@ -3659,10 +3659,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "28",
+    "id_partido": "42",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-07-01T18:41:16.158Z",
+    "fecha_hora": "2026-07-01T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -3670,10 +3670,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.257Z
+2026-05-04T12:22:16.520Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/28/puntuaciones
+ENDPOINT: partidos/42/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -3702,7 +3702,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 28,
+    "id_partido": 42,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -3741,17 +3741,6 @@ RESPONSE:
         "score_real": 1
       },
       {
-        "id_equipo": "3",
-        "equipo_nombre": "Equipo Parchís C",
-        "elo_anterior": 1268,
-        "elo_nuevo": 1271,
-        "delta": 3,
-        "posicion_esperada": 2.32,
-        "posicion_real": 2,
-        "score_esperado": 0.5607,
-        "score_real": 0.6667
-      },
-      {
         "id_equipo": "11",
         "equipo_nombre": "Equipo Parchís K",
         "elo_anterior": 1111,
@@ -3761,6 +3750,17 @@ RESPONSE:
         "posicion_real": 4,
         "score_esperado": 0.2819,
         "score_real": 0
+      },
+      {
+        "id_equipo": "3",
+        "equipo_nombre": "Equipo Parchís C",
+        "elo_anterior": 1268,
+        "elo_nuevo": 1271,
+        "delta": 3,
+        "posicion_esperada": 2.32,
+        "posicion_real": 2,
+        "score_esperado": 0.5607,
+        "score_real": 0.6667
       },
       {
         "id_equipo": "5",
@@ -3780,10 +3780,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.269Z
+2026-05-04T12:22:16.530Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/29
+ENDPOINT: partidos/43
 
 REQUEST PAYLOAD:
 {
@@ -3794,10 +3794,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "29",
+    "id_partido": "43",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-07-01T18:41:16.158Z",
+    "fecha_hora": "2026-07-01T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -3805,10 +3805,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.305Z
+2026-05-04T12:22:16.561Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/29/puntuaciones
+ENDPOINT: partidos/43/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -3837,7 +3837,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 29,
+    "id_partido": 43,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -3865,17 +3865,6 @@ RESPONSE:
     "elo_aplicado": true,
     "elo_actualizado": [
       {
-        "id_equipo": "2",
-        "equipo_nombre": "Equipo Parchís B",
-        "elo_anterior": 1285,
-        "elo_nuevo": 1296,
-        "delta": 11,
-        "posicion_esperada": 2.03,
-        "posicion_real": 1,
-        "score_esperado": 0.6576,
-        "score_real": 1
-      },
-      {
         "id_equipo": "10",
         "equipo_nombre": "Equipo Parchís J",
         "elo_anterior": 1135,
@@ -3885,6 +3874,17 @@ RESPONSE:
         "posicion_real": 4,
         "score_esperado": 0.3815,
         "score_real": 0
+      },
+      {
+        "id_equipo": "2",
+        "equipo_nombre": "Equipo Parchís B",
+        "elo_anterior": 1285,
+        "elo_nuevo": 1296,
+        "delta": 11,
+        "posicion_esperada": 2.03,
+        "posicion_real": 1,
+        "score_esperado": 0.6576,
+        "score_real": 1
       },
       {
         "id_equipo": "6",
@@ -3915,10 +3915,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.316Z
+2026-05-04T12:22:16.572Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/30
+ENDPOINT: partidos/44
 
 REQUEST PAYLOAD:
 {
@@ -3929,10 +3929,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "30",
+    "id_partido": "44",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-07-01T18:41:16.158Z",
+    "fecha_hora": "2026-07-01T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -3940,10 +3940,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.352Z
+2026-05-04T12:22:16.603Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/30/puntuaciones
+ENDPOINT: partidos/44/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -3972,7 +3972,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 30,
+    "id_partido": 44,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -4050,10 +4050,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.365Z
+2026-05-04T12:22:16.615Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/31
+ENDPOINT: partidos/45
 
 REQUEST PAYLOAD:
 {
@@ -4064,10 +4064,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "31",
+    "id_partido": "45",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-07-09T18:41:16.158Z",
+    "fecha_hora": "2026-07-09T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -4075,10 +4075,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.405Z
+2026-05-04T12:22:16.649Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/31/puntuaciones
+ENDPOINT: partidos/45/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -4107,7 +4107,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 31,
+    "id_partido": 45,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -4185,10 +4185,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.418Z
+2026-05-04T12:22:16.659Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/32
+ENDPOINT: partidos/46
 
 REQUEST PAYLOAD:
 {
@@ -4199,10 +4199,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "32",
+    "id_partido": "46",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-07-09T18:41:16.158Z",
+    "fecha_hora": "2026-07-09T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -4210,10 +4210,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.466Z
+2026-05-04T12:22:16.691Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/32/puntuaciones
+ENDPOINT: partidos/46/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -4242,7 +4242,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 32,
+    "id_partido": 46,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -4320,10 +4320,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.478Z
+2026-05-04T12:22:16.702Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/33
+ENDPOINT: partidos/47
 
 REQUEST PAYLOAD:
 {
@@ -4334,10 +4334,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "33",
+    "id_partido": "47",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-07-09T18:41:16.158Z",
+    "fecha_hora": "2026-07-09T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -4345,10 +4345,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.516Z
+2026-05-04T12:22:16.734Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/33/puntuaciones
+ENDPOINT: partidos/47/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -4377,7 +4377,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 33,
+    "id_partido": 47,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -4405,17 +4405,6 @@ RESPONSE:
     "elo_aplicado": true,
     "elo_actualizado": [
       {
-        "id_equipo": "3",
-        "equipo_nombre": "Equipo Parchís C",
-        "elo_anterior": 1271,
-        "elo_nuevo": 1281,
-        "delta": 10,
-        "posicion_esperada": 1.92,
-        "posicion_real": 1,
-        "score_esperado": 0.6937,
-        "score_real": 1
-      },
-      {
         "id_equipo": "11",
         "equipo_nombre": "Equipo Parchís K",
         "elo_anterior": 1102,
@@ -4425,6 +4414,17 @@ RESPONSE:
         "posicion_real": 4,
         "score_esperado": 0.3871,
         "score_real": 0
+      },
+      {
+        "id_equipo": "3",
+        "equipo_nombre": "Equipo Parchís C",
+        "elo_anterior": 1271,
+        "elo_nuevo": 1281,
+        "delta": 10,
+        "posicion_esperada": 1.92,
+        "posicion_real": 1,
+        "score_esperado": 0.6937,
+        "score_real": 1
       },
       {
         "id_equipo": "10",
@@ -4455,10 +4455,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.529Z
+2026-05-04T12:22:16.747Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/34
+ENDPOINT: partidos/48
 
 REQUEST PAYLOAD:
 {
@@ -4469,10 +4469,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "34",
+    "id_partido": "48",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-07-17T18:41:16.158Z",
+    "fecha_hora": "2026-07-17T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -4480,10 +4480,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.570Z
+2026-05-04T12:22:16.778Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/34/puntuaciones
+ENDPOINT: partidos/48/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -4512,7 +4512,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 34,
+    "id_partido": 48,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -4539,17 +4539,6 @@ RESPONSE:
     "id_arbitro_torneo": 1,
     "elo_aplicado": true,
     "elo_actualizado": [
-      {
-        "id_equipo": "1",
-        "equipo_nombre": "Equipo Parchís A",
-        "elo_anterior": 1342,
-        "elo_nuevo": 1349,
-        "delta": 7,
-        "posicion_esperada": 1.69,
-        "posicion_real": 1,
-        "score_esperado": 0.7685,
-        "score_real": 1
-      },
       {
         "id_equipo": "9",
         "equipo_nombre": "Equipo Parchís I",
@@ -4582,6 +4571,17 @@ RESPONSE:
         "posicion_real": 2,
         "score_esperado": 0.4705,
         "score_real": 0.6667
+      },
+      {
+        "id_equipo": "1",
+        "equipo_nombre": "Equipo Parchís A",
+        "elo_anterior": 1342,
+        "elo_nuevo": 1349,
+        "delta": 7,
+        "posicion_esperada": 1.69,
+        "posicion_real": 1,
+        "score_esperado": 0.7685,
+        "score_real": 1
       }
     ],
     "avance_ronda": null
@@ -4590,10 +4590,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.583Z
+2026-05-04T12:22:16.790Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/35
+ENDPOINT: partidos/49
 
 REQUEST PAYLOAD:
 {
@@ -4604,10 +4604,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "35",
+    "id_partido": "49",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-07-17T18:41:16.158Z",
+    "fecha_hora": "2026-07-17T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -4615,10 +4615,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.626Z
+2026-05-04T12:22:16.822Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/35/puntuaciones
+ENDPOINT: partidos/49/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -4647,7 +4647,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 35,
+    "id_partido": 49,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -4675,28 +4675,6 @@ RESPONSE:
     "elo_aplicado": true,
     "elo_actualizado": [
       {
-        "id_equipo": "6",
-        "equipo_nombre": "Equipo Parchís F",
-        "elo_anterior": 1213,
-        "elo_nuevo": 1209,
-        "delta": -4,
-        "posicion_esperada": 2.6,
-        "posicion_real": 3,
-        "score_esperado": 0.4673,
-        "score_real": 0.3333
-      },
-      {
-        "id_equipo": "2",
-        "equipo_nombre": "Equipo Parchís B",
-        "elo_anterior": 1307,
-        "elo_nuevo": 1319,
-        "delta": 12,
-        "posicion_esperada": 2.08,
-        "posicion_real": 1,
-        "score_esperado": 0.6384,
-        "score_real": 1
-      },
-      {
         "id_equipo": "3",
         "equipo_nombre": "Equipo Parchís C",
         "elo_anterior": 1281,
@@ -4717,6 +4695,28 @@ RESPONSE:
         "posicion_real": 4,
         "score_esperado": 0.3023,
         "score_real": 0
+      },
+      {
+        "id_equipo": "6",
+        "equipo_nombre": "Equipo Parchís F",
+        "elo_anterior": 1213,
+        "elo_nuevo": 1209,
+        "delta": -4,
+        "posicion_esperada": 2.6,
+        "posicion_real": 3,
+        "score_esperado": 0.4673,
+        "score_real": 0.3333
+      },
+      {
+        "id_equipo": "2",
+        "equipo_nombre": "Equipo Parchís B",
+        "elo_anterior": 1307,
+        "elo_nuevo": 1319,
+        "delta": 12,
+        "posicion_esperada": 2.08,
+        "posicion_real": 1,
+        "score_esperado": 0.6384,
+        "score_real": 1
       }
     ],
     "avance_ronda": null
@@ -4725,10 +4725,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.639Z
+2026-05-04T12:22:16.833Z
 ========================================
 METHOD: PUT
-ENDPOINT: partidos/36
+ENDPOINT: partidos/50
 
 REQUEST PAYLOAD:
 {
@@ -4739,10 +4739,10 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": "36",
+    "id_partido": "50",
     "id_torneo": "1",
     "torneo_nombre": "Liga Parchís",
-    "fecha_hora": "2026-07-17T18:41:16.158Z",
+    "fecha_hora": "2026-07-17T12:21:14.055Z",
     "lugar": null,
     "estado": "acabado"
   },
@@ -4750,10 +4750,10 @@ RESPONSE:
 }
 
 ========================================
-2026-05-03T18:43:07.688Z
+2026-05-04T12:22:16.863Z
 ========================================
 METHOD: POST
-ENDPOINT: partidos/36/puntuaciones
+ENDPOINT: partidos/50/puntuaciones
 
 REQUEST PAYLOAD:
 {
@@ -4782,7 +4782,7 @@ RESPONSE:
 {
   "ok": true,
   "data": {
-    "id_partido": 36,
+    "id_partido": 50,
     "id_torneo": "1",
     "puntuaciones_actualizadas": [
       {
@@ -4809,6 +4809,17 @@ RESPONSE:
     "id_arbitro_torneo": 1,
     "elo_aplicado": true,
     "elo_actualizado": [
+      {
+        "id_equipo": "7",
+        "equipo_nombre": "Equipo Parchís G",
+        "elo_anterior": 1185,
+        "elo_nuevo": 1180,
+        "delta": -5,
+        "posicion_esperada": 2.51,
+        "posicion_real": 3,
+        "score_esperado": 0.4974,
+        "score_real": 0.3333
+      },
       {
         "id_equipo": "12",
         "equipo_nombre": "Equipo Parchís L",
@@ -4841,17 +4852,6 @@ RESPONSE:
         "posicion_real": 2,
         "score_esperado": 0.5886,
         "score_real": 0.6667
-      },
-      {
-        "id_equipo": "7",
-        "equipo_nombre": "Equipo Parchís G",
-        "elo_anterior": 1185,
-        "elo_nuevo": 1180,
-        "delta": -5,
-        "posicion_esperada": 2.51,
-        "posicion_real": 3,
-        "score_esperado": 0.4974,
-        "score_real": 0.3333
       }
     ],
     "avance_ronda": null
