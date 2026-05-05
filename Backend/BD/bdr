@@ -161,18 +161,24 @@ CREATE TABLE partido (
 	jornada INTEGER,
 	ronda INTEGER,
 	orden_ronda INTEGER,
+	orden_serie INTEGER NOT NULL DEFAULT 0,
 	id_partido_siguiente BIGINT REFERENCES partido(id_partido) ON DELETE SET NULL,
 	ganador_id_participacion_equipo BIGINT REFERENCES participacion_torneo_equipo(id_participacion_equipo) ON DELETE SET NULL,
 	CHECK (estado IN ('planificado', 'en_curso', 'acabado', 'cancelado')),
 	CHECK (jornada IS NULL OR jornada > 0),
 	CHECK (ronda IS NULL OR ronda > 0),
-	CHECK (orden_ronda IS NULL OR orden_ronda > 0)
+	CHECK (orden_ronda IS NULL OR orden_ronda > 0),
+	CHECK (orden_serie >= 0)
 );
 
 -- Evita duplicados en bracket (solo cuando hay ronda)
 CREATE UNIQUE INDEX uq_partido_torneo_ronda_orden
 ON partido (id_torneo, ronda, orden_ronda)
 WHERE ronda IS NOT NULL AND orden_ronda IS NOT NULL;
+
+-- Índice para búsquedas rápidas por serie
+CREATE INDEX idx_partido_serie 
+ON partido (id_torneo, ronda, orden_serie);
 
 CREATE TABLE participacion_partido (
 	id_participacion_partido BIGSERIAL PRIMARY KEY,
@@ -200,3 +206,28 @@ CREATE TABLE historial_elo (
 );
 
 
+CREATE TABLE invitacion (
+    id_invitacion BIGSERIAL PRIMARY KEY,
+    tipo VARCHAR(40) NOT NULL, -- 'arbitro_torneo', 'jugador_equipo', etc.
+    id_usuario_invitado BIGINT NOT NULL REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+    id_usuario_invitador BIGINT NOT NULL REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+    id_torneo BIGINT REFERENCES torneo(id_torneo) ON DELETE CASCADE, -- solo si aplica
+    id_equipo BIGINT REFERENCES equipo(id_equipo) ON DELETE CASCADE, -- solo si aplica
+    estado VARCHAR(20) NOT NULL DEFAULT 'pendiente', -- 'pendiente', 'aceptada', 'rechazada'
+    fecha_envio TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    fecha_respuesta TIMESTAMPTZ,
+    datos JSONB -- para cualquier otro dato extra
+);
+
+
+CREATE TABLE notificacion (
+    id_notificacion BIGSERIAL PRIMARY KEY,
+    id_usuario_destino BIGINT NOT NULL REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+    tipo VARCHAR(40) NOT NULL, -- 'invitacion_arbitro', 'mensaje', 'partido_recordatorio', etc.
+    titulo VARCHAR(140),
+    mensaje TEXT,
+    datos JSONB, -- Para información adicional (ids relacionados, payloads, etc.)
+    leida BOOLEAN NOT NULL DEFAULT FALSE,
+    fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    fecha_leida TIMESTAMPTZ
+);

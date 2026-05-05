@@ -7,6 +7,7 @@ import 'package:front/features/usuarios/data/usuarios_api.dart';
 import 'package:front/features/usuarios/domain/usuario.dart';
 import 'package:front/features/equipos/data/equipos_api.dart';
 import 'package:front/features/equipos/domain/equipo.dart';
+import 'package:front/features/equipos/widgets/equipo_network_avatar.dart';
 import 'package:front/features/categorias/widgets/categoria_network_avatar.dart';
 
 // Platform imports
@@ -24,6 +25,7 @@ import 'equipo_info.dart';
 import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
 import 'mitorneo_info.dart';
+import 'gestion_invitaciones.dart';
 
 class PerfilScreen extends StatefulWidget {
   const PerfilScreen({Key? key}) : super(key: key);
@@ -138,6 +140,14 @@ class _PerfilScreenState extends State<PerfilScreen> {
     );
     // Forzar refresh siempre al volver
     await _loadAll();
+  }
+
+  void _goToGestionInvitaciones() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (ctx) => const GestionInvitacionesScreen(),
+      ),
+    );
   }
 
   Future<void> _pickProfileImage() async {
@@ -322,6 +332,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
                         icon: const Icon(Icons.lock),
                         label: const Text('Cambiar contraseña'),
                       ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: _goToGestionInvitaciones,
+                        icon: const Icon(Icons.mail_outline),
+                        label: const Text('Ver invitaciones'),
+                      ),
                       const SizedBox(height: 32),
                       // Mis torneos
                       Align(
@@ -481,23 +497,11 @@ class _PerfilScreenState extends State<PerfilScreen> {
                                     padding: const EdgeInsets.all(12),
                                     child: Row(
                                       children: [
-                                        if (equipo.idCategoria != null)
-                                          CategoriaNetworkAvatar(
-                                            categoriaId: equipo.idCategoria!,
-                                            baseUrl: ApiConfig.baseUrl,
-                                            size: 36,
-                                          )
-                                        else
-                                          CircleAvatar(
-                                            radius: 18,
-                                            backgroundColor:
-                                                theme.colorScheme.surfaceContainerHighest,
-                                            child: Icon(
-                                              Icons.groups,
-                                              color: theme.colorScheme.primary,
-                                              size: 18,
-                                            ),
-                                          ),
+                                        EquipoNetworkAvatar(
+                                          equipoId: equipo.idEquipo,
+                                          baseUrl: ApiConfig.baseUrl,
+                                          size: 36,
+                                        ),
                                         const SizedBox(width: 10),
                                         Expanded(
                                           child: Column(
@@ -509,7 +513,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                                                 style: theme.textTheme.bodyLarge?.copyWith(
                                                   fontWeight: FontWeight.w600,
                                                 ),
-                                                maxLines: 2,
+                                                maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                               if (equipo.categoriaNombre != null &&

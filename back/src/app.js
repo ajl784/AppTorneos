@@ -16,6 +16,9 @@ const ensureSchemaColumns = async () => {
     await pool.query(
       "ALTER TABLE torneo ADD COLUMN IF NOT EXISTS tipo_generacion_enfrentamientos VARCHAR(30)",
     );
+    await pool.query(
+      "ALTER TABLE torneo ADD COLUMN IF NOT EXISTS id_campeon_participacion BIGINT",
+    );
   } catch (error) {
     console.error("No se pudieron asegurar columnas de esquema:", error);
   }

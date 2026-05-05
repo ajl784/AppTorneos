@@ -1,4 +1,5 @@
 const { pool } = require("../db/pool");
+const notificacionesService = require('./notificaciones.service');
 
 const listParticipaciones = async ({
   limit,
@@ -150,6 +151,125 @@ const deleteParticipacion = async (idParticipacionEquipo) => {
   return Boolean(result.rowCount);
 };
 
+// Elimina una participacion y aplica consecuencias en los partidos del torneo.
+// - Borra las filas de participacion_partido correspondientes
+// - Si un partido queda con 0 participantes: borra el partido
+// - Si un partido queda con 1 participante en torneo de eliminacion: se marca como ganador y
+//   se intenta avanzar la participacion al partido siguiente si existe
+const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
+  const client = await pool.connect();
+  const partidosEliminados = [];
+  const partidosAvanzados = [];
+
+  try {
+    await client.query("BEGIN");
+
+    // Obtener participacion
+    const pRes = await client.query(
+      `SELECT id_participacion_equipo, id_torneo, id_equipo
+       FROM participacion_torneo_equipo
+       WHERE id_participacion_equipo = $1 FOR UPDATE`,
+      [idParticipacionEquipo],
+    );
+
+    if (!pRes.rowCount) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+
+    const { id_torneo: idTorneo } = pRes.rows[0];
+
+    // Obtener tipo de torneo
+    const torneoRes = await client.query(
+      `SELECT tt.nombre AS tipo_torneo
+       FROM torneo t
+       JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
+       WHERE t.id_torneo = $1`,
+      [idTorneo],
+    );
+    const tipoTorneo = torneoRes.rows[0]?.tipo_torneo || null;
+
+    // Buscar partidos que contengan esta participacion
+    const partidosQ = await client.query(
+      `SELECT p.id_partido, p.id_partido_siguiente
+       FROM partido p
+       JOIN participacion_partido pp ON pp.id_partido = p.id_partido
+       WHERE pp.id_participacion_equipo = $1`,
+      [idParticipacionEquipo],
+    );
+
+    for (const row of partidosQ.rows) {
+      const idPartido = Number(row.id_partido);
+      const idPartidoSiguiente = row.id_partido_siguiente;
+
+      // Borrar la participacion en el partido
+      await client.query(
+        `DELETE FROM participacion_partido WHERE id_partido = $1 AND id_participacion_equipo = $2`,
+        [idPartido, idParticipacionEquipo],
+      );
+
+      // Verificar cuantas participaciones quedan
+      const remRes = await client.query(
+        `SELECT id_participacion_equipo FROM participacion_partido WHERE id_partido = $1`,
+        [idPartido],
+      );
+
+      if (!remRes.rowCount) {
+        // Ningun participante -> borrar partido
+        await client.query(`DELETE FROM arbitro_partido WHERE id_partido = $1`, [idPartido]);
+        await client.query(`DELETE FROM partido WHERE id_partido = $1`, [idPartido]);
+        partidosEliminados.push(idPartido);
+        continue;
+      }
+
+      if (remRes.rowCount === 1 && (tipoTorneo || "").toLowerCase().includes("elimin")) {
+        // En torneo de eliminacion, si queda 1 participante, lo marcamos ganador
+        const ganador = Number(remRes.rows[0].id_participacion_equipo);
+        await client.query(
+          `UPDATE partido SET ganador_id_participacion_equipo = $1, estado = 'acabado' WHERE id_partido = $2`,
+          [ganador, idPartido],
+        );
+
+        // Intentar avanzar al partido siguiente si existe
+        if (idPartidoSiguiente) {
+          const exists = await client.query(
+            `SELECT 1 FROM participacion_partido WHERE id_partido = $1 AND id_participacion_equipo = $2`,
+            [idPartidoSiguiente, ganador],
+          );
+          if (!exists.rowCount) {
+            await client.query(
+              `INSERT INTO participacion_partido (id_partido, id_participacion_equipo) VALUES ($1, $2)`,
+              [idPartidoSiguiente, ganador],
+            );
+            partidosAvanzados.push({ from: idPartido, to: idPartidoSiguiente, ganador });
+          }
+        } else {
+          // No hay siguiente = es el último partido (final)
+          // Marcar torneo como acabado
+          await client.query(
+            `UPDATE torneo SET estado = 'acabado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
+            [ganador, idTorneo],
+          );
+        }
+      }
+    }
+
+    // Finalmente borrar la participacion del torneo
+    await client.query(
+      `DELETE FROM participacion_torneo_equipo WHERE id_participacion_equipo = $1`,
+      [idParticipacionEquipo],
+    );
+
+    await client.query("COMMIT");
+    return { deleted: true, partidosEliminados, partidosAvanzados };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 const listSolicitudesByTorneo = async ({ idTorneo, estado }) => {
   const values = [idTorneo];
   let whereEstado = "";
@@ -182,7 +302,7 @@ const listSolicitudesByTorneo = async ({ idTorneo, estado }) => {
   return result.rows;
 };
 
-const createSolicitudByTorneo = async ({ idTorneo, idEquipo, respuesta }) => {
+/*const createSolicitudByTorneo = async ({ idTorneo, idEquipo, respuesta }) => {
   const result = await pool.query(
     `INSERT INTO participacion_torneo_equipo (id_torneo, id_equipo, respuesta, estado, puntuacion)
      VALUES ($1, $2, $3::jsonb, 'pendiente', 0)
@@ -191,7 +311,65 @@ const createSolicitudByTorneo = async ({ idTorneo, idEquipo, respuesta }) => {
   );
 
   return getParticipacionById(result.rows[0].id_participacion_equipo);
+};*/
+
+const createSolicitudByTorneo = async ({ idTorneo, idEquipo, respuesta }) => {
+  // Iniciar transacción (opcional pero recomendado)
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Insertar la solicitud
+    const insertResult = await client.query(
+      `INSERT INTO participacion_torneo_equipo (id_torneo, id_equipo, respuesta, estado, puntuacion)
+       VALUES ($1, $2, $3::jsonb, 'pendiente', 0)
+       RETURNING id_participacion_equipo`,
+      [idTorneo, idEquipo, respuesta ? JSON.stringify(respuesta) : null]
+    );
+    const idParticipacion = insertResult.rows[0].id_participacion_equipo;
+
+    // 2. Obtener datos del torneo (nombre y dueño)
+    const torneoResult = await client.query(
+      `SELECT nombre, id_organizador FROM torneo WHERE id_torneo = $1`,
+      [idTorneo]
+    );
+    if (torneoResult.rows.length === 0) {
+      throw new Error('Torneo no encontrado');
+    }
+    const { nombre: nombreTorneo, id_organizador: idOwner } = torneoResult.rows[0];
+
+    // 3. Obtener nombre del equipo
+    const equipoResult = await client.query(
+      `SELECT nombre FROM equipo WHERE id_equipo = $1`,
+      [idEquipo]
+    );
+    if (equipoResult.rows.length === 0) {
+      throw new Error('Equipo no encontrado');
+    }
+    const nombreEquipo = equipoResult.rows[0].nombre;
+
+    // 4. Crear la notificación para el dueño del torneo
+    const notificacionData = {
+      id_usuario_destino: idOwner,
+      tipo: 'solicitud_equipo',
+      titulo: `Solicitud de unión al torneo ${nombreTorneo}`,
+      mensaje: `El equipo "${nombreEquipo}" ha solicitado unirse a tu torneo "${nombreTorneo}"`,
+      datos: JSON.stringify({ id_torneo: idTorneo, id_equipo: idEquipo, id_participacion: idParticipacion })
+    };
+    await notificacionesService.crearNotificacion(notificacionData);
+
+    await client.query('COMMIT');
+
+    // 5. Retornar la participación completa (usando la función auxiliar)
+    return getParticipacionById(idParticipacion);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
+
 
 const decideSolicitud = async ({ idParticipacionEquipo, aceptar }) => {
   const estado = aceptar ? "jugando" : "eliminado";
@@ -220,4 +398,5 @@ module.exports = {
   listSolicitudesByTorneo,
   createSolicitudByTorneo,
   decideSolicitud,
+  deleteParticipacionAndConsequences,
 };

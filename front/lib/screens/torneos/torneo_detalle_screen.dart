@@ -5,6 +5,7 @@ import 'package:front/features/torneos/domain/torneo.dart';
 import 'package:front/features/torneos/domain/torneo_clasificacion.dart';
 import 'package:front/features/torneos/domain/torneo_partidos.dart';
 import 'package:front/peticion/api_config.dart';
+import 'package:front/features/equipos/widgets/equipo_network_avatar.dart';
 
 class TorneoDetalleScreen extends StatefulWidget {
   final int torneoId;
@@ -245,7 +246,8 @@ class _TorneoDetalleScreenState extends State<TorneoDetalleScreen> {
           );
         }
 
-        final partidos = snapshot.data?.partidos ?? const <TorneoPartido>[];
+        final partidosData = snapshot.data;
+        final partidos = partidosData?.partidos ?? const <TorneoPartido>[];
 
         if (partidos.isEmpty) {
           return const Padding(
@@ -259,6 +261,8 @@ class _TorneoDetalleScreenState extends State<TorneoDetalleScreen> {
         return _BracketSeriesView(
           partidos: partidos,
           agrupadoPorSerie: agrupadoPorSerie,
+          normaPuntuacion: partidosData?.normaPuntuacion,
+          tipoTorneoNombre: partidosData?.tipoTorneoNombre,
         );
       },
     );
@@ -429,14 +433,38 @@ class _BracketNode {
 class _BracketSeriesView extends StatelessWidget {
   final List<TorneoPartido> partidos;
   final bool agrupadoPorSerie;
+  final String? normaPuntuacion;
+  final String? tipoTorneoNombre;
 
   const _BracketSeriesView({
     required this.partidos,
     required this.agrupadoPorSerie,
+    this.normaPuntuacion,
+    this.tipoTorneoNombre,
   });
+
+  /// Parse rondas_por_serie from norma_puntuacion
+  static int _getRondasPorSerie(String? norma) {
+    if (norma == null || norma.isEmpty) return 1;
+    final parts = norma.split(';');
+    for (final part in parts) {
+      if (part.startsWith('rondas_por_serie=')) {
+        final val = int.tryParse(part.substring('rondas_por_serie='.length));
+        if (val != null && val > 0) return val;
+      }
+    }
+    return 1;
+  }
+
+  /// Determina si es un torneo de eliminación por serie
+  bool _isEliminacionPorSerie() {
+    final tipo = tipoTorneoNombre ?? '';
+    return tipo.toLowerCase().contains('serie');
+  }
 
   static String _serieGroupKey(TorneoPartido p) {
     final ronda = p.ronda ?? 0;
+    final ordenSerie = p.ordenSerie ?? 0;
     final next = p.idPartidoSiguiente ?? 0;
 
     final ids = p.equipos
@@ -447,12 +475,12 @@ class _BracketSeriesView extends StatelessWidget {
 
     final participantsKey = ids.join(',');
     if (participantsKey.isNotEmpty) {
-      return '$ronda|$next|$participantsKey';
+      return '$ronda|$ordenSerie|$next|$participantsKey';
     }
 
     final ord = p.ordenRonda;
     final ordBase = (ord == null) ? 0 : (ord >= 10 ? (ord ~/ 10) : ord);
-    return '$ronda|$next|ord:$ordBase';
+    return '$ronda|$ordenSerie|$next|ord:$ordBase';
   }
 
   static int _baseOrden(TorneoPartido p) {
@@ -538,6 +566,9 @@ class _BracketSeriesView extends StatelessWidget {
 
   List<_BracketNode> _toNodes() {
     final inRounds = partidos.where((p) => p.ronda != null).toList(growable: false);
+    final rondasPorSerie = _getRondasPorSerie(normaPuntuacion);
+    final esEliminacionPorSerie = _isEliminacionPorSerie();
+    
     if (!agrupadoPorSerie) {
       return inRounds
           .map(
@@ -550,9 +581,25 @@ class _BracketSeriesView extends StatelessWidget {
           .toList(growable: false);
     }
 
+    // Si es "Eliminación por serie", agrupar por (bloque, serie) para evitar mostrar nuevas columnas
+    // dentro del mismo bloque de serie. Si no, agrupar por ronda normal.
     final groups = <String, List<TorneoPartido>>{};
     for (final p in inRounds) {
-      groups.putIfAbsent(_serieGroupKey(p), () => <TorneoPartido>[]).add(p);
+      final ronda = p.ronda ?? 0;
+      
+      String fullKey;
+      if (esEliminacionPorSerie && rondasPorSerie > 1) {
+        // Para eliminación por serie: agrupar SOLO por bloque y serie
+        // Esto agrupa todas las subrondas (ronda 1 y 2) de la misma serie en UNA tarjeta
+        final bloque = ((ronda - 1) ~/ rondasPorSerie);
+        final serie = p.ordenSerie ?? 0;
+        fullKey = '$bloque|$serie';
+      } else {
+        // Para otros torneos: solo agrupar por ronda
+        fullKey = _serieGroupKey(p);
+      }
+      
+      groups.putIfAbsent(fullKey, () => <TorneoPartido>[]).add(p);
     }
 
     final nodes = <_BracketNode>[];
@@ -575,7 +622,19 @@ class _BracketSeriesView extends StatelessWidget {
     nodes.sort((a, b) {
       final ra = a.display.ronda ?? 0;
       final rb = b.display.ronda ?? 0;
-      if (ra != rb) return ra.compareTo(rb);
+      
+      if (esEliminacionPorSerie && rondasPorSerie > 1) {
+        final blockeA = ((ra - 1) ~/ rondasPorSerie);
+        final blockeB = ((rb - 1) ~/ rondasPorSerie);
+        if (blockeA != blockeB) return blockeA.compareTo(blockeB);
+        if (ra != rb) return ra.compareTo(rb);
+        final serieA = a.display.ordenSerie ?? 0;
+        final serieB = b.display.ordenSerie ?? 0;
+        if (serieA != serieB) return serieA.compareTo(serieB);
+      } else {
+        if (ra != rb) return ra.compareTo(rb);
+      }
+      
       if (a.sortKey != b.sortKey) return a.sortKey.compareTo(b.sortKey);
       return a.display.idPartido.compareTo(b.display.idPartido);
     });
@@ -586,28 +645,40 @@ class _BracketSeriesView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nodes = _toNodes();
+    final rondasPorSerie = _getRondasPorSerie(normaPuntuacion);
+    final esEliminacionPorSerie = _isEliminacionPorSerie();
 
-    final rounds = <int, List<_BracketNode>>{};
+    // Agrupar nodos por "bloque visual" (solo si es eliminación por serie con subrondas)
+    final roundsMap = <int, List<_BracketNode>>{};
     for (final n in nodes) {
       final ronda = n.display.ronda;
       if (ronda == null) continue;
-      rounds.putIfAbsent(ronda, () => <_BracketNode>[]).add(n);
+      
+      // Si es "Eliminación por serie" con subrondas, agrupar por bloque; si no, agrupar por ronda
+      final displayRound = (esEliminacionPorSerie && rondasPorSerie > 1) 
+          ? ((ronda - 1) ~/ rondasPorSerie)  
+          : ronda;
+      
+      roundsMap.putIfAbsent(displayRound, () => <_BracketNode>[]).add(n);
     }
 
-    if (rounds.isEmpty) {
+    if (roundsMap.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(16),
         child: Text('Aún no hay rondas para mostrar.'),
       );
     }
 
-    final orderedRounds = rounds.keys.toList(growable: false)..sort();
+    final orderedRounds = roundsMap.keys.toList(growable: false)..sort();
     for (final r in orderedRounds) {
-      rounds[r]!.sort((a, b) {
+      roundsMap[r]!.sort((a, b) {
         if (a.sortKey != b.sortKey) return a.sortKey.compareTo(b.sortKey);
         final oa = a.display.ordenRonda ?? 0;
         final ob = b.display.ordenRonda ?? 0;
         if (oa != ob) return oa.compareTo(ob);
+        final serieA = a.display.ordenSerie ?? 0;
+        final serieB = b.display.ordenSerie ?? 0;
+        if (serieA != serieB) return serieA.compareTo(serieB);
         return a.display.idPartido.compareTo(b.display.idPartido);
       });
     }
@@ -618,7 +689,7 @@ class _BracketSeriesView extends StatelessWidget {
     final baseGap = 24.0;
 
     final firstRound = orderedRounds.first;
-    final totalMatchesFirst = rounds[firstRound]!.length;
+    final totalMatchesFirst = roundsMap[firstRound]!.length;
     final totalWidth = orderedRounds.length * cardWidth +
         (orderedRounds.length - 1) * roundGap +
         24;
@@ -633,7 +704,7 @@ class _BracketSeriesView extends StatelessWidget {
 
     for (var roundIndex = 0; roundIndex < orderedRounds.length; roundIndex++) {
       final roundNumber = orderedRounds[roundIndex];
-      final matches = rounds[roundNumber]!;
+      final matches = roundsMap[roundNumber]!;
 
       final step = initialStep * (1 << roundIndex);
       final topOffset = (step - cardHeight) / 2;
@@ -642,11 +713,12 @@ class _BracketSeriesView extends StatelessWidget {
       rectsByRound[roundNumber] = <Rect>[];
 
       for (var matchIndex = 0; matchIndex < matches.length; matchIndex++) {
+        final node = matches[matchIndex];
+
         final top = 12 + topOffset + matchIndex * step;
         final rect = Rect.fromLTWH(left, top, cardWidth, cardHeight);
         rectsByRound[roundNumber]!.add(rect);
 
-        final node = matches[matchIndex];
         items.add(
           Positioned(
             left: rect.left,
@@ -657,6 +729,9 @@ class _BracketSeriesView extends StatelessWidget {
               partido: node.display,
               juegosSerie: node.juegos.length > 1 ? node.juegos : const <TorneoPartido>[],
               compact: true,
+              bracketLabel: (esEliminacionPorSerie && rondasPorSerie > 1)
+                  ? 'Bloque ${roundNumber + 1} · Serie ${node.display.ordenSerie ?? 0}'
+                  : 'Ronda ${node.display.ronda ?? roundNumber}',
             ),
           ),
         );
@@ -670,7 +745,9 @@ class _BracketSeriesView extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Text(
-              'Ronda $roundNumber',
+              (esEliminacionPorSerie && rondasPorSerie > 1)
+                  ? 'Bloque ${roundNumber + 1}'
+                  : 'Ronda $roundNumber',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleSmall,
             ),
@@ -692,6 +769,7 @@ class _BracketSeriesView extends StatelessWidget {
                 orderedRounds: orderedRounds,
                 rectsByRound: rectsByRound,
                 color: lineColor,
+                hideConnectors: agrupadoPorSerie,
               ),
             ),
           ),
@@ -835,6 +913,72 @@ class _JornadaNavigatorViewState extends State<_JornadaNavigatorView> {
                     final a = equipos.isNotEmpty ? equipos[0] : null;
                     final b = equipos.length > 1 ? equipos[1] : null;
 
+                    // Si el partido tiene más de dos equipos, mostrar un ExpansionTile
+                    // con la fecha/hora y, al desplegar, el ranking de puntos.
+                    if (p.equipos.length > 2) {
+                      final equiposMulti = [...p.equipos];
+                      equiposMulti.sort((x, y) => y.punto.compareTo(x.punto));
+                      final allZero = equiposMulti.every((e) => e.punto == 0);
+
+                      DateTime? dt = _MatchCard._tryParseDate(p.fechaHora)?.toLocal();
+                      String subtitle;
+                      if (dt == null) {
+                        subtitle = p.lugar != null && p.lugar!.trim().isNotEmpty ? p.lugar!.trim() : '';
+                      } else {
+                        final hora = TimeOfDay.fromDateTime(dt).format(context);
+                        subtitle = '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} · $hora';
+                      }
+
+                      return Card(
+                        elevation: 2,
+                        clipBehavior: Clip.antiAlias,
+                        child: ExpansionTile(
+                          title: Text('Partido (${p.equipos.length} equipos)'),
+                          subtitle: subtitle.isEmpty ? null : Text(subtitle),
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  ...equiposMulti.asMap().entries.map((entry) {
+                                    final idx = entry.key;
+                                    final e = entry.value;
+                                    final name = e.equipoNombre.trim().isEmpty ? 'TBD' : e.equipoNombre.trim();
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 14,
+                                            child: Text('${idx + 1}', style: Theme.of(context).textTheme.bodySmall),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(child: Text(name)),
+                                          const SizedBox(width: 12),
+                                          Text('${e.punto}', style: Theme.of(context).textTheme.bodyMedium),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(growable: false),
+                                  if (allZero) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Aún no se tienen los resultados.',
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: colors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    // Partidos 1v1 existentes (comportamiento previo)
                     return Card(
                       elevation: 2,
                       clipBehavior: Clip.antiAlias,
@@ -886,27 +1030,31 @@ class _EquipoCell extends StatelessWidget {
     return raw.isEmpty ? 'TBD' : raw;
   }
 
-  static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList(growable: false);
-    if (parts.isEmpty) return '?';
-    final first = parts.first;
-    final last = parts.length > 1 ? parts.last : '';
-    final a = first.isEmpty ? '' : first[0].toUpperCase();
-    final b = last.isEmpty ? '' : last[0].toUpperCase();
-    return (a + b).isEmpty ? '?' : (a + b);
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final name = _displayName(equipo);
-    final avatar = CircleAvatar(
-      radius: 14,
-      child: Text(
-        _initials(name),
-        style: theme.textTheme.labelSmall,
-      ),
-    );
+    
+    final avatar = equipo != null
+        ? EquipoNetworkAvatar(
+            equipoId: equipo!.idEquipo,
+            baseUrl: ApiConfig.baseUrl,
+            size: 36,
+          )
+        : Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              Icons.groups,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          );
 
     final text = Flexible(
       child: Text(
@@ -938,12 +1086,35 @@ class _MatchCard extends StatelessWidget {
   final TorneoPartido partido;
   final List<TorneoPartido> juegosSerie;
   final bool compact;
+  final String? bracketLabel;
 
   const _MatchCard({
     required this.partido,
     this.juegosSerie = const <TorneoPartido>[],
     this.compact = false,
+    this.bracketLabel,
   });
+
+  static double _meanPoints(List<TorneoPartidoEquipo> equipos) {
+    if (equipos.isEmpty) return 0;
+    final sum = equipos.fold<int>(0, (acc, e) => acc + e.punto);
+    return sum / equipos.length;
+  }
+
+  static bool _isNearMean(int points, double mean) {
+    final band = mean <= 0 ? 1.0 : (mean * 0.15).clamp(1.0, 999999.0);
+    return (points - mean).abs() <= band;
+  }
+
+  static ({Color bg, Color fg, Color border}) _toneColors(ColorScheme colors, int points, double mean) {
+    if (_isNearMean(points, mean)) {
+      return (bg: colors.secondaryContainer, fg: colors.onSecondaryContainer, border: colors.secondary);
+    }
+    if (points > mean) {
+      return (bg: colors.tertiaryContainer, fg: colors.onTertiaryContainer, border: colors.tertiary);
+    }
+    return (bg: colors.errorContainer, fg: colors.onErrorContainer, border: colors.error);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -981,31 +1152,36 @@ class _MatchCard extends StatelessWidget {
       });
     final preview = sortedEquipos.take(4).toList(growable: false);
 
-    Widget rowFor(TorneoPartidoEquipo e) {
+    // Card (cerrada): minimalista y sencilla.
+    // El detalle bonito/estructurado vive en el diálogo al abrir.
+    Widget rowForCard(TorneoPartidoEquipo e) {
       final name = (e.equipoNombre).trim().isEmpty ? 'TBD' : e.equipoNombre.trim();
       final score = e.punto;
       final isWinner = winner?.idEquipo == e.idEquipo;
 
-      return Row(
-        children: [
-          Expanded(
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '$score',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
+            const SizedBox(width: 10),
+            Text(
+              '$score',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: isWinner ? FontWeight.w800 : FontWeight.w700,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
@@ -1037,6 +1213,108 @@ class _MatchCard extends StatelessWidget {
             builder: (ctx) {
               final isSerie = juegosSerie.length > 1;
 
+              List<TorneoPartidoEquipo> _sortedEquiposFor(List<TorneoPartidoEquipo> items) {
+                final copy = [...items];
+                copy.sort((a, b) {
+                  final c = b.punto.compareTo(a.punto);
+                  if (c != 0) return c;
+                  return a.equipoNombre.compareTo(b.equipoNombre);
+                });
+                return copy;
+              }
+
+              Widget equiposTable(
+                List<TorneoPartidoEquipo> items, {
+                double? maxHeight,
+              }) {
+                final rows = _sortedEquiposFor(items);
+                if (rows.isEmpty) return const Text('TBD');
+
+                final mean = _meanPoints(rows);
+
+                Widget row(TorneoPartidoEquipo e) {
+                  final name = (e.equipoNombre).trim().isEmpty ? 'TBD' : e.equipoNombre.trim();
+                  final tone = _toneColors(Theme.of(ctx).colorScheme, e.punto, mean);
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: tone.bg,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: tone.border.withValues(alpha: 0.55)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                                        color: tone.fg,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                '${e.punto}',
+                                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                                      color: tone.fg,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                if (maxHeight == null) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: rows
+                        .asMap()
+                        .entries
+                        .map((e) => Padding(
+                              padding: EdgeInsets.only(bottom: e.key == rows.length - 1 ? 0 : 6),
+                              child: row(e.value),
+                            ))
+                        .toList(growable: false),
+                  );
+                }
+
+                return ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxHeight),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: rows
+                          .asMap()
+                          .entries
+                          .map((e) => Padding(
+                                padding: EdgeInsets.only(bottom: e.key == rows.length - 1 ? 0 : 6),
+                                child: row(e.value),
+                              ))
+                          .toList(growable: false),
+                    ),
+                  ),
+                );
+              }
+
+              String juegoTitle(TorneoPartido g, int index) {
+                final parts = <String>['Juego ${index + 1}'];
+                final ord = g.ordenRonda;
+                if (ord != null) parts.add('#$ord');
+                final estado = (g.estado ?? '').trim();
+                if (estado.isNotEmpty) parts.add(estado);
+                return parts.join(' · ');
+              }
+
               Widget serieList() {
                 if (!isSerie) return const SizedBox.shrink();
                 final sorted = [...juegosSerie];
@@ -1051,24 +1329,6 @@ class _MatchCard extends StatelessWidget {
                   return a.idPartido.compareTo(b.idPartido);
                 });
 
-                String scoreLine(TorneoPartido g) {
-                  final estado = (g.estado ?? '').trim();
-                  final ord = g.ordenRonda;
-                  final tag = [
-                    if (ord != null) '#$ord',
-                    if (estado.isNotEmpty) estado,
-                  ].join(' · ');
-
-                  final parts = [...g.equipos]
-                    ..sort((a, b) => b.punto.compareTo(a.punto));
-                  final body = parts.isEmpty
-                      ? 'TBD'
-                      : parts
-                          .map((e) => '${(e.equipoNombre).trim().isEmpty ? 'TBD' : e.equipoNombre.trim()}: ${e.punto}')
-                          .join(' · ');
-                  return '$body${tag.isEmpty ? '' : '  ($tag)'}';
-                }
-
                 return Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: Column(
@@ -1081,8 +1341,21 @@ class _MatchCard extends StatelessWidget {
                       const SizedBox(height: 8),
                       ...sorted.asMap().entries.map((e) {
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Text('Juego ${e.key + 1}: ${scoreLine(e.value)}'),
+                          padding: EdgeInsets.only(bottom: e.key == sorted.length - 1 ? 0 : 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                juegoTitle(e.value, e.key),
+                                style: Theme.of(ctx).textTheme.labelLarge,
+                              ),
+                              const SizedBox(height: 6),
+                              equiposTable(
+                                e.value.equipos,
+                                maxHeight: 160,
+                              ),
+                            ],
+                          ),
                         );
                       }),
                     ],
@@ -1092,26 +1365,42 @@ class _MatchCard extends StatelessWidget {
 
               return AlertDialog(
                 title: Text(tituloDialog),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (lugarLabel != null) Text('Lugar: $lugarLabel'),
-                      if (fechaLabel != null || horaLabel != null)
-                        Text(
-                          'Hora: ${[
-                            if (fechaLabel != null) fechaLabel,
-                            if (horaLabel != null) horaLabel,
-                          ].join(' · ')}',
-                        ),
-                      if (estado != null) Text('Estado: $estado'),
-                      if (partido.ronda != null)
-                        Text(
-                          'Ronda: ${partido.ronda}${partido.ordenRonda != null ? ' · #${partido.ordenRonda}' : ''}',
-                        ),
-                      serieList(),
-                    ],
+                content: SizedBox(
+                  width: double.maxFinite,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (lugarLabel != null) Text('Lugar: $lugarLabel'),
+                        if (fechaLabel != null || horaLabel != null)
+                          Text(
+                            'Hora: ${[
+                              if (fechaLabel != null) fechaLabel,
+                              if (horaLabel != null) horaLabel,
+                            ].join(' · ')}',
+                          ),
+                        if (estado != null) Text('Estado: $estado'),
+                        if (partido.ronda != null)
+                          Text(
+                            'Ronda: ${partido.ronda}${partido.ordenRonda != null ? ' · #${partido.ordenRonda}' : ''}',
+                          ),
+
+                        if (equipos.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'Equipos',
+                            style: Theme.of(ctx).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 8),
+                          equiposTable(
+                            equipos,
+                            maxHeight: 220,
+                          ),
+                        ],
+                        serieList(),
+                      ],
+                    ),
                   ),
                 ),
                 actions: [
@@ -1129,25 +1418,65 @@ class _MatchCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (preview.isEmpty) ...[
-                Text('TBD', style: theme.textTheme.bodyMedium),
-              ] else ...[
-                ...preview.asMap().entries.map((e) {
-                  final w = rowFor(e.value);
-                  if (e.key == preview.length - 1) return w;
-                  return Padding(
-                    padding: EdgeInsets.only(bottom: rowGap),
-                    child: w,
-                  );
-                }),
-                if (equipos.length > preview.length) ...[
-                  const SizedBox(height: 2),
+              if (compact) ...[
+                if (bracketLabel != null && bracketLabel!.isNotEmpty) ...[
                   Text(
-                    '+${equipos.length - preview.length} más',
+                    bracketLabel!,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                ],
+                if (sortedEquipos.isEmpty)
+                  Text('TBD', style: theme.textTheme.bodyMedium)
+                else
+                  Expanded(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colors.outlineVariant),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Scrollbar(
+                          child: ListView.separated(
+                            primary: false,
+                            padding: EdgeInsets.zero,
+                            physics: const ClampingScrollPhysics(),
+                            itemCount: sortedEquipos.length,
+                            separatorBuilder: (_, __) => SizedBox(height: rowGap),
+                            itemBuilder: (_, index) => rowForCard(sortedEquipos[index]),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ] else ...[
+                if (preview.isEmpty) ...[
+                  Text('TBD', style: theme.textTheme.bodyMedium),
+                ] else ...[
+                  Column(
+                    children: preview.asMap().entries.map((e) {
+                      final w = rowForCard(e.value);
+                      if (e.key == preview.length - 1) return w;
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: rowGap),
+                        child: w,
+                      );
+                    }).toList(growable: false),
+                  ),
+                  if (equipos.length > preview.length) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '+${equipos.length - preview.length} más',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ],
               ],
               if (juegosSerie.length > 1) ...[
@@ -1201,15 +1530,19 @@ class _BracketLinesPainter extends CustomPainter {
   final List<int> orderedRounds;
   final Map<int, List<Rect>> rectsByRound;
   final Color color;
+  final bool hideConnectors;
 
   const _BracketLinesPainter({
     required this.orderedRounds,
     required this.rectsByRound,
     required this.color,
+    this.hideConnectors = false,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (hideConnectors) return;
+
     final paint = Paint()
       ..color = color
       ..strokeWidth = 2
@@ -1247,6 +1580,7 @@ class _BracketLinesPainter extends CustomPainter {
   bool shouldRepaint(covariant _BracketLinesPainter oldDelegate) {
     return oldDelegate.orderedRounds != orderedRounds ||
         oldDelegate.rectsByRound != rectsByRound ||
-        oldDelegate.color != color;
+        oldDelegate.color != color ||
+        oldDelegate.hideConnectors != hideConnectors;
   }
 }

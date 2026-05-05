@@ -139,6 +139,7 @@ const getPartidosTorneo = async (idTorneo) => {
        p.jornada,
        p.ronda,
        p.orden_ronda,
+       p.orden_serie,
        p.id_partido_siguiente,
        p.ganador_id_participacion_equipo,
        COALESCE(
@@ -172,6 +173,7 @@ const getPartidosTorneo = async (idTorneo) => {
     id_torneo: Number(torneo.id_torneo),
     torneo_nombre: torneo.nombre,
     tipo_torneo_nombre: torneo.tipo_torneo_nombre,
+    norma_puntuacion: torneo.norma_puntuacion || "",
     partidos: result.rows.map((r) => {
       const rawEquipos = r.equipos;
       const equipos =
@@ -185,6 +187,7 @@ const getPartidosTorneo = async (idTorneo) => {
         jornada: r.jornada === null ? null : Number(r.jornada),
         ronda: r.ronda === null ? null : Number(r.ronda),
         orden_ronda: r.orden_ronda === null ? null : Number(r.orden_ronda),
+        orden_serie: r.orden_serie === null ? null : Number(r.orden_serie),
         id_partido_siguiente:
           r.id_partido_siguiente === null ? null : Number(r.id_partido_siguiente),
         ganador_id_participacion_equipo:
@@ -477,6 +480,13 @@ async function generarSiguienteRondaMismasSeries({
   const nuevosPartidos = [];
 
   for (const p of partidos) {
+    // Obtener orden_serie del partido anterior
+    const serieQ = await client.query(
+      `SELECT orden_serie FROM partido WHERE id_partido = $1`,
+      [p.id_partido],
+    );
+    const orden_serie = serieQ.rows[0]?.orden_serie || 0;
+
     const participantes = await getParticipantesPorPartido(client, p.id_partido);
     const ids = participantes.map((x) => Number(x.id_participacion_equipo));
     if (ids.length < 2) {
@@ -492,6 +502,7 @@ async function generarSiguienteRondaMismasSeries({
       fecha,
       ronda: nuevaRonda,
       orden,
+      orden_serie,
     });
     await insertarParticipacionesPartido(client, idPartidoNuevo, ids);
 
@@ -557,15 +568,15 @@ async function getParticipacionesJugando(client, idTorneo) {
 
 async function crearPartido(
   client,
-  { idTorneo, fecha, ronda = null, orden = null },
+  { idTorneo, fecha, ronda = null, orden = null, orden_serie = 0 },
 ) {
   const q = await client.query(
     `
-    INSERT INTO partido (id_torneo, fecha_hora, estado, jornada, ronda, orden_ronda)
-    VALUES ($1, $2, 'planificado', $3, $4, $5)
+    INSERT INTO partido (id_torneo, fecha_hora, estado, jornada, ronda, orden_ronda, orden_serie)
+    VALUES ($1, $2, 'planificado', $3, $4, $5, $6)
     RETURNING id_partido
     `,
-    [idTorneo, fecha, null, ronda, orden],
+    [idTorneo, fecha, null, ronda, orden, orden_serie],
   );
   return q.rows[0].id_partido;
 }
@@ -1113,6 +1124,11 @@ async function generarEliminacionMultiInicio(idTorneo, tipoEsperado) {
     }
 
     const participaciones = await getParticipacionesJugando(client, idTorneo);
+    const limiteEquipos = Number(torneo.limite_equipos || 0);
+    const participacionesBracket =
+      Number.isInteger(limiteEquipos) && limiteEquipos > 0
+        ? participaciones.slice(0, limiteEquipos)
+        : participaciones;
     const tamGrupo = Number(torneo.participantes_por_partido || 2);
     if (!Number.isInteger(tamGrupo) || tamGrupo < 2) {
       throw new Error("participantes_por_partido debe ser un entero >= 2");
@@ -1120,11 +1136,11 @@ async function generarEliminacionMultiInicio(idTorneo, tipoEsperado) {
     if (tipoEsperado === "Eliminación por serie" && tamGrupo <= 2) {
       throw new Error("El tipo 'Eliminación por serie' solo está soportado para categorías multi (>2)");
     }
-    if (participaciones.length < 2) {
+    if (participacionesBracket.length < 2) {
       throw new Error("Se requieren al menos 2 participantes para generar eliminacion");
     }
 
-    const ids = participaciones.map((p) => p.id_participacion_equipo);
+    const ids = participacionesBracket.map((p) => p.id_participacion_equipo);
     const grupos = agruparParticipantes(ids, tamGrupo);
     if (!grupos.length) {
       throw new Error("No se pudieron formar series validas para la primera ronda");
@@ -1142,7 +1158,9 @@ async function generarEliminacionMultiInicio(idTorneo, tipoEsperado) {
     let idxDia = 0;
     let orden = 1;
 
-    for (const grupo of grupos) {
+    for (let idxSerie = 0; idxSerie < grupos.length; idxSerie++) {
+      const grupo = grupos[idxSerie];
+      const orden_serie = idxSerie + 1; // Serie 1, 2, 3, ... para "Eliminación por serie"
       const fecha = nextPreferredDate(cursor, dias[idxDia % dias.length]);
       cursor = new Date(fecha.getTime() + 24 * 60 * 60 * 1000);
       idxDia++;
@@ -1152,6 +1170,7 @@ async function generarEliminacionMultiInicio(idTorneo, tipoEsperado) {
         fecha,
         ronda: 1,
         orden,
+        orden_serie, // Rastrar a qué serie pertenece este partido
       });
 
       await insertarParticipacionesPartido(client, idPartido, grupo);
@@ -1368,12 +1387,24 @@ async function avanzarRondaEliminacion(idTorneo) {
       }
 
       if (clasificados.length <= 1) {
+        const campeon = clasificados[0] || null;
+        if (campeon) {
+          await client.query(
+            `UPDATE torneo SET estado = 'finalizado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
+            [campeon, idTorneo],
+          );
+        } else {
+          await client.query(
+            `UPDATE torneo SET estado = 'finalizado' WHERE id_torneo = $1`,
+            [idTorneo],
+          );
+        }
         await client.query("COMMIT");
         return {
           ok: true,
           torneoFinalizado: true,
           modo: "eliminacion_por_serie",
-          campeonIdParticipacionEquipo: clasificados[0] || null,
+          campeonIdParticipacionEquipo: campeon,
         };
       }
 
@@ -1394,7 +1425,9 @@ async function avanzarRondaEliminacion(idTorneo) {
 
       let orden = 1;
       const nuevosPartidos = [];
-      for (const grupo of gruposSiguiente) {
+      for (let idxSerie = 0; idxSerie < gruposSiguiente.length; idxSerie++) {
+        const grupo = gruposSiguiente[idxSerie];
+        const orden_serie = idxSerie + 1; // Nueva serie en siguiente ronda
         const fecha = nextPreferredDate(cursor, dias[idxDia % dias.length]);
         cursor = new Date(fecha.getTime() + 24 * 60 * 60 * 1000);
         idxDia++;
@@ -1404,6 +1437,7 @@ async function avanzarRondaEliminacion(idTorneo) {
           fecha,
           ronda: nuevaRonda,
           orden,
+          orden_serie, // Rastrar nueva serie
         });
         await insertarParticipacionesPartido(client, idPartidoNuevo, grupo);
 
@@ -1490,11 +1524,20 @@ async function avanzarRondaEliminacion(idTorneo) {
       clasificados = ganadores.map((g) => g.id_participacion_equipo);
     } else if (torneo.tipo === "Serie + final (con tiempos)") {
       if (rondaActual >= 2) {
+        const campeon = ganadores[0].id_participacion_equipo;
+        if (campeon) {
+          await client.query(
+            `UPDATE torneo SET estado = 'finalizado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
+            [campeon, idTorneo],
+          );
+        } else {
+          await client.query(`UPDATE torneo SET estado = 'finalizado' WHERE id_torneo = $1`, [idTorneo]);
+        }
         await client.query("COMMIT");
         return {
           ok: true,
           torneoFinalizado: true,
-          campeonIdParticipacionEquipo: ganadores[0].id_participacion_equipo,
+          campeonIdParticipacionEquipo: campeon,
         };
       }
 
@@ -1564,11 +1607,20 @@ async function avanzarRondaEliminacion(idTorneo) {
     }
 
     if (clasificados.length <= 1) {
+      const campeon = clasificados[0] || null;
+      if (campeon) {
+        await client.query(
+          `UPDATE torneo SET estado = 'finalizado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
+          [campeon, idTorneo],
+        );
+      } else {
+        await client.query(`UPDATE torneo SET estado = 'finalizado' WHERE id_torneo = $1`, [idTorneo]);
+      }
       await client.query("COMMIT");
       return {
         ok: true,
         torneoFinalizado: true,
-        campeonIdParticipacionEquipo: clasificados[0] || null,
+        campeonIdParticipacionEquipo: campeon,
       };
     }
 
@@ -1687,11 +1739,40 @@ async function generarEnfrentamientos(idTorneo) {
   }
 }
 
+const getParticipacionesTorneo = async (idTorneo) => {
+  const result = await pool.query(
+    `SELECT
+       pte.id_participacion_equipo,
+       pte.id_torneo,
+       pte.id_equipo,
+       pte.estado,
+       pte.puntuacion,
+       e.nombre AS equipo_nombre,
+       e.elo
+     FROM participacion_torneo_equipo pte
+     JOIN equipo e ON e.id_equipo = pte.id_equipo
+     WHERE pte.id_torneo = $1
+     ORDER BY pte.id_participacion_equipo ASC`,
+    [idTorneo],
+  );
+
+  return result.rows.map((r) => ({
+    id_participacion_equipo: Number(r.id_participacion_equipo),
+    id_torneo: Number(r.id_torneo),
+    id_equipo: Number(r.id_equipo),
+    equipo_nombre: r.equipo_nombre,
+    estado: r.estado,
+    puntuacion: Number(r.puntuacion),
+    elo: Number(r.elo),
+  }));
+};
+
 module.exports = {
   listTorneos,
   getTorneoById,
   getClasificacionTorneo,
   getPartidosTorneo,
+  getParticipacionesTorneo,
   createTorneo,
   updateTorneo,
   deleteTorneo,
