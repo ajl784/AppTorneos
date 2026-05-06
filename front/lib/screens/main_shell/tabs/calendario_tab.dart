@@ -31,6 +31,24 @@ bool _isNormaModoPosiciones(String? norma) {
   return raw.contains('modo=posiciones') || RegExp(r'(^|[;,\s])pos\d+\s*=').hasMatch(raw);
 }
 
+String _prettyEstadoPartido(String value) {
+  switch (value.trim().toLowerCase()) {
+    case 'planificado':
+      return 'Planificado';
+    case 'en_curso':
+    case 'en curso':
+      return 'En curso';
+    case 'acabado':
+      return 'Acabado';
+    case 'cancelado':
+      return 'Cancelado';
+    default:
+      if (value.trim().isEmpty) return '—';
+      final normalized = value.trim();
+      return normalized[0].toUpperCase() + normalized.substring(1);
+  }
+}
+
 class CalendarioTab extends StatefulWidget {
   const CalendarioTab({super.key});
 
@@ -197,7 +215,7 @@ class _CalendarioTabState extends State<CalendarioTab> {
                     Text('Lugar: $lugarLabel'),
                     Text('Hora: $fechaLabel · $horaLabel'),
                     Text('Árbitro: $arbitroLabel'),
-                    Text('Estado: $selectedEstado'),
+                    Text('Estado: ${_prettyEstadoPartido(selectedEstado)}'),
                     DropdownButtonFormField<String>(
                       value: selectedEstado,
                       decoration: const InputDecoration(labelText: 'Estado'),
@@ -216,7 +234,7 @@ class _CalendarioTabState extends State<CalendarioTab> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Marcador del partido (se guarda al pasar a "acabado"):',
+                      'Marcador del partido (solo se guarda al pasar a "acabado"):',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 4),
@@ -225,7 +243,8 @@ class _CalendarioTabState extends State<CalendarioTab> {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 8),
-                    ...partido.equipos.map((e) {
+                    if (selectedEstado == 'acabado') ...[
+                      ...partido.equipos.map((e) {
                       final c = valueControllers[e.idParticipacionEquipo]!;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
@@ -242,6 +261,14 @@ class _CalendarioTabState extends State<CalendarioTab> {
                         ),
                       );
                     }),
+                    ] else ...[
+                      Text(
+                        selectedEstado == 'cancelado'
+                            ? 'No se registran puntuaciones en partidos cancelados.'
+                            : 'Las puntuaciones solo se guardan cuando el partido queda acabado.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     Text(
                       'Descripción del torneo:',
@@ -715,7 +742,7 @@ class _PartidoItem extends StatelessWidget {
 
     final estado = (partido.estado == null || partido.estado!.trim().isEmpty)
       ? '—'
-      : partido.estado!.trim();
+      : _prettyEstadoPartido(partido.estado!);
     final lugar = (partido.lugar == null || partido.lugar!.trim().isEmpty)
       ? '—'
       : partido.lugar!.trim();
