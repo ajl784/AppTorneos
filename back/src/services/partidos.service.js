@@ -388,7 +388,7 @@ const registrarPuntuacionesArbitro = async ({
     await client.query("BEGIN");
 
     const partidoResult = await client.query(
-      `SELECT id_partido, id_torneo, estado, ronda
+      `SELECT id_partido, id_torneo, estado, ronda, jornada
        FROM partido
        WHERE id_partido = $1`,
       [idPartido],
@@ -756,6 +756,50 @@ const registrarPuntuacionesArbitro = async ({
             avance = await torneosService.avanzarRondaEliminacion(Number(idTorneo));
           }
         }
+
+          // Finalización automática de Liga: si este partido pertenece a la última
+          // jornada y ya no quedan partidos pendientes en dicha jornada, marcamos
+          // el torneo como acabado y asignamos campeón por la clasificación.
+          if (esLiga && typeof rondaPartido !== 'number') {
+            try {
+              const jornadaPartido = partidoResult.rows[0].jornada;
+              if (jornadaPartido != null) {
+                const maxJQ = await pool.query(
+                  `SELECT MAX(jornada)::int AS max_jornada FROM partido WHERE id_torneo = $1`,
+                  [idTorneo],
+                );
+                const maxJornada = maxJQ.rows[0]?.max_jornada || null;
+                if (maxJornada !== null && jornadaPartido === maxJornada) {
+                  const pendientesRes = await pool.query(
+                    `SELECT COUNT(*)::int AS pendientes FROM partido WHERE id_torneo = $1 AND jornada = $2 AND estado <> 'acabado'`,
+                    [idTorneo, maxJornada],
+                  );
+                  const pendientes = Number(pendientesRes.rows[0]?.pendientes || 0);
+                  if (pendientes === 0) {
+                    // Recalcular clasificación y elegir campeón
+                    try {
+                      await recomputeClasificacionLiga(pool, { idTorneo, norma: normaLiga });
+                    } catch (_e) {
+                      // if recompute fails, continue without blocking
+                    }
+
+                    const champRes = await pool.query(
+                      `SELECT id_participacion_equipo FROM participacion_torneo_equipo WHERE id_torneo = $1 ORDER BY puntuacion DESC, id_participacion_equipo ASC LIMIT 1`,
+                      [idTorneo],
+                    );
+                    if (champRes.rowCount) {
+                      const campeon = Number(champRes.rows[0].id_participacion_equipo);
+                      await pool.query(`UPDATE torneo SET estado = 'acabado', id_campeon_participacion = $1 WHERE id_torneo = $2`, [campeon, idTorneo]);
+                    } else {
+                      await pool.query(`UPDATE torneo SET estado = 'acabado' WHERE id_torneo = $1`, [idTorneo]);
+                    }
+                  }
+                }
+              }
+            } catch (_err) {
+              // ignore finalization errors to not fail the API call
+            }
+          }
       } catch (_e) {
         // Si falla por concurrencia o porque otra petición ya avanzó,
         // no bloqueamos el cierre del partido.

@@ -274,13 +274,13 @@ const updateTorneo = async (idTorneo, payload) => {
       }
     }
   }
-
   const mapping = {
     nombre: "nombre",
     descripcion: "descripcion",
     fecha_inicio: "fecha_inicio",
     fecha_fin: "fecha_fin",
     estado: "estado",
+    limite_equipos: "limite_equipos",
     id_categoria: "id_categoria",
     id_tipo_torneo: "id_tipo_torneo",
     id_organizador: "id_organizador",
@@ -1390,12 +1390,12 @@ async function avanzarRondaEliminacion(idTorneo) {
         const campeon = clasificados[0] || null;
         if (campeon) {
           await client.query(
-            `UPDATE torneo SET estado = 'finalizado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
+            `UPDATE torneo SET estado = 'acabado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
             [campeon, idTorneo],
           );
         } else {
           await client.query(
-            `UPDATE torneo SET estado = 'finalizado' WHERE id_torneo = $1`,
+            `UPDATE torneo SET estado = 'acabado' WHERE id_torneo = $1`,
             [idTorneo],
           );
         }
@@ -1526,12 +1526,12 @@ async function avanzarRondaEliminacion(idTorneo) {
       if (rondaActual >= 2) {
         const campeon = ganadores[0].id_participacion_equipo;
         if (campeon) {
-          await client.query(
-            `UPDATE torneo SET estado = 'finalizado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
+        await client.query(
+            `UPDATE torneo SET estado = 'acabado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
             [campeon, idTorneo],
           );
         } else {
-          await client.query(`UPDATE torneo SET estado = 'finalizado' WHERE id_torneo = $1`, [idTorneo]);
+          await client.query(`UPDATE torneo SET estado = 'acabado' WHERE id_torneo = $1`, [idTorneo]);
         }
         await client.query("COMMIT");
         return {
@@ -1610,11 +1610,11 @@ async function avanzarRondaEliminacion(idTorneo) {
       const campeon = clasificados[0] || null;
       if (campeon) {
         await client.query(
-          `UPDATE torneo SET estado = 'finalizado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
+          `UPDATE torneo SET estado = 'acabado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
           [campeon, idTorneo],
         );
       } else {
-        await client.query(`UPDATE torneo SET estado = 'finalizado' WHERE id_torneo = $1`, [idTorneo]);
+        await client.query(`UPDATE torneo SET estado = 'acabado' WHERE id_torneo = $1`, [idTorneo]);
       }
       await client.query("COMMIT");
       return {
