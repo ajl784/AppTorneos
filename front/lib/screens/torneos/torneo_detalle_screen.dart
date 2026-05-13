@@ -4,6 +4,7 @@ import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
 import 'package:front/features/torneos/domain/torneo_clasificacion.dart';
 import 'package:front/features/torneos/domain/torneo_partidos.dart';
+import 'package:front/features/torneos/widgets/ganador_card.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/features/equipos/widgets/equipo_network_avatar.dart';
 
@@ -325,10 +326,37 @@ class _TorneoDetalleScreenState extends State<TorneoDetalleScreen> {
             );
           }
 
+          // Determinar si mostrar el ganador
+          final estadoAcabado = _norm(torneo.estado ?? '') == 'acabado';
+          final mostrarGanador = estadoAcabado && (isLiga || isEliminacion);
+
           return Column(
             children: [
               _buildHeader(torneo),
               const Divider(height: 1),
+              if (mostrarGanador)
+                FutureBuilder<TorneoClasificacion>(
+                  future: _api.fetchClasificacionTorneo(torneo.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const SizedBox(height: 8);
+                    }
+
+                    if (snapshot.hasError) {
+                      return const SizedBox.shrink();
+                    }
+
+                    final clasificacion = snapshot.data?.clasificacion ?? const [];
+                    if (clasificacion.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return GanadorCard(
+                      torneo: torneo,
+                      clasificacion: clasificacion,
+                    );
+                  },
+                ),
               Expanded(child: content),
             ],
           );

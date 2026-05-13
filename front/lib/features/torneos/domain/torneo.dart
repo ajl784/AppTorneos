@@ -17,6 +17,7 @@ class Torneo {
   final String? normaPuntuacion;
   final Object? preferenciaHorario;
   final String? tipoGeneracionEnfrentamientos;
+  final int? idCampeonParticipacion;
 
   const Torneo({
     required this.id,
@@ -37,6 +38,7 @@ class Torneo {
     this.normaPuntuacion,
     this.preferenciaHorario,
     this.tipoGeneracionEnfrentamientos,
+    this.idCampeonParticipacion,
   });
 
   static int? _intOrNull(dynamic value) {
@@ -95,6 +97,9 @@ class Torneo {
       tipoGeneracionEnfrentamientos: _stringOrNull(
         json['tipo_generacion_enfrentamientos'] ??
             json['tipoGeneracionEnfrentamientos'],
+      ),
+      idCampeonParticipacion: _intOrNull(
+        json['id_campeon_participacion'] ?? json['idCampeonParticipacion'],
       ),
     );
   }
