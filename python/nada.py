@@ -66,6 +66,9 @@ class AppTorneosClient:
 			query={"limit": limit, "offset": offset, "nombre": nombre},
 		)
 
+	def obtener_equipo(self, id_equipo):
+		return self._request("GET", f"/equipos/{id_equipo}")
+
 	def crear_equipo(self, nombre, descripcion=None, elo=1200):
 		return self._request(
 			"POST",
