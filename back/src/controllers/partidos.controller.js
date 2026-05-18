@@ -91,6 +91,39 @@ const deletePartido = asyncHandler(async (req, res) => {
   ok(res, { deleted: true });
 });
 
+const cancelPartido = asyncHandler(async (req, res) => {
+  const idPartido = parsePositiveInt(req.params.id, "id");
+  const partido = await partidosService.getPartidoById(idPartido);
+  if (!partido) throw new AppError(404, "Partido no encontrado");
+
+  // Validar que el partido está en estado "planificado"
+  if (partido.estado !== "planificado") {
+    throw new AppError(
+      400,
+      `No se puede cancelar un partido en estado "${partido.estado}". Solo se pueden cancelar partidos planificados.`
+    );
+  }
+
+  // Validar que solo el organizador del torneo pueda cancelar
+  const torneo = await require("../services/torneos.service").getTorneoById(
+    partido.id_torneo
+  );
+  if (!req.user || torneo.id_organizador !== req.user.id_usuario) {
+    throw new AppError(
+      403,
+      "No tienes permiso para cancelar este partido"
+    );
+  }
+
+  const data = await partidosService.cancelPartido(idPartido);
+
+  if (!data) {
+    throw new AppError(404, "Partido no encontrado");
+  }
+
+  ok(res, data);
+});
+
 const registrarPuntuacionesArbitro = asyncHandler(async (req, res) => {
   const idPartido = parsePositiveInt(req.params.id, "id");
 
@@ -133,5 +166,6 @@ module.exports = {
   createPartido,
   updatePartido,
   deletePartido,
+  cancelPartido,
   registrarPuntuacionesArbitro,
 };

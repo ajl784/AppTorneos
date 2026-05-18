@@ -1,7 +1,0 @@
-{
-  "terminal.integrated.cwd": "${workspaceFolder}",
-
-  // Permite que Dart/Flutter encuentre proyectos (pubspec.yaml)
-  // que no están en la raíz del workspace (p.ej. ./front).
-  "dart.projectSearchDepth": 4
-}
