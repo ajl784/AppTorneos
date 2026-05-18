@@ -268,17 +268,17 @@ const listPartidos = async ({ limit, offset, torneoId, estado }) => {
 
   const result = await pool.query(
     `SELECT
-      p.id_partido,
-      p.id_torneo,
-      t.nombre AS torneo_nombre,
-      p.fecha_hora,
-      p.lugar,
-      p.estado
-     FROM partido p
-     JOIN torneo t ON t.id_torneo = p.id_torneo
-     ${where}
-     ORDER BY p.id_partido DESC
-     LIMIT $1 OFFSET $2`,
+       p.id_partido,
+       p.id_torneo,
+       t.nombre AS torneo_nombre,
+       p.fecha_hora,
+       p.lugar,
+       p.estado
+      FROM partido p
+      JOIN torneo t ON t.id_torneo = p.id_torneo
+      ${where}
+      ORDER BY p.id_partido DESC
+      LIMIT $1 OFFSET $2`,
     values,
   );
 
@@ -288,15 +288,15 @@ const listPartidos = async ({ limit, offset, torneoId, estado }) => {
 const getPartidoById = async (idPartido) => {
   const result = await pool.query(
     `SELECT
-      p.id_partido,
-      p.id_torneo,
-      t.nombre AS torneo_nombre,
-      p.fecha_hora,
-      p.lugar,
-      p.estado
-     FROM partido p
-     JOIN torneo t ON t.id_torneo = p.id_torneo
-     WHERE p.id_partido = $1`,
+       p.id_partido,
+       p.id_torneo,
+       t.nombre AS torneo_nombre,
+       p.fecha_hora,
+       p.lugar,
+       p.estado
+      FROM partido p
+      JOIN torneo t ON t.id_torneo = p.id_torneo
+      WHERE p.id_partido = $1`,
     [idPartido],
   );
 
@@ -780,6 +780,111 @@ const registrarPuntuacionesArbitro = async ({
   }
 };
 
+const cancelPartido = async (idPartido) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Obtener información del partido
+    const partidoResult = await client.query(
+      `SELECT id_partido, id_torneo, estado, ronda
+       FROM partido
+       WHERE id_partido = $1`,
+      [idPartido],
+    );
+
+    if (!partidoResult.rowCount) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+
+    const idTorneo = partidoResult.rows[0].id_torneo;
+    const estadoPartido = partidoResult.rows[0].estado;
+
+    // Validar que el partido está en estado "planificado"
+    if (estadoPartido !== "planificado") {
+      throw new AppError(
+        400,
+        `No se puede cancelar un partido en estado "${estadoPartido}". Solo se pueden cancelar partidos planificados.`
+      );
+    }
+
+    // Obtener información del torneo
+    const torneoResult = await client.query(
+      `SELECT tt.nombre AS tipo_torneo, t.norma_puntuacion
+       FROM torneo t
+       JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
+       WHERE t.id_torneo = $1`,
+      [idTorneo],
+    );
+
+    const torneoInfo = torneoResult.rows[0] || null;
+    const tipoTorneo = torneoInfo?.tipo_torneo || "";
+
+    // Cambiar estado del partido a "cancelado"
+    await client.query(
+      `UPDATE partido
+       SET estado = 'cancelado'
+       WHERE id_partido = $1`,
+      [idPartido],
+    );
+
+    // Manejar lógica específica por tipo de torneo
+    if (tipoTorneo === "Liga") {
+      // Para Liga, recomputar clasificación
+      const normaLiga = parseNormaPuntuacionLiga(torneoInfo?.norma_puntuacion);
+      if (normaLiga) {
+        await recomputeClasificacionLiga(client, { idTorneo, norma: normaLiga });
+      }
+    } else if (tipoTorneo === "Eliminación directa") {
+      // Para Eliminación directa, cancelar partidos siguientes que dependan de este
+      await cancelarPartidosSiguientes(client, idPartido, idTorneo);
+    } else if (tipoTorneo === "Eliminación por serie") {
+      // Para Eliminación por serie, recomputar clasificación
+      const normaLiga = parseNormaPuntuacionLiga(torneoInfo?.norma_puntuacion);
+      if (normaLiga) {
+        await recomputeClasificacionLiga(client, { idTorneo, norma: normaLiga });
+      }
+    } else {
+      // Para otros formatos (Serie+final, Eliminatorias por rondas, Eliminación progresiva)
+      // Por ahora, solo cambiar el estado
+      // TODO: Implementar lógica específica si es necesario
+    }
+
+    await client.query("COMMIT");
+    return getPartidoById(idPartido);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+const cancelarPartidosSiguientes = async (client, idPartido, idTorneo) => {
+  // Obtener el partido siguiente (para Eliminación directa)
+  const siguienteResult = await client.query(
+    `SELECT id_partido_siguiente FROM partido
+     WHERE id_partido = $1`,
+    [idPartido],
+  );
+
+  if (siguienteResult.rowCount && siguienteResult.rows[0].id_partido_siguiente) {
+    const idPartidoSiguiente = siguienteResult.rows[0].id_partido_siguiente;
+    
+    // Cancelar el partido siguiente si está planificado
+    await client.query(
+      `UPDATE partido SET estado = 'cancelado'
+       WHERE id_partido = $1 AND estado = 'planificado'`,
+      [idPartidoSiguiente],
+    );
+    
+    // Recursivamente cancelar los siguientes (aunque típicamente solo hay uno)
+    await cancelarPartidosSiguientes(client, idPartidoSiguiente, idTorneo);
+  }
+};
+
 module.exports = {
   listPartidos,
   getPartidoById,
@@ -787,4 +892,5 @@ module.exports = {
   updatePartido,
   deletePartido,
   registrarPuntuacionesArbitro,
+  cancelPartido,
 };
