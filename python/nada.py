@@ -69,6 +69,13 @@ class AppTorneosClient:
 	def obtener_equipo(self, id_equipo):
 		return self._request("GET", f"/equipos/{id_equipo}")
 
+	def obtener_elo_historial_equipo(self, id_equipo):
+		"""Obtiene el historial de ELO de un equipo por su ID.
+
+		Endpoint esperado: GET /equipos/:idEquipo/elo-historial
+		"""
+		return self._request("GET", f"/equipos/{id_equipo}/elo-historial")
+
 	def crear_equipo(self, nombre, descripcion=None, elo=1200):
 		return self._request(
 			"POST",

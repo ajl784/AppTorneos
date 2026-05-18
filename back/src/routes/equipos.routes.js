@@ -27,6 +27,8 @@ router.post(
   authJwt,
   controller.createSolicitudIngresoEquipo,
 );
+// Historial ELO del equipo
+router.get("/:idEquipo/elo-historial", controller.getEloHistorialEquipo);
 router.get("/:id", controller.getEquipoById);
 router.post("/", controller.createEquipo);
 router.put("/:id", controller.updateEquipo);

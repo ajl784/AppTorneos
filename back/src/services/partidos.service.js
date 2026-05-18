@@ -1,6 +1,8 @@
 const { pool } = require("../db/pool");
 const { AppError } = require("../utils/errors");
 const torneosService = require("./torneos.service");
+const { execFile } = require("node:child_process");
+const path = require("node:path");
 
 const ELO_K_FACTOR = 32;
 
@@ -362,6 +364,155 @@ const deletePartido = async (idPartido) => {
   );
 
   return Boolean(result.rowCount);
+};
+
+const _runPythonPrediccion = async ({ elos, scale }) => {
+  const repoRoot = path.resolve(__dirname, "../../..");
+  const scriptPath = path.join(repoRoot, "python", "prediccion.py");
+
+  const pythonBin = process.env.PYTHON_BIN || process.env.PYTHON || "python";
+  const args = [
+    scriptPath,
+    "--elos",
+    ...elos.map((x) => String(x)),
+    "--scale",
+    String(scale),
+    "--json",
+  ];
+
+  const run = (bin) =>
+    new Promise((resolve, reject) => {
+      execFile(
+        bin,
+        args,
+        {
+          cwd: repoRoot,
+          windowsHide: true,
+          timeout: 20_000,
+          maxBuffer: 1024 * 1024,
+        },
+        (err, stdout, stderr) => {
+          if (err) {
+            const msg = stderr && String(stderr).trim() ? String(stderr).trim() : String(err.message || err);
+            reject(new AppError(500, `Error ejecutando predicción (python): ${msg}`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(String(stdout)));
+          } catch (_e) {
+            reject(new AppError(500, "La predicción no devolvió JSON válido"));
+          }
+        },
+      );
+    });
+
+  try {
+    return await run(pythonBin);
+  } catch (e) {
+    // Fallback común en Linux.
+    if (pythonBin === "python" && String(e?.message || e).includes("python")) {
+      return await run("python3");
+    }
+    throw e;
+  }
+};
+
+const getPrediccionPartido = async (idPartido, { scale } = {}) => {
+  const scaleValue = Number.isFinite(scale) && Number(scale) > 0 ? Number(scale) : 400;
+
+  const partidoRes = await pool.query(
+    `SELECT id_partido, fecha_hora, estado
+     FROM partido
+     WHERE id_partido = $1`,
+    [idPartido],
+  );
+
+  if (!partidoRes.rowCount) return null;
+
+  const partido = partidoRes.rows[0];
+  const cutoff = partido.fecha_hora ? new Date(partido.fecha_hora) : new Date();
+
+  const equiposRes = await pool.query(
+    `SELECT DISTINCT
+       e.id_equipo,
+       e.nombre
+     FROM participacion_partido pp
+     JOIN participacion_torneo_equipo pte ON pte.id_participacion_equipo = pp.id_participacion_equipo
+     JOIN equipo e ON e.id_equipo = pte.id_equipo
+     WHERE pp.id_partido = $1
+     ORDER BY e.id_equipo ASC`,
+    [idPartido],
+  );
+
+  const equipos = equiposRes.rows.map((r) => ({
+    id_equipo: Number(r.id_equipo),
+    nombre: r.nombre,
+  }));
+
+  if (equipos.length < 2) {
+    return {
+      id_partido: Number(idPartido),
+      fecha_hora: partido.fecha_hora,
+      estado: partido.estado,
+      metodo: "sin_prediccion",
+      scale: scaleValue,
+      cutoff: cutoff.toISOString(),
+      equipos: equipos.map((e) => ({ ...e, elo: 0, probabilidad_victoria: 0 })),
+    };
+  }
+
+  // Elo a la fecha del partido: último historial <= cutoff, si no existe usar elo actual del equipo.
+  const ids = equipos.map((e) => e.id_equipo);
+  const eloRes = await pool.query(
+    `SELECT
+       e.id_equipo,
+       e.elo AS elo_actual,
+       h.elo_nuevo AS elo_historial
+     FROM equipo e
+     LEFT JOIN LATERAL (
+       SELECT he.elo_nuevo
+       FROM historial_elo he
+       WHERE he.id_equipo = e.id_equipo
+         AND he.creado_en <= $2
+       ORDER BY he.creado_en DESC, he.id_historial_elo DESC
+       LIMIT 1
+     ) h ON true
+     WHERE e.id_equipo = ANY($1::int[])`,
+    [ids, cutoff],
+  );
+
+  const eloByEquipo = new Map();
+  for (const row of eloRes.rows) {
+    const idEquipo = Number(row.id_equipo);
+    const elo = row.elo_historial == null ? Number(row.elo_actual ?? 0) : Number(row.elo_historial);
+    eloByEquipo.set(idEquipo, elo);
+  }
+
+  const elos = equipos.map((e) => Number(eloByEquipo.get(e.id_equipo) ?? 0));
+
+  const py = await _runPythonPrediccion({ elos, scale: scaleValue });
+  const pyEquipos = Array.isArray(py?.equipos) ? py.equipos : [];
+
+  const probs = pyEquipos
+    .map((x) => Number(x?.probabilidad_victoria))
+    .filter((x) => Number.isFinite(x));
+
+  const merged = equipos.map((e, idx) => ({
+    id_equipo: e.id_equipo,
+    nombre: e.nombre,
+    elo: elos[idx],
+    probabilidad_victoria: Number.isFinite(probs[idx]) ? probs[idx] : 0,
+  }));
+
+  return {
+    id_partido: Number(idPartido),
+    fecha_hora: partido.fecha_hora,
+    estado: partido.estado,
+    metodo: py?.metodo || "elo",
+    scale: py?.scale ?? scaleValue,
+    cutoff: cutoff.toISOString(),
+    equipos: merged,
+  };
 };
 
 const registrarPuntuacionesArbitro = async ({
@@ -783,6 +934,7 @@ const registrarPuntuacionesArbitro = async ({
 module.exports = {
   listPartidos,
   getPartidoById,
+  getPrediccionPartido,
   createPartido,
   updatePartido,
   deletePartido,

@@ -1,6 +1,8 @@
 import argparse
+import json
 import math
-from typing import Dict, Iterable, List, Tuple
+from datetime import datetime, timezone
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from nada import AppTorneosClient
 
@@ -30,20 +32,112 @@ def _fmt_pct(p: float) -> str:
     return f"{100.0 * _clamp01(p):.2f}%"
 
 
+def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    # Acepta "YYYY-MM-DDTHH:MM:SS" con o sin zona horaria (Z / +HH:MM)
+    # datetime.fromisoformat no acepta 'Z', lo normalizamos.
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(s)
+    except ValueError as exc:
+        raise ValueError(
+            "--fecha debe ser ISO-8601, ej: 2026-05-18T20:30:00 o 2026-05-18T20:30:00Z"
+        ) from exc
+
+
+def _to_aware_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        # Si no hay tz, asumimos hora local del sistema y la convertimos a UTC
+        return dt.astimezone(timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _try_parse_api_datetime(value: object) -> Optional[datetime]:
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(s)
+    except ValueError:
+        return None
+
+
+def elo_en_fecha(historial_payload: Dict, cutoff: datetime) -> float:
+    """Devuelve el Elo más reciente <= cutoff.
+
+    historial_payload esperado desde la API:
+      { equipo: { elo_actual, ... }, historial: [{creado_en, elo_nuevo, ...}, ...] }
+    """
+
+    equipo = historial_payload.get("equipo") or {}
+    historial = historial_payload.get("historial") or []
+
+    cutoff_utc = _to_aware_utc(cutoff)
+
+    ultimo_elo: Optional[float] = None
+    for item in historial:
+        creado = _try_parse_api_datetime((item or {}).get("creado_en"))
+        if creado is None:
+            continue
+        if _to_aware_utc(creado) <= cutoff_utc:
+            if (item or {}).get("elo_nuevo") is not None:
+                try:
+                    ultimo_elo = float(item.get("elo_nuevo"))
+                except (TypeError, ValueError):
+                    continue
+
+    if ultimo_elo is not None:
+        return float(ultimo_elo)
+    return float(equipo.get("elo_actual", 0) or 0)
+
+
+def prob_ganar_multiequipo(elos: Sequence[float], scale: float = 400.0) -> List[float]:
+    """Probabilidad de ganar para N equipos usando Bradley-Terry compatible con Elo.
+
+    Usamos fuerza_i = 10^(elo_i/scale), entonces:
+      P(i gana) = fuerza_i / sum_j fuerza_j
+    Para N=2 coincide exactamente con Elo expected score.
+    """
+
+    scale = float(scale)
+    if scale <= 0:
+        raise ValueError("scale debe ser > 0")
+
+    # Para estabilidad numérica, trabajamos en log-espacio.
+    # log(fuerza) = ln(10) * elo/scale
+    logs = [(math.log(10.0) * float(e) / scale) for e in elos]
+    m = max(logs) if logs else 0.0
+    ws = [math.exp(z - m) for z in logs]
+    s = sum(ws) or 1.0
+    return [w / s for w in ws]
+
+
 def prediccion_duelo_por_equipos(
     client: AppTorneosClient,
     id_equipo_a: int,
     id_equipo_b: int,
+    cutoff: Optional[datetime] = None,
     scale: float = 400.0,
 ) -> Dict:
-    equipo_a = client.obtener_equipo(id_equipo_a)
-    equipo_b = client.obtener_equipo(id_equipo_b)
+    cutoff = cutoff or datetime.now(timezone.utc)
 
-    if not equipo_a or not equipo_b:
-        raise RuntimeError("No se pudieron obtener ambos equipos desde la API")
+    hist_a = client.obtener_elo_historial_equipo(id_equipo_a)
+    hist_b = client.obtener_elo_historial_equipo(id_equipo_b)
 
-    elo_a = float(equipo_a.get("elo", 0) or 0)
-    elo_b = float(equipo_b.get("elo", 0) or 0)
+    if not hist_a or not hist_b:
+        raise RuntimeError("No se pudieron obtener ambos historiales de Elo desde la API")
+
+    elo_a = elo_en_fecha(hist_a, cutoff)
+    elo_b = elo_en_fecha(hist_b, cutoff)
 
     p_a = prob_victoria_elo(elo_a, elo_b, scale=scale)
     p_b = 1.0 - p_a
@@ -51,19 +145,68 @@ def prediccion_duelo_por_equipos(
     return {
         "metodo": "elo_expected_score",
         "scale": scale,
+        "cutoff": cutoff.isoformat(),
         "delta_elo": elo_a - elo_b,
         "equipo_a": {
-            "id_equipo": int(equipo_a.get("id_equipo")),
-            "nombre": equipo_a.get("nombre"),
+            "id_equipo": int((hist_a.get("equipo") or {}).get("id_equipo")),
+            "nombre": (hist_a.get("equipo") or {}).get("nombre"),
             "elo": elo_a,
             "probabilidad_victoria": round(p_a, 4),
         },
         "equipo_b": {
-            "id_equipo": int(equipo_b.get("id_equipo")),
-            "nombre": equipo_b.get("nombre"),
+            "id_equipo": int((hist_b.get("equipo") or {}).get("id_equipo")),
+            "nombre": (hist_b.get("equipo") or {}).get("nombre"),
             "elo": elo_b,
             "probabilidad_victoria": round(p_b, 4),
         },
+    }
+
+
+def prediccion_partido_por_equipos(
+    client: AppTorneosClient,
+    ids_equipos: Sequence[int],
+    cutoff: Optional[datetime] = None,
+    scale: float = 400.0,
+) -> Dict:
+    ids = [int(x) for x in ids_equipos]
+    if len(ids) < 2:
+        raise ValueError("Se requieren al menos 2 equipos")
+
+    cutoff = cutoff or datetime.now(timezone.utc)
+
+    historiales = [client.obtener_elo_historial_equipo(i) for i in ids]
+    if any(h is None for h in historiales):
+        raise RuntimeError("No se pudo obtener el historial de Elo de uno o más equipos")
+
+    equipos = []
+    for h in historiales:
+        equipo = (h or {}).get("equipo") or {}
+        equipos.append(
+            {
+                "id_equipo": int(equipo.get("id_equipo")),
+                "nombre": equipo.get("nombre"),
+                "elo": elo_en_fecha(h, cutoff),
+            }
+        )
+
+    elos = [e["elo"] for e in equipos]
+
+    if len(equipos) == 2:
+        p0 = prob_victoria_elo(elos[0], elos[1], scale=scale)
+        probs = [p0, 1.0 - p0]
+        metodo = "elo_expected_score"
+    else:
+        probs = prob_ganar_multiequipo(elos, scale=scale)
+        metodo = "elo_bradley_terry_multiequipo"
+
+    for e, p in zip(equipos, probs):
+        e["probabilidad_victoria"] = round(float(p), 4)
+
+    return {
+        "metodo": metodo,
+        "scale": float(scale),
+        "cutoff": cutoff.isoformat(),
+        "equipos": equipos,
     }
 
 
@@ -124,7 +267,7 @@ def prob_victoria_calibrada(elo_a: float, elo_b: float, beta: float) -> float:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Predicción 1v1 (probabilidad de victoria) usando Elo",
+        description="Predicción de victoria usando Elo (2+ equipos) con historial hasta una fecha",
     )
 
     parser.add_argument("--base-url", default="http://localhost:3000/api/v1")
@@ -133,17 +276,17 @@ def main() -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
         "--equipos",
-        nargs=2,
+        nargs="+",
         type=int,
-        metavar=("ID_EQUIPO_A", "ID_EQUIPO_B"),
-        help="IDs de los equipos en la API",
+        metavar="ID_EQUIPO",
+        help="IDs de los equipos en la API (2 o más)",
     )
     group.add_argument(
         "--elos",
-        nargs=2,
+        nargs="+",
         type=float,
-        metavar=("ELO_A", "ELO_B"),
-        help="Elo directos (sin llamar a la API)",
+        metavar="ELO",
+        help="Elo directos (sin llamar a la API) (2 o más)",
     )
 
     parser.add_argument(
@@ -153,26 +296,96 @@ def main() -> int:
         help="Parámetro de escala del Elo (por defecto 400)",
     )
 
+    parser.add_argument(
+        "--fecha",
+        default=None,
+        help="Fecha/hora ISO-8601 para cortar el historial (por defecto: ahora). Ej: 2026-05-18T20:30:00Z",
+    )
+
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Imprime la salida en JSON (útil para integración con backend)",
+    )
+
     args = parser.parse_args()
 
+    cutoff = _parse_iso_datetime(args.fecha)
+    if cutoff is not None:
+        cutoff = _to_aware_utc(cutoff)
+
     if args.elos:
-        elo_a, elo_b = args.elos
-        p_a = prob_victoria_elo(elo_a, elo_b, scale=args.scale)
-        p_b = 1.0 - p_a
-        print(f"Equipo A: {_fmt_pct(p_a)} | Equipo B: {_fmt_pct(p_b)} (deltaElo={elo_a-elo_b:.1f})")
+        if len(args.elos) < 2:
+            raise SystemExit("--elos requiere 2 o más valores")
+
+        elos = [float(x) for x in args.elos]
+        if len(elos) == 2:
+            p_a = prob_victoria_elo(elos[0], elos[1], scale=args.scale)
+            p_b = 1.0 - p_a
+
+            if args.json:
+                payload = {
+                    "metodo": "elo_expected_score",
+                    "scale": float(args.scale),
+                    "equipos": [
+                        {"idx": 0, "elo": float(elos[0]), "probabilidad_victoria": round(float(p_a), 4)},
+                        {"idx": 1, "elo": float(elos[1]), "probabilidad_victoria": round(float(p_b), 4)},
+                    ],
+                }
+                print(json.dumps(payload, ensure_ascii=False))
+            else:
+                print(
+                    f"Equipo A: {_fmt_pct(p_a)} | Equipo B: {_fmt_pct(p_b)} "
+                    f"(deltaElo={elos[0]-elos[1]:.1f})"
+                )
+            return 0
+
+        probs = prob_ganar_multiequipo(elos, scale=args.scale)
+
+        if args.json:
+            payload = {
+                "metodo": "elo_bradley_terry_multiequipo",
+                "scale": float(args.scale),
+                "equipos": [
+                    {
+                        "idx": int(i),
+                        "elo": float(elos[i]),
+                        "probabilidad_victoria": round(float(p), 4),
+                    }
+                    for i, p in enumerate(probs)
+                ],
+            }
+            print(json.dumps(payload, ensure_ascii=False))
+        else:
+            partes = [f"E{i+1}: {_fmt_pct(p)}" for i, p in enumerate(probs)]
+            print(" | ".join(partes))
         return 0
 
-    id_a, id_b = args.equipos
+    if len(args.equipos) < 2:
+        raise SystemExit("--equipos requiere 2 o más IDs")
+
     client = AppTorneosClient(base_url=args.base_url, timeout=args.timeout)
-    pred = prediccion_duelo_por_equipos(client, id_a, id_b, scale=args.scale)
+    pred = prediccion_partido_por_equipos(client, args.equipos, cutoff=cutoff, scale=args.scale)
 
-    a = pred["equipo_a"]
-    b = pred["equipo_b"]
+    equipos = pred["equipos"]
+    if len(equipos) == 2:
+        a, b = equipos
+        if args.json:
+            print(json.dumps(pred, ensure_ascii=False))
+        else:
+            print(
+                f"{a['nombre']} (Elo {a['elo']:.0f}): {_fmt_pct(a['probabilidad_victoria'])} | "
+                f"{b['nombre']} (Elo {b['elo']:.0f}): {_fmt_pct(b['probabilidad_victoria'])}"
+            )
+        return 0
 
-    print(
-        f"{a['nombre']} (Elo {a['elo']:.0f}): {_fmt_pct(a['probabilidad_victoria'])} | "
-        f"{b['nombre']} (Elo {b['elo']:.0f}): {_fmt_pct(b['probabilidad_victoria'])}"
-    )
+    # Multi-equipo: imprimimos ordenado por probabilidad desc
+    if args.json:
+        print(json.dumps(pred, ensure_ascii=False))
+    else:
+        equipos_sorted = sorted(equipos, key=lambda e: e["probabilidad_victoria"], reverse=True)
+        for e in equipos_sorted:
+            print(f"{e['nombre']} (Elo {e['elo']:.0f}): {_fmt_pct(e['probabilidad_victoria'])}")
 
     return 0
 
