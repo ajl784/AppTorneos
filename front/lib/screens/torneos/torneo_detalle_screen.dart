@@ -672,6 +672,11 @@ class _BracketSeriesView extends StatelessWidget {
     }
 
     final orderedRounds = roundsMap.keys.toList(growable: false)..sort();
+
+    final currentRound = orderedRounds.firstWhere(
+      (r) => roundsMap[r]!.any((n) => _normEstado(n.display.estado) != 'acabado'),
+      orElse: () => orderedRounds.last,
+    );
     for (final r in orderedRounds) {
       roundsMap[r]!.sort((a, b) {
         if (a.sortKey != b.sortKey) return a.sortKey.compareTo(b.sortKey);
@@ -716,6 +721,9 @@ class _BracketSeriesView extends StatelessWidget {
 
       for (var matchIndex = 0; matchIndex < matches.length; matchIndex++) {
         final node = matches[matchIndex];
+        final nodeIsCurrentRound = roundNumber == currentRound;
+        final nodeIsAcabado = _normEstado(node.display.estado) == 'acabado';
+        final allowPrediccion = nodeIsCurrentRound && !nodeIsAcabado;
 
         final top = 12 + topOffset + matchIndex * step;
         final rect = Rect.fromLTWH(left, top, cardWidth, cardHeight);
@@ -734,6 +742,7 @@ class _BracketSeriesView extends StatelessWidget {
               bracketLabel: (esEliminacionPorSerie && rondasPorSerie > 1)
                   ? 'Bloque ${roundNumber + 1} · Serie ${node.display.ordenSerie ?? 0}'
                   : 'Ronda ${node.display.ronda ?? roundNumber}',
+              allowPrediccion: allowPrediccion,
             ),
           ),
         );
@@ -803,6 +812,7 @@ class _JornadaNavigatorView extends StatefulWidget {
 
 class _JornadaNavigatorViewState extends State<_JornadaNavigatorView> {
   int _jornada = 1;
+  bool _didInitJornada = false;
 
   late final PartidosApi _partidosApi = PartidosApi(baseUrl: ApiConfig.baseUrl);
   final Map<int, Future<PartidoPrediccion>> _predCache = {};
@@ -814,19 +824,33 @@ class _JornadaNavigatorViewState extends State<_JornadaNavigatorView> {
     );
   }
 
-  static DateTime? _tryParseDate(String? raw) {
-    if (raw == null) return null;
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return null;
-    return DateTime.tryParse(trimmed);
+  static bool _shouldFetchPrediccion(TorneoPartido p) {
+    if (p.equipos.length < 2) return false;
+    final estado = (p.estado ?? '').trim().toLowerCase();
+    if (estado == 'cancelado') return false;
+    final dt = _MatchCard._tryParseDate(p.fechaHora);
+    if (dt == null) return false;
+    return true;
   }
 
-  static bool _isFuturoPlanificado(TorneoPartido p) {
-    final estado = (p.estado ?? '').trim().toLowerCase();
-    if (estado.isNotEmpty && estado != 'planificado') return false;
-    final dt = _tryParseDate(p.fechaHora);
-    if (dt == null) return false;
-    return dt.isAfter(DateTime.now());
+  static bool _isAcabado(TorneoPartido p) => _normEstado(p.estado) == 'acabado';
+
+  static int _currentJornada(List<TorneoPartido> partidos) {
+    final jornadas = <int, List<TorneoPartido>>{};
+    for (final p in partidos) {
+      final j = p.jornada;
+      if (j == null || j <= 0) continue;
+      jornadas.putIfAbsent(j, () => <TorneoPartido>[]).add(p);
+    }
+    if (jornadas.isEmpty) return 1;
+
+    final ordered = jornadas.keys.toList(growable: false)..sort();
+    for (final j in ordered) {
+      final items = jornadas[j]!;
+      final allDone = items.isNotEmpty && items.every(_isAcabado);
+      if (!allDone) return j;
+    }
+    return ordered.last;
   }
 
   static String _normEstado(String? v) => (v ?? '').trim().toLowerCase();
@@ -841,6 +865,15 @@ class _JornadaNavigatorViewState extends State<_JornadaNavigatorView> {
       final j = p.jornada;
       if (j == null || j <= 0) continue;
       groups.putIfAbsent(j, () => <TorneoPartido>[]).add(p);
+    }
+
+    final jornadaActual = _currentJornada(widget.partidos);
+    if (!_didInitJornada) {
+      _didInitJornada = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _jornada = jornadaActual);
+      });
     }
 
     final maxJornada = groups.keys.isEmpty
@@ -940,7 +973,10 @@ class _JornadaNavigatorViewState extends State<_JornadaNavigatorView> {
                     final a = equipos.isNotEmpty ? equipos[0] : null;
                     final b = equipos.length > 1 ? equipos[1] : null;
 
-                    final showPred = _isFuturoPlanificado(p);
+                    final isJornadaActual = (p.jornada ?? 0) == jornadaActual;
+                    final isAcabado = _isAcabado(p);
+
+                    final showPred = isJornadaActual && !isAcabado && _shouldFetchPrediccion(p);
 
                     // Si el partido tiene más de dos equipos, mostrar un ExpansionTile
                     // con la fecha/hora y, al desplegar, el ranking de puntos.
@@ -1237,12 +1273,14 @@ class _MatchCard extends StatefulWidget {
   final List<TorneoPartido> juegosSerie;
   final bool compact;
   final String? bracketLabel;
+  final bool allowPrediccion;
 
   const _MatchCard({
     required this.partido,
     this.juegosSerie = const <TorneoPartido>[],
     this.compact = false,
     this.bracketLabel,
+    this.allowPrediccion = true,
   });
 
   static DateTime? _tryParseDate(String? raw) {
@@ -1273,12 +1311,14 @@ class _MatchCardState extends State<_MatchCard> {
   late final PartidosApi _partidosApi = PartidosApi(baseUrl: ApiConfig.baseUrl);
   Future<PartidoPrediccion>? _predFuture;
 
-  static bool _isFuturoPlanificado(TorneoPartido p) {
+  static bool _shouldFetchPrediccion(TorneoPartido p) {
+    if (p.equipos.length < 2) return false;
     final estado = (p.estado ?? '').trim().toLowerCase();
-    if (estado.isNotEmpty && estado != 'planificado') return false;
+    if (estado == 'cancelado') return false;
+    if (estado == 'acabado') return false;
     final dt = _MatchCard._tryParseDate(p.fechaHora);
     if (dt == null) return false;
-    return dt.isAfter(DateTime.now());
+    return true;
   }
 
   static double _meanPoints(List<TorneoPartidoEquipo> equipos) {
@@ -1322,7 +1362,7 @@ class _MatchCardState extends State<_MatchCard> {
   void initState() {
     super.initState();
     final p = widget.partido;
-    if (_isFuturoPlanificado(p) && p.equipos.length >= 2) {
+    if (widget.allowPrediccion && _shouldFetchPrediccion(p)) {
       _predFuture = _partidosApi.fetchPrediccionPartido(p.idPartido);
     }
   }
@@ -1330,10 +1370,11 @@ class _MatchCardState extends State<_MatchCard> {
   @override
   void didUpdateWidget(covariant _MatchCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.partido.idPartido != widget.partido.idPartido) {
+    if (oldWidget.partido.idPartido != widget.partido.idPartido ||
+        oldWidget.allowPrediccion != widget.allowPrediccion) {
       _predFuture = null;
       final p = widget.partido;
-      if (_isFuturoPlanificado(p) && p.equipos.length >= 2) {
+      if (widget.allowPrediccion && _shouldFetchPrediccion(p)) {
         _predFuture = _partidosApi.fetchPrediccionPartido(p.idPartido);
       }
     }
@@ -1483,8 +1524,6 @@ class _MatchCardState extends State<_MatchCard> {
 
       Widget listRows(List<TorneoPartidoEquipo> list) {
         if (list.isEmpty) return Text('TBD', style: theme.textTheme.bodyMedium);
-
-        final is1v1 = list.length == 2;
         if (compact) {
           return Expanded(
             child: DecoratedBox(
@@ -1504,7 +1543,7 @@ class _MatchCardState extends State<_MatchCard> {
                     separatorBuilder: (_, __) => SizedBox(height: rowGap),
                     itemBuilder: (_, index) => rowForCard(
                       list[index],
-                      showProbInline: !is1v1,
+                      showProbInline: true,
                     ),
                   ),
                 ),
