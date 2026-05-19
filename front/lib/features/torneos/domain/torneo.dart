@@ -6,6 +6,7 @@ class Torneo {
   final String? fechaFin;
   final String? estado;
   final int? limiteEquipos;
+  final int? participantesActuales;
   final int? categoriaId;
   final String? categoriaNombre;
   final String? categoriaNorma;
@@ -26,6 +27,7 @@ class Torneo {
     this.fechaFin,
     this.estado,
     this.limiteEquipos,
+    this.participantesActuales,
     this.categoriaId,
     this.categoriaNombre,
     this.categoriaNorma,
@@ -68,6 +70,9 @@ class Torneo {
       estado: _stringOrNull(json['estado']),
       limiteEquipos: _intOrNull(
         json['limite_equipos'] ?? json['limiteEquipos'],
+      ),
+      participantesActuales: _intOrNull(
+        json['participantes_actuales'] ?? json['participantesActuales'],
       ),
       categoriaId: _intOrNull(json['id_categoria'] ?? json['categoriaId']),
       categoriaNombre: _stringOrNull(
