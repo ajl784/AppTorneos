@@ -355,7 +355,9 @@ const updatePartido = async (idPartido, payload) => {
 
 const deletePartido = async (idPartido) => {
   const result = await pool.query(
-    `DELETE FROM partido
+    `UPDATE partido
+     SET estado = 'cancelado',
+         ganador_id_participacion_equipo = NULL
      WHERE id_partido = $1
      RETURNING id_partido`,
     [idPartido],
@@ -748,7 +750,7 @@ const registrarPuntuacionesArbitro = async ({
           const pendientesRes = await pool.query(
             `SELECT COUNT(*)::int AS pendientes
              FROM partido
-             WHERE id_torneo = $1 AND ronda = $2 AND estado <> 'acabado'`,
+             WHERE id_torneo = $1 AND ronda = $2 AND estado NOT IN ('acabado', 'cancelado')`,
             [idTorneo, rondaPartido],
           );
           const pendientes = Number(pendientesRes.rows[0]?.pendientes || 0);
@@ -787,4 +789,6 @@ module.exports = {
   updatePartido,
   deletePartido,
   registrarPuntuacionesArbitro,
+  recomputeClasificacionLiga,
+  parseNormaPuntuacionLiga,
 };

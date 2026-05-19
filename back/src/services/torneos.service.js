@@ -1261,7 +1261,7 @@ async function avanzarRondaEliminacion(idTorneo) {
       [idTorneo, rondaActual],
     );
     const partidos = partidosQ.rows;
-    if (partidos.some((p) => p.estado !== "acabado")) {
+    if (partidos.some((p) => !["acabado", "cancelado"].includes(p.estado))) {
       throw new Error(
         "Todos los partidos de la ronda actual deben estar acabados",
       );

@@ -7,6 +7,33 @@ import 'package:front/features/torneos/domain/torneo_partidos.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/features/equipos/widgets/equipo_network_avatar.dart';
 
+String prettyEstadoPartido(String value) {
+  final normalized = value.trim().toLowerCase();
+  switch (normalized) {
+    case 'inscripcion_abierta':
+    case 'inscripción_abierta':
+      return 'Inscripción abierta';
+    case 'inscripcion_terminada':
+    case 'inscripción_terminada':
+      return 'Inscripción terminada';
+    case 'planificado':
+      return 'Planificado';
+    case 'en_curso':
+    case 'en curso':
+      return 'En curso';
+    case 'acabado':
+      return 'Acabado';
+    case 'cancelado':
+      return 'Cancelado';
+    default:
+      if (normalized.isEmpty) return '';
+      return normalized.replaceFirst(
+        normalized[0],
+        normalized[0].toUpperCase(),
+      );
+  }
+}
+
 class TorneoDetalleScreen extends StatefulWidget {
   final int torneoId;
   final String? torneoNombre;
@@ -496,6 +523,8 @@ class _BracketSeriesView extends StatelessWidget {
     final estados = juegos.map((g) => _normEstado(g.estado)).toSet();
     if (estados.contains('en_curso')) return 'en_curso';
     if (estados.isNotEmpty && estados.every((e) => e == 'acabado')) return 'acabado';
+    if (estados.isNotEmpty && estados.every((e) => e == 'cancelado')) return 'cancelado';
+    if (estados.contains('cancelado') && !estados.contains('planificado')) return 'cancelado';
     if (estados.contains('planificado')) return 'planificado';
     return juegos.first.estado;
   }
@@ -855,11 +884,11 @@ class _JornadaNavigatorViewState extends State<_JornadaNavigatorView> {
         );
       }
 
-      final label = (estado.isEmpty || estado == 'planificado')
+        final label = (estado.isEmpty || estado == 'planificado')
           ? 'Aún no ha empezado'
           : (estado == 'en_curso'
               ? 'En curso'
-              : (estado == 'acabado' ? 'Acabado' : estado));
+            : prettyEstadoPartido(estado));
 
       return Text(
         label,
@@ -1190,11 +1219,7 @@ class _MatchCard extends StatelessWidget {
 
     final estado = (partido.estado == null || partido.estado!.trim().isEmpty)
         ? null
-        : (partido.estado!.trim().toLowerCase() == 'acabado'
-            ? 'Acabado'
-            : (partido.estado!.trim().toLowerCase() == 'en_curso'
-                ? 'En curso'
-                : null));
+      : prettyEstadoPartido(partido.estado!);
 
     final vsTitle = _vsTitle(
       a?.equipoNombre,
