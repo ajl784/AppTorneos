@@ -32,6 +32,22 @@ const getPartidoById = asyncHandler(async (req, res) => {
   ok(res, data);
 });
 
+const getPrediccionPartido = asyncHandler(async (req, res) => {
+  const idPartido = parsePositiveInt(req.params.id, "id");
+  const scaleRaw = req.query.scale;
+  const scale = scaleRaw == null ? null : Number(scaleRaw);
+
+  const data = await partidosService.getPrediccionPartido(idPartido, {
+    scale: scale == null || Number.isNaN(scale) ? undefined : scale,
+  });
+
+  if (!data) {
+    throw new AppError(404, "Partido no encontrado");
+  }
+
+  ok(res, data);
+});
+
 const createPartido = asyncHandler(async (req, res) => {
   requireFields(req.body, ["id_torneo", "fecha_hora"]);
   const data = await partidosService.createPartido(req.body);
@@ -130,6 +146,7 @@ const registrarPuntuacionesArbitro = asyncHandler(async (req, res) => {
 module.exports = {
   listPartidos,
   getPartidoById,
+  getPrediccionPartido,
   createPartido,
   updatePartido,
   deletePartido,

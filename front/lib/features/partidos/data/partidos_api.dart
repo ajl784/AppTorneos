@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:front/api/api_response.dart';
 import 'package:front/api/app_torneos_api_client.dart';
 import 'package:front/features/partidos/domain/partido.dart';
+import 'package:front/features/partidos/domain/partido_prediccion.dart';
 
 class PartidosApi {
   final AppTorneosApiClient _api;
@@ -108,5 +109,24 @@ class PartidosApi {
     return RegistrarPuntuacionesResult.fromJson(
       Map<String, dynamic>.from(data),
     );
+  }
+
+  Future<PartidoPrediccion> fetchPrediccionPartido(
+    int idPartido, {
+    double? scale,
+  }) async {
+    final res = await _api.getRaw(
+      '/partidos/$idPartido/prediccion',
+      queryParameters: {
+        'scale': scale?.toString(),
+      },
+    );
+
+    final data = res.data;
+    if (data is! Map) {
+      throw const FormatException('Respuesta inesperada (predicción no es Map)');
+    }
+
+    return PartidoPrediccion.fromJson(Map<String, dynamic>.from(data));
   }
 }

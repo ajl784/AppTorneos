@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.get("/", controller.listPartidos);
 router.get("/:id", controller.getPartidoById);
+router.get("/:id/prediccion", controller.getPrediccionPartido);
 router.post("/:id/puntuaciones", controller.registrarPuntuacionesArbitro);
 router.post("/", controller.createPartido);
 router.put("/:id", authMiddleware, controller.updatePartido);

@@ -4,6 +4,8 @@ import 'package:front/features/torneos/data/torneos_api.dart';
 import 'package:front/features/torneos/domain/torneo.dart';
 import 'package:front/features/torneos/domain/torneo_clasificacion.dart';
 import 'package:front/features/torneos/domain/torneo_partidos.dart';
+import 'package:front/features/partidos/data/partidos_api.dart';
+import 'package:front/features/partidos/domain/partido_prediccion.dart';
 import 'package:front/peticion/api_config.dart';
 import 'package:front/features/equipos/widgets/equipo_network_avatar.dart';
 
@@ -699,6 +701,11 @@ class _BracketSeriesView extends StatelessWidget {
     }
 
     final orderedRounds = roundsMap.keys.toList(growable: false)..sort();
+
+    final currentRound = orderedRounds.firstWhere(
+      (r) => roundsMap[r]!.any((n) => _normEstado(n.display.estado) != 'acabado'),
+      orElse: () => orderedRounds.last,
+    );
     for (final r in orderedRounds) {
       roundsMap[r]!.sort((a, b) {
         if (a.sortKey != b.sortKey) return a.sortKey.compareTo(b.sortKey);
@@ -743,6 +750,9 @@ class _BracketSeriesView extends StatelessWidget {
 
       for (var matchIndex = 0; matchIndex < matches.length; matchIndex++) {
         final node = matches[matchIndex];
+        final nodeIsCurrentRound = roundNumber == currentRound;
+        final nodeIsAcabado = _normEstado(node.display.estado) == 'acabado';
+        final allowPrediccion = nodeIsCurrentRound && !nodeIsAcabado;
 
         final top = 12 + topOffset + matchIndex * step;
         final rect = Rect.fromLTWH(left, top, cardWidth, cardHeight);
@@ -761,6 +771,7 @@ class _BracketSeriesView extends StatelessWidget {
               bracketLabel: (esEliminacionPorSerie && rondasPorSerie > 1)
                   ? 'Bloque ${roundNumber + 1} · Serie ${node.display.ordenSerie ?? 0}'
                   : 'Ronda ${node.display.ronda ?? roundNumber}',
+              allowPrediccion: allowPrediccion,
             ),
           ),
         );
@@ -830,6 +841,46 @@ class _JornadaNavigatorView extends StatefulWidget {
 
 class _JornadaNavigatorViewState extends State<_JornadaNavigatorView> {
   int _jornada = 1;
+  bool _didInitJornada = false;
+
+  late final PartidosApi _partidosApi = PartidosApi(baseUrl: ApiConfig.baseUrl);
+  final Map<int, Future<PartidoPrediccion>> _predCache = {};
+
+  Future<PartidoPrediccion> _prediccionFuture(int idPartido) {
+    return _predCache.putIfAbsent(
+      idPartido,
+      () => _partidosApi.fetchPrediccionPartido(idPartido),
+    );
+  }
+
+  static bool _shouldFetchPrediccion(TorneoPartido p) {
+    if (p.equipos.length < 2) return false;
+    final estado = (p.estado ?? '').trim().toLowerCase();
+    if (estado == 'cancelado') return false;
+    final dt = _MatchCard._tryParseDate(p.fechaHora);
+    if (dt == null) return false;
+    return true;
+  }
+
+  static bool _isAcabado(TorneoPartido p) => _normEstado(p.estado) == 'acabado';
+
+  static int _currentJornada(List<TorneoPartido> partidos) {
+    final jornadas = <int, List<TorneoPartido>>{};
+    for (final p in partidos) {
+      final j = p.jornada;
+      if (j == null || j <= 0) continue;
+      jornadas.putIfAbsent(j, () => <TorneoPartido>[]).add(p);
+    }
+    if (jornadas.isEmpty) return 1;
+
+    final ordered = jornadas.keys.toList(growable: false)..sort();
+    for (final j in ordered) {
+      final items = jornadas[j]!;
+      final allDone = items.isNotEmpty && items.every(_isAcabado);
+      if (!allDone) return j;
+    }
+    return ordered.last;
+  }
 
   static String _normEstado(String? v) => (v ?? '').trim().toLowerCase();
 
@@ -843,6 +894,15 @@ class _JornadaNavigatorViewState extends State<_JornadaNavigatorView> {
       final j = p.jornada;
       if (j == null || j <= 0) continue;
       groups.putIfAbsent(j, () => <TorneoPartido>[]).add(p);
+    }
+
+    final jornadaActual = _currentJornada(widget.partidos);
+    if (!_didInitJornada) {
+      _didInitJornada = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _jornada = jornadaActual);
+      });
     }
 
     final maxJornada = groups.keys.isEmpty
@@ -942,6 +1002,11 @@ class _JornadaNavigatorViewState extends State<_JornadaNavigatorView> {
                     final a = equipos.isNotEmpty ? equipos[0] : null;
                     final b = equipos.length > 1 ? equipos[1] : null;
 
+                    final isJornadaActual = (p.jornada ?? 0) == jornadaActual;
+                    final isAcabado = _isAcabado(p);
+
+                    final showPred = isJornadaActual && !isAcabado && _shouldFetchPrediccion(p);
+
                     // Si el partido tiene más de dos equipos, mostrar un ExpansionTile
                     // con la fecha/hora y, al desplegar, el ranking de puntos.
                     if (p.equipos.length > 2) {
@@ -958,84 +1023,177 @@ class _JornadaNavigatorViewState extends State<_JornadaNavigatorView> {
                         subtitle = '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} · $hora';
                       }
 
+                      final tile = (PartidoPrediccion? pred) {
+                        final probsById = pred?.normalizedProbsForEquipoIds(
+                              equiposMulti.map((e) => e.idEquipo),
+                            ) ??
+                            const <int, double>{};
+                        final maxProb = probsById.isEmpty
+                            ? null
+                            : probsById.values.reduce((a, b) => a > b ? a : b);
+                        final minProb = probsById.isEmpty
+                            ? null
+                            : probsById.values.reduce((a, b) => a < b ? a : b);
+
+                        String fmtProb(double p) => '${(p * 100).toStringAsFixed(2)}%';
+
+                        return Card(
+                          elevation: 2,
+                          clipBehavior: Clip.antiAlias,
+                          child: ExpansionTile(
+                            title: Text('Partido (${p.equipos.length} equipos)'),
+                            subtitle: subtitle.isEmpty ? null : Text(subtitle),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    ...equiposMulti.asMap().entries.map((entry) {
+                                      final idx = entry.key;
+                                      final e = entry.value;
+                                      final name = e.equipoNombre.trim().isEmpty ? 'TBD' : e.equipoNombre.trim();
+
+                                      final prob = probsById[e.idEquipo];
+                                        final allEqual = (maxProb != null && minProb != null && maxProb == minProb);
+                                        final color = (prob != null && maxProb != null && !allEqual && prob == maxProb)
+                                          ? Colors.green
+                                          : (prob != null && !allEqual ? Colors.red : null);
+
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 8),
+                                        child: Row(
+                                          children: [
+                                            CircleAvatar(
+                                              radius: 14,
+                                              child: Text(
+                                                '${idx + 1}',
+                                                style: Theme.of(context).textTheme.bodySmall,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Row(
+                                                children: [
+                                                  Expanded(child: Text(name)),
+                                                  if (prob != null) ...[
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      fmtProb(prob),
+                                                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                                            color: color,
+                                                            fontWeight: FontWeight.w800,
+                                                          ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Text(
+                                              '${e.punto}',
+                                              style: Theme.of(context).textTheme.bodyMedium,
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(growable: false),
+                                    if (allZero) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Aún no se tienen los resultados.',
+                                        style: theme.textTheme.labelSmall?.copyWith(
+                                          color: colors.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      };
+
+                      if (!showPred) {
+                        return tile(null);
+                      }
+
+                      return FutureBuilder<PartidoPrediccion>(
+                        future: _prediccionFuture(p.idPartido),
+                        builder: (context, snap) {
+                          final pred = snap.hasData ? snap.data : null;
+                          return tile(pred);
+                        },
+                      );
+                    }
+
+                    Widget buildCard(PartidoPrediccion? pred) {
+                      final ids = <int>[if (a != null) a.idEquipo, if (b != null) b.idEquipo];
+                      final probsById = pred?.normalizedProbsForEquipoIds(ids) ?? const <int, double>{};
+                      final maxProb = probsById.isEmpty
+                          ? null
+                          : probsById.values.reduce((x, y) => x > y ? x : y);
+                      final minProb = probsById.isEmpty
+                          ? null
+                          : probsById.values.reduce((x, y) => x < y ? x : y);
+
+                      Color? colorFor(int idEquipo) {
+                        final p = probsById[idEquipo];
+                        if (p == null || maxProb == null) return null;
+                        final allEqual = (minProb != null && minProb == maxProb);
+                        if (allEqual) return null;
+                        return p == maxProb ? Colors.green : Colors.red;
+                      }
+
                       return Card(
                         elevation: 2,
                         clipBehavior: Clip.antiAlias,
-                        child: ExpansionTile(
-                          title: Text('Partido (${p.equipos.length} equipos)'),
-                          subtitle: subtitle.isEmpty ? null : Text(subtitle),
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  ...equiposMulti.asMap().entries.map((entry) {
-                                    final idx = entry.key;
-                                    final e = entry.value;
-                                    final name = e.equipoNombre.trim().isEmpty ? 'TBD' : e.equipoNombre.trim();
-                                    return Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: Row(
-                                        children: [
-                                          CircleAvatar(
-                                            radius: 14,
-                                            child: Text('${idx + 1}', style: Theme.of(context).textTheme.bodySmall),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(child: Text(name)),
-                                          const SizedBox(width: 12),
-                                          Text('${e.punto}', style: Theme.of(context).textTheme.bodyMedium),
-                                        ],
-                                      ),
-                                    );
-                                  }).toList(growable: false),
-                                  if (allZero) ...[
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Aún no se tienen los resultados.',
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        color: colors.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _EquipoCell(
+                                  equipo: a,
+                                  alignLeft: true,
+                                  probabilidadVictoria:
+                                      a == null ? null : probsById[a.idEquipo],
+                                  probColor:
+                                      a == null ? null : colorFor(a.idEquipo),
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(minWidth: 72, maxWidth: 110),
+                                child: Center(child: resultFor(p)),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _EquipoCell(
+                                  equipo: b,
+                                  alignLeft: false,
+                                  probabilidadVictoria:
+                                      b == null ? null : probsById[b.idEquipo],
+                                  probColor:
+                                      b == null ? null : colorFor(b.idEquipo),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     }
 
-                    // Partidos 1v1 existentes (comportamiento previo)
-                    return Card(
-                      elevation: 2,
-                      clipBehavior: Clip.antiAlias,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _EquipoCell(
-                                equipo: a,
-                                alignLeft: true,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(minWidth: 72, maxWidth: 110),
-                              child: Center(child: resultFor(p)),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _EquipoCell(
-                                equipo: b,
-                                alignLeft: false,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    if (!showPred) {
+                      return buildCard(null);
+                    }
+
+                    return FutureBuilder<PartidoPrediccion>(
+                      future: _prediccionFuture(p.idPartido),
+                      builder: (context, snap) {
+                        return buildCard(snap.hasData ? snap.data : null);
+                      },
                     );
                   },
                 ),
@@ -1048,10 +1206,14 @@ class _JornadaNavigatorViewState extends State<_JornadaNavigatorView> {
 class _EquipoCell extends StatelessWidget {
   final TorneoPartidoEquipo? equipo;
   final bool alignLeft;
+  final double? probabilidadVictoria;
+  final Color? probColor;
 
   const _EquipoCell({
     required this.equipo,
     required this.alignLeft,
+    this.probabilidadVictoria,
+    this.probColor,
   });
 
   static String _displayName(TorneoPartidoEquipo? e) {
@@ -1063,6 +1225,11 @@ class _EquipoCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final name = _displayName(equipo);
+
+    final prob = probabilidadVictoria;
+    final probLabel = (prob == null)
+        ? null
+        : '${(prob * 100).toStringAsFixed(2)}%';
     
     final avatar = equipo != null
         ? EquipoNetworkAvatar(
@@ -1086,11 +1253,30 @@ class _EquipoCell extends StatelessWidget {
           );
 
     final text = Flexible(
-      child: Text(
-        name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodyMedium,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+          if (probLabel != null) ...[
+            const SizedBox(width: 6),
+            Text(
+              probLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: probColor,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ],
       ),
     );
 
@@ -1111,18 +1297,58 @@ class _EquipoCell extends StatelessWidget {
   }
 }
 
-class _MatchCard extends StatelessWidget {
+class _MatchCard extends StatefulWidget {
   final TorneoPartido partido;
   final List<TorneoPartido> juegosSerie;
   final bool compact;
   final String? bracketLabel;
+  final bool allowPrediccion;
 
   const _MatchCard({
     required this.partido,
     this.juegosSerie = const <TorneoPartido>[],
     this.compact = false,
     this.bracketLabel,
+    this.allowPrediccion = true,
   });
+
+  static DateTime? _tryParseDate(String? raw) {
+    final v = (raw ?? '').trim();
+    if (v.isEmpty) return null;
+    try {
+      return DateTime.parse(v);
+    } catch (_) {
+      try {
+        return DateTime.parse(v.replaceFirst(' ', 'T'));
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  static String _vsTitle(String? a, String? b) {
+    final left = (a ?? '').trim().isEmpty ? 'TBD' : a!.trim();
+    final right = (b ?? '').trim().isEmpty ? 'TBD' : b!.trim();
+    return '$left vs $right';
+  }
+
+  @override
+  State<_MatchCard> createState() => _MatchCardState();
+}
+
+class _MatchCardState extends State<_MatchCard> {
+  late final PartidosApi _partidosApi = PartidosApi(baseUrl: ApiConfig.baseUrl);
+  Future<PartidoPrediccion>? _predFuture;
+
+  static bool _shouldFetchPrediccion(TorneoPartido p) {
+    if (p.equipos.length < 2) return false;
+    final estado = (p.estado ?? '').trim().toLowerCase();
+    if (estado == 'cancelado') return false;
+    if (estado == 'acabado') return false;
+    final dt = _MatchCard._tryParseDate(p.fechaHora);
+    if (dt == null) return false;
+    return true;
+  }
 
   static double _meanPoints(List<TorneoPartidoEquipo> equipos) {
     if (equipos.isEmpty) return 0;
@@ -1135,18 +1361,61 @@ class _MatchCard extends StatelessWidget {
     return (points - mean).abs() <= band;
   }
 
-  static ({Color bg, Color fg, Color border}) _toneColors(ColorScheme colors, int points, double mean) {
+  static ({Color bg, Color fg, Color border}) _toneColors(
+    ColorScheme colors,
+    int points,
+    double mean,
+  ) {
     if (_isNearMean(points, mean)) {
-      return (bg: colors.secondaryContainer, fg: colors.onSecondaryContainer, border: colors.secondary);
+      return (
+        bg: colors.secondaryContainer,
+        fg: colors.onSecondaryContainer,
+        border: colors.secondary,
+      );
     }
     if (points > mean) {
-      return (bg: colors.tertiaryContainer, fg: colors.onTertiaryContainer, border: colors.tertiary);
+      return (
+        bg: colors.tertiaryContainer,
+        fg: colors.onTertiaryContainer,
+        border: colors.tertiary,
+      );
     }
-    return (bg: colors.errorContainer, fg: colors.onErrorContainer, border: colors.error);
+    return (
+      bg: colors.errorContainer,
+      fg: colors.onErrorContainer,
+      border: colors.error,
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.partido;
+    if (widget.allowPrediccion && _shouldFetchPrediccion(p)) {
+      _predFuture = _partidosApi.fetchPrediccionPartido(p.idPartido);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _MatchCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.partido.idPartido != widget.partido.idPartido ||
+        oldWidget.allowPrediccion != widget.allowPrediccion) {
+      _predFuture = null;
+      final p = widget.partido;
+      if (widget.allowPrediccion && _shouldFetchPrediccion(p)) {
+        _predFuture = _partidosApi.fetchPrediccionPartido(p.idPartido);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final partido = widget.partido;
+    final juegosSerie = widget.juegosSerie;
+    final compact = widget.compact;
+    final bracketLabel = widget.bracketLabel;
+
     final equipos = partido.equipos;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
@@ -1155,14 +1424,18 @@ class _MatchCard extends StatelessWidget {
     final rowGap = compact ? 4.0 : 6.0;
     final metaGap = compact ? 4.0 : 6.0;
 
-    final localDate = _tryParseDate(partido.fechaHora)?.toLocal();
+    final localDate = _MatchCard._tryParseDate(partido.fechaHora)?.toLocal();
     final fechaLabel = localDate == null
-      ? null
-      : '${localDate.day.toString().padLeft(2, '0')}/${localDate.month.toString().padLeft(2, '0')}/${localDate.year.toString().padLeft(4, '0')}';
+        ? null
+        : '${localDate.day.toString().padLeft(2, '0')}/${localDate.month.toString().padLeft(2, '0')}/${localDate.year.toString().padLeft(4, '0')}';
     final horaLabel = localDate == null ? null : TimeOfDay.fromDateTime(localDate).format(context);
-    final lugarLabel = (partido.lugar == null || partido.lugar!.trim().isEmpty)
-      ? null
-      : partido.lugar!.trim();
+    final lugarLabel = (partido.lugar == null || partido.lugar!.trim().isEmpty) ? null : partido.lugar!.trim();
+
+    final estado = (partido.estado == null || partido.estado!.trim().isEmpty)
+        ? null
+        : (partido.estado!.trim().toLowerCase() == 'acabado'
+            ? 'Acabado'
+            : (partido.estado!.trim().toLowerCase() == 'en_curso' ? 'En curso' : null));
 
     TorneoPartidoEquipo? winner;
     if (equipos.length >= 2) {
@@ -1181,25 +1454,65 @@ class _MatchCard extends StatelessWidget {
       });
     final preview = sortedEquipos.take(4).toList(growable: false);
 
-    // Card (cerrada): minimalista y sencilla.
-    // El detalle bonito/estructurado vive en el diálogo al abrir.
-    Widget rowForCard(TorneoPartidoEquipo e) {
-      final name = (e.equipoNombre).trim().isEmpty ? 'TBD' : e.equipoNombre.trim();
-      final score = e.punto;
-      final isWinner = winner?.idEquipo == e.idEquipo;
+    final a = equipos.isNotEmpty ? equipos[0] : null;
+    final b = equipos.length > 1 ? equipos[1] : null;
+    final tituloDialog = equipos.length <= 2
+        ? _MatchCard._vsTitle(a?.equipoNombre, b?.equipoNombre)
+        : 'Partido (${equipos.length} equipos)';
 
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
+    Widget buildInner(PartidoPrediccion? pred) {
+      final probsById = pred?.normalizedProbsForEquipoIds(equipos.map((e) => e.idEquipo)) ??
+        const <int, double>{};
+      final maxProb = probsById.isEmpty
+        ? null
+        : probsById.values.reduce((x, y) => x > y ? x : y);
+      final minProb = probsById.isEmpty
+        ? null
+        : probsById.values.reduce((x, y) => x < y ? x : y);
+
+      Color? probColor(int idEquipo) {
+        final p = probsById[idEquipo];
+        if (p == null || maxProb == null) return null;
+        if (minProb != null && minProb == maxProb) return null;
+        return p == maxProb ? Colors.green : Colors.red;
+      }
+
+      String fmtProb(double p) => '${(p * 100).toStringAsFixed(2)}%';
+
+      Widget rowForCard(TorneoPartidoEquipo e, {bool showProbInline = true}) {
+        final name = (e.equipoNombre).trim().isEmpty ? 'TBD' : e.equipoNombre.trim();
+        final score = e.punto;
+        final isWinner = winner?.idEquipo == e.idEquipo;
+
+        final prob = probsById[e.idEquipo];
+        final pColor = prob == null ? null : probColor(e.idEquipo);
+
+        return Row(
           children: [
             Expanded(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (showProbInline && prob != null) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      fmtProb(prob),
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: pColor,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             const SizedBox(width: 10),
@@ -1210,35 +1523,115 @@ class _MatchCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      );
-    }
+        );
+      }
 
-    final a = equipos.isNotEmpty ? equipos[0] : null;
-    final b = equipos.length > 1 ? equipos[1] : null;
+      Widget probsRightColumn(List<TorneoPartidoEquipo> list) {
+        final maxP = maxProb;
+        final allEqual = (minProb != null && maxProb != null && minProb == maxProb);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: list.map((e) {
+            final p = probsById[e.idEquipo];
+            if (p == null) return const SizedBox.shrink();
+            final c = allEqual
+                ? null
+                : ((maxP != null && p == maxP) ? Colors.green : Colors.red);
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                fmtProb(p),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: c,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            );
+          }).toList(growable: false),
+        );
+      }
 
-    final estado = (partido.estado == null || partido.estado!.trim().isEmpty)
-        ? null
-      : prettyEstadoPartido(partido.estado!);
+      Widget listRows(List<TorneoPartidoEquipo> list) {
+        if (list.isEmpty) return Text('TBD', style: theme.textTheme.bodyMedium);
+        if (compact) {
+          return Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colors.outlineVariant),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: Scrollbar(
+                  child: ListView.separated(
+                    primary: false,
+                    padding: EdgeInsets.zero,
+                    physics: const ClampingScrollPhysics(),
+                    itemCount: list.length,
+                    separatorBuilder: (_, __) => SizedBox(height: rowGap),
+                    itemBuilder: (_, index) => rowForCard(
+                      list[index],
+                      showProbInline: true,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
 
-    final vsTitle = _vsTitle(
-      a?.equipoNombre,
-      b?.equipoNombre,
-    );
+        final rows = preview;
+        if (rows.length == 2) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    rowForCard(rows[0], showProbInline: false),
+                    SizedBox(height: rowGap),
+                    rowForCard(rows[1], showProbInline: false),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              probsRightColumn(rows),
+            ],
+          );
+        }
 
-    final tituloDialog = equipos.length <= 2 ? vsTitle : 'Partido (${equipos.length} equipos)';
+        return Column(
+          children: [
+            ...rows.asMap().entries.map((e) {
+              final w = rowForCard(e.value);
+              if (e.key == rows.length - 1) return w;
+              return Padding(
+                padding: EdgeInsets.only(bottom: rowGap),
+                child: w,
+              );
+            }).toList(growable: false),
+            if (equipos.length > rows.length) ...[
+              const SizedBox(height: 2),
+              Text(
+                '+${equipos.length - rows.length} más',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        );
+      }
 
-    return Card(
-      elevation: 2,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
+      return InkWell(
         onTap: () {
           showDialog<void>(
             context: context,
             builder: (ctx) {
               final isSerie = juegosSerie.length > 1;
 
-              List<TorneoPartidoEquipo> _sortedEquiposFor(List<TorneoPartidoEquipo> items) {
+              List<TorneoPartidoEquipo> sortedEquiposFor(List<TorneoPartidoEquipo> items) {
                 final copy = [...items];
                 copy.sort((a, b) {
                   final c = b.punto.compareTo(a.punto);
@@ -1248,58 +1641,45 @@ class _MatchCard extends StatelessWidget {
                 return copy;
               }
 
-              Widget equiposTable(
-                List<TorneoPartidoEquipo> items, {
-                double? maxHeight,
-              }) {
-                final rows = _sortedEquiposFor(items);
-                if (rows.isEmpty) return const Text('TBD');
-
+              Widget equiposTable(List<TorneoPartidoEquipo> items, {double maxHeight = 220}) {
+                final rows = sortedEquiposFor(items);
                 final mean = _meanPoints(rows);
 
                 Widget row(TorneoPartidoEquipo e) {
                   final name = (e.equipoNombre).trim().isEmpty ? 'TBD' : e.equipoNombre.trim();
                   final tone = _toneColors(Theme.of(ctx).colorScheme, e.punto, mean);
+                  final prob = probsById[e.idEquipo];
+                  final showProb = items.length > 2 && prob != null;
                   return Row(
                     children: [
                       Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: tone.bg,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: tone.border.withValues(alpha: 0.55)),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                                        color: tone.fg,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                ),
+                        child: Text(
+                          showProb ? '$name - ${fmtProb(prob)}' : name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: tone.bg,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: tone.border),
+                        ),
+                        child: Text(
+                          '${e.punto}',
+                          style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
+                                color: tone.fg,
+                                fontWeight: FontWeight.w800,
                               ),
-                              const SizedBox(width: 12),
-                              Text(
-                                '${e.punto}',
-                                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                                      color: tone.fg,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                     ],
                   );
                 }
 
-                if (maxHeight == null) {
+                if (rows.length <= 4) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: rows
@@ -1335,8 +1715,8 @@ class _MatchCard extends StatelessWidget {
                 final parts = <String>['Juego ${index + 1}'];
                 final ord = g.ordenRonda;
                 if (ord != null) parts.add('#$ord');
-                final estado = (g.estado ?? '').trim();
-                if (estado.isNotEmpty) parts.add(estado);
+                final st = (g.estado ?? '').trim();
+                if (st.isNotEmpty) parts.add(st);
                 return parts.join(' · ');
               }
 
@@ -1375,10 +1755,7 @@ class _MatchCard extends StatelessWidget {
                                 style: Theme.of(ctx).textTheme.labelLarge,
                               ),
                               const SizedBox(height: 6),
-                              equiposTable(
-                                e.value.equipos,
-                                maxHeight: 160,
-                              ),
+                              equiposTable(e.value.equipos, maxHeight: 160),
                             ],
                           ),
                         );
@@ -1410,18 +1787,11 @@ class _MatchCard extends StatelessWidget {
                           Text(
                             'Ronda: ${partido.ronda}${partido.ordenRonda != null ? ' · #${partido.ordenRonda}' : ''}',
                           ),
-
                         if (equipos.isNotEmpty) ...[
                           const SizedBox(height: 12),
-                          Text(
-                            'Equipos',
-                            style: Theme.of(ctx).textTheme.titleSmall,
-                          ),
+                          Text('Equipos', style: Theme.of(ctx).textTheme.titleSmall),
                           const SizedBox(height: 8),
-                          equiposTable(
-                            equipos,
-                            maxHeight: 220,
-                          ),
+                          equiposTable(equipos, maxHeight: 220),
                         ],
                         serieList(),
                       ],
@@ -1443,67 +1813,56 @@ class _MatchCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (compact) ...[
-                if (bracketLabel != null && bracketLabel!.isNotEmpty) ...[
-                  Text(
-                    bracketLabel!,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
+              if (compact && bracketLabel != null && bracketLabel.trim().isNotEmpty) ...[
+                Text(
+                  bracketLabel,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 4),
-                ],
-                if (sortedEquipos.isEmpty)
-                  Text('TBD', style: theme.textTheme.bodyMedium)
-                else
-                  Expanded(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: colors.outlineVariant),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: Scrollbar(
-                          child: ListView.separated(
-                            primary: false,
-                            padding: EdgeInsets.zero,
-                            physics: const ClampingScrollPhysics(),
-                            itemCount: sortedEquipos.length,
-                            separatorBuilder: (_, __) => SizedBox(height: rowGap),
-                            itemBuilder: (_, index) => rowForCard(sortedEquipos[index]),
-                          ),
+                ),
+                const SizedBox(height: 4),
+              ],
+              if (!compact && bracketLabel != null && bracketLabel.trim().isNotEmpty) ...[
+                Text(
+                  bracketLabel,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                SizedBox(height: metaGap),
+              ],
+              if (!compact && (fechaLabel != null || horaLabel != null || lugarLabel != null))
+                Row(
+                  children: [
+                    if (fechaLabel != null) ...[
+                      const Icon(Icons.calendar_today, size: 14),
+                      const SizedBox(width: 6),
+                      Text(fechaLabel, style: theme.textTheme.labelSmall),
+                    ],
+                    if (horaLabel != null) ...[
+                      const SizedBox(width: 10),
+                      const Icon(Icons.schedule, size: 14),
+                      const SizedBox(width: 6),
+                      Text(horaLabel, style: theme.textTheme.labelSmall),
+                    ],
+                    if (lugarLabel != null) ...[
+                      const SizedBox(width: 10),
+                      const Icon(Icons.place, size: 14),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          lugarLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall,
                         ),
                       ),
-                    ),
-                  ),
-              ] else ...[
-                if (preview.isEmpty) ...[
-                  Text('TBD', style: theme.textTheme.bodyMedium),
-                ] else ...[
-                  Column(
-                    children: preview.asMap().entries.map((e) {
-                      final w = rowForCard(e.value);
-                      if (e.key == preview.length - 1) return w;
-                      return Padding(
-                        padding: EdgeInsets.only(bottom: rowGap),
-                        child: w,
-                      );
-                    }).toList(growable: false),
-                  ),
-                  if (equipos.length > preview.length) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '+${equipos.length - preview.length} más',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
+                    ],
                   ],
-                ],
-              ],
+                ),
+              if (!compact) SizedBox(height: rowGap),
+              listRows(sortedEquipos),
               if (juegosSerie.length > 1) ...[
                 SizedBox(height: metaGap),
                 Text(
@@ -1525,29 +1884,25 @@ class _MatchCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  static DateTime? _tryParseDate(String? raw) {
-    final v = (raw ?? '').trim();
-    if (v.isEmpty) return null;
-    try {
-      return DateTime.parse(v);
-    } catch (_) {
-      // Fallback: "YYYY-MM-DD HH:MM:SS" -> ISO-ish.
-      try {
-        return DateTime.parse(v.replaceFirst(' ', 'T'));
-      } catch (_) {
-        return null;
-      }
+      );
     }
-  }
 
-  static String _vsTitle(String? a, String? b) {
-    final left = (a ?? '').trim().isEmpty ? 'TBD' : a!.trim();
-    final right = (b ?? '').trim().isEmpty ? 'TBD' : b!.trim();
-    return '$left vs $right';
+    Widget buildCard(PartidoPrediccion? pred) {
+      return Card(
+        elevation: 2,
+        clipBehavior: Clip.antiAlias,
+        child: buildInner(pred),
+      );
+    }
+
+    if (_predFuture == null) {
+      return buildCard(null);
+    }
+
+    return FutureBuilder<PartidoPrediccion>(
+      future: _predFuture,
+      builder: (context, snap) => buildCard(snap.data),
+    );
   }
 }
 
