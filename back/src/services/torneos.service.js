@@ -1,6 +1,14 @@
 const { pool } = require("../db/pool");
 const { AppError } = require("../utils/errors");
 
+const buildParticipantsCountJoin = () => `
+  LEFT JOIN (
+    SELECT id_torneo, COUNT(DISTINCT id_equipo)::int AS participantes_actuales
+    FROM participacion_torneo_equipo
+    GROUP BY id_torneo
+  ) pcount ON pcount.id_torneo = t.id_torneo
+`;
+
 const listTorneos = async ({
   limit,
   offset,
@@ -49,9 +57,12 @@ const listTorneos = async ({
       t.id_organizador
         , c.participantes_por_partida AS participantes_por_partido
       , t.tipo_generacion_enfrentamientos
+      , t.limite_equipos
+      , COALESCE(pcount.participantes_actuales, 0)::int AS participantes_actuales
      FROM torneo t
      JOIN categoria c ON c.id_categoria = t.id_categoria
      JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
+     ${buildParticipantsCountJoin()}
      ${where}
      ORDER BY t.id_torneo DESC
      LIMIT $1 OFFSET $2`,
@@ -77,6 +88,8 @@ const getTorneoById = async (idTorneo) => {
       tt.nombre AS tipo_torneo_nombre,
       t.id_organizador,
       c.participantes_por_partida AS participantes_por_partido,
+      t.limite_equipos,
+      COALESCE(pcount.participantes_actuales, 0)::int AS participantes_actuales,
       t.encuesta,
       t.norma_puntuacion,
       t.preferencia_horario,
@@ -84,6 +97,7 @@ const getTorneoById = async (idTorneo) => {
      FROM torneo t
      JOIN categoria c ON c.id_categoria = t.id_categoria
      JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
+     ${buildParticipantsCountJoin()}
      WHERE t.id_torneo = $1`,
     [idTorneo],
   );
@@ -1247,7 +1261,7 @@ async function avanzarRondaEliminacion(idTorneo) {
       [idTorneo, rondaActual],
     );
     const partidos = partidosQ.rows;
-    if (partidos.some((p) => p.estado !== "acabado")) {
+    if (partidos.some((p) => !["acabado", "cancelado"].includes(p.estado))) {
       throw new Error(
         "Todos los partidos de la ronda actual deben estar acabados",
       );

@@ -2,6 +2,7 @@ const express = require("express");
 const usuariosRoutes = require("./usuarios.routes");
 const equiposRoutes = require("./equipos.routes");
 const categoriasRoutes = require("./categorias.routes");
+const homeRoutes = require("./home.routes");
 const tiposTorneoRoutes = require("./tipos_torneo.routes");
 const torneosRoutes = require("./torneos.routes");
 const partidosRoutes = require("./partidos.routes");
@@ -22,6 +23,7 @@ router.get("/", (_req, res) => {
         usuarios: "/api/v1/usuarios",
         equipos: "/api/v1/equipos",
         categorias: "/api/v1/categorias",
+        home: "/api/v1/home",
         tiposTorneo: "/api/v1/tipos-torneo",
         torneos: "/api/v1/torneos",
         partidos: "/api/v1/partidos",
@@ -37,6 +39,7 @@ router.get("/", (_req, res) => {
 router.use("/usuarios", usuariosRoutes);
 router.use("/equipos", equiposRoutes);
 router.use("/categorias", categoriasRoutes);
+router.use("/home", homeRoutes);
 router.use("/tipos-torneo", tiposTorneoRoutes);
 router.use("/torneos", torneosRoutes);
 router.use("/partidos", partidosRoutes);

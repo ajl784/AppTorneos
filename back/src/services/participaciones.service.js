@@ -1,5 +1,6 @@
 const { pool } = require("../db/pool");
 const notificacionesService = require('./notificaciones.service');
+const partidosService = require('./partidos.service');
 
 const listParticipaciones = async ({
   limit,
@@ -181,13 +182,23 @@ const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
 
     // Obtener tipo de torneo
     const torneoRes = await client.query(
-      `SELECT tt.nombre AS tipo_torneo
+      `SELECT tt.nombre AS tipo_torneo, t.norma_puntuacion
        FROM torneo t
        JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
        WHERE t.id_torneo = $1`,
       [idTorneo],
     );
     const tipoTorneo = torneoRes.rows[0]?.tipo_torneo || null;
+    const normaPuntuacion = torneoRes.rows[0]?.norma_puntuacion || null;
+
+    const cancelarPartido = async (idPartido, ganadorIdParticipacionEquipo = null) => {
+      await client.query(
+        `UPDATE partido
+         SET estado = 'cancelado', ganador_id_participacion_equipo = $2
+         WHERE id_partido = $1`,
+        [idPartido, ganadorIdParticipacionEquipo],
+      );
+    };
 
     // Buscar partidos que contengan esta participacion
     const partidosQ = await client.query(
@@ -215,20 +226,16 @@ const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
       );
 
       if (!remRes.rowCount) {
-        // Ningun participante -> borrar partido
-        await client.query(`DELETE FROM arbitro_partido WHERE id_partido = $1`, [idPartido]);
-        await client.query(`DELETE FROM partido WHERE id_partido = $1`, [idPartido]);
+        // Ningun participante -> cancelar partido
+        await cancelarPartido(idPartido);
         partidosEliminados.push(idPartido);
         continue;
       }
 
-      if (remRes.rowCount === 1 && (tipoTorneo || "").toLowerCase().includes("elimin")) {
-        // En torneo de eliminacion, si queda 1 participante, lo marcamos ganador
+      if ((tipoTorneo || "").toLowerCase().includes("elimin") && remRes.rowCount === 1) {
+        // En eliminacion, si queda 1 participante, lo tratamos como ganador administrativo
         const ganador = Number(remRes.rows[0].id_participacion_equipo);
-        await client.query(
-          `UPDATE partido SET ganador_id_participacion_equipo = $1, estado = 'acabado' WHERE id_partido = $2`,
-          [ganador, idPartido],
-        );
+        await cancelarPartido(idPartido, ganador);
 
         // Intentar avanzar al partido siguiente si existe
         if (idPartidoSiguiente) {
@@ -251,6 +258,9 @@ const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
             [ganador, idTorneo],
           );
         }
+      } else {
+        // Liga y otros formatos sin bracket: el partido se invalida/cancela.
+        await cancelarPartido(idPartido);
       }
     }
 
@@ -259,6 +269,13 @@ const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
       `DELETE FROM participacion_torneo_equipo WHERE id_participacion_equipo = $1`,
       [idParticipacionEquipo],
     );
+
+    if ((tipoTorneo || "") === "Liga") {
+      const norma = partidosService.parseNormaPuntuacionLiga(normaPuntuacion);
+      if (norma) {
+        await partidosService.recomputeClasificacionLiga(client, { idTorneo, norma });
+      }
+    }
 
     await client.query("COMMIT");
     return { deleted: true, partidosEliminados, partidosAvanzados };

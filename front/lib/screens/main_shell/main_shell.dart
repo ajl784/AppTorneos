@@ -197,7 +197,11 @@ class _MainShellState extends State<MainShell> {
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          const InicioTab(),
+          InicioTab(
+            onJoinTournament: () => setState(() => _currentIndex = 1),
+            onCreateTournament: () => setState(() => _currentIndex = 6),
+            onBrowseCategories: () => setState(() => _currentIndex = 2),
+          ),
           const TorneosTab(),
           const CategoriasTab(),
           const DestacadosTab(),
