@@ -41,6 +41,8 @@ dependencies:
   table_calendar: ^3.1.2
   image_picker: ^1.0.7
   file_picker: ^11.0.2 # NOTA: Esto es para que funcione en web, aunque no es necesario para móvil. En móvil se usa image_picker.
+  google_fonts: ^8.1.0
+  flutter_animate: ^4.5.2
 
   
 

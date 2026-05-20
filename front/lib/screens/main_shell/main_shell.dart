@@ -17,6 +17,7 @@ import 'package:front/screens/main_shell/_speed_dial_fab.dart';
 import 'package:front/screens/perfil/perfil_screen.dart';
 import 'package:front/state/auth_state.dart';
 import 'package:front/state/jwt_storage.dart';
+import 'package:front/state/theme_state.dart';
 import 'package:front/features/usuarios/data/usuarios_api.dart';
 import 'package:front/screens/main_shell/mis_notificaciones.dart';
 
@@ -150,7 +151,9 @@ class _MainShellState extends State<MainShell> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 1,
+        shadowColor: Theme.of(context).shadowColor.withOpacity(0.1),
         leading: ValueListenableBuilder<bool>(
           valueListenable: _hasPendingNotifications,
           builder: (context, hasPending, child) {
@@ -163,15 +166,22 @@ class _MainShellState extends State<MainShell> {
                 ),
                 if (hasPending)
                   Positioned(
-                    right: 8,
-                    top: 8,
+                    right: 6,
+                    top: 6,
                     child: Container(
-                      width: 12,
-                      height: 12,
+                      width: 16,
+                      height: 16,
                       decoration: BoxDecoration(
                         color: Colors.red,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.5),
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.red.withOpacity(0.4),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -181,6 +191,19 @@ class _MainShellState extends State<MainShell> {
         ),
         title: const Text('Torneando'),
         actions: [
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: ThemeState.themeMode,
+            builder: (context, themeMode, _) {
+              final isDark = themeMode == ThemeMode.dark;
+              return IconButton(
+                icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+                tooltip: 'Cambiar tema',
+                onPressed: () {
+                  ThemeState.toggleTheme();
+                },
+              );
+            },
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: InkWell(
@@ -210,111 +233,49 @@ class _MainShellState extends State<MainShell> {
           const CrearTorneoTab(),
         ],
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: SpeedDialFab(),
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NavItem(
-                label: 'Inicio',
-                icon: Icons.home,
-                isSelected: _currentIndex == 0,
-                selectedColor: selectedColor,
-                unselectedColor: unselectedColor,
-                onTap: () => setState(() => _currentIndex = 0),
-              ),
-              _NavItem(
-                label: 'Torneos',
-                icon: Icons.emoji_events,
-                isSelected: _currentIndex == 1,
-                selectedColor: selectedColor,
-                unselectedColor: unselectedColor,
-                onTap: () => setState(() => _currentIndex = 1),
-              ),
-              _NavItem(
-                label: 'Categorías',
-                icon: Icons.category,
-                isSelected: _currentIndex == 2,
-                selectedColor: selectedColor,
-                unselectedColor: unselectedColor,
-                onTap: () => setState(() => _currentIndex = 2),
-              ),
-              const SizedBox(width: 64),
-              _NavItem(
-                label: 'Destacados',
-                icon: Icons.workspace_premium,
-                isSelected: _currentIndex == 3,
-                selectedColor: selectedColor,
-                unselectedColor: unselectedColor,
-                onTap: () => setState(() => _currentIndex = 3),
-              ),
-              _NavItem(
-                label: 'Estadísticas',
-                icon: Icons.bar_chart,
-                isSelected: _currentIndex == 4,
-                selectedColor: selectedColor,
-                unselectedColor: unselectedColor,
-                onTap: () => setState(() => _currentIndex = 4),
-              ),
-              _NavItem(
-                label: 'Calendario',
-                icon: Icons.calendar_month,
-                isSelected: _currentIndex == 5,
-                selectedColor: selectedColor,
-                unselectedColor: unselectedColor,
-                onTap: () => setState(() => _currentIndex = 5),
-              ),
-            ],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex > 5 ? 0 : _currentIndex, // If creating tournament, keep selection
+        onDestinationSelected: (int index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Inicio',
           ),
-        ),
+          NavigationDestination(
+            icon: Icon(Icons.emoji_events_outlined),
+            selectedIcon: Icon(Icons.emoji_events),
+            label: 'Torneos',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.category_outlined),
+            selectedIcon: Icon(Icons.category),
+            label: 'Categorías',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.workspace_premium_outlined),
+            selectedIcon: Icon(Icons.workspace_premium),
+            label: 'Destacados',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart),
+            label: 'Estadísticas',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
+            label: 'Calendario',
+          ),
+        ],
       ),
     );
   }
 }
 
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.label,
-    required this.icon,
-    required this.isSelected,
-    required this.selectedColor,
-    required this.unselectedColor,
-    required this.onTap,
-  });
 
-  final String label;
-  final IconData icon;
-  final bool isSelected;
-  final Color selectedColor;
-  final Color unselectedColor;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color color = isSelected ? selectedColor : unselectedColor;
-
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: color, fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

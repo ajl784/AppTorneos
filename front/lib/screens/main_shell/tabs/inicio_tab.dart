@@ -213,7 +213,7 @@ class _HomeHeroCard extends StatelessWidget {
     final accent = theme.colorScheme.primary;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(30),
         gradient: const LinearGradient(
@@ -271,7 +271,7 @@ class _HomeHeroCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
                         Text(
                           hero.title,
                           style: theme.textTheme.headlineMedium?.copyWith(
@@ -280,7 +280,7 @@ class _HomeHeroCard extends StatelessWidget {
                             height: 0.96,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         Text(
                           hero.subtitle,
                           style: theme.textTheme.bodyLarge?.copyWith(
@@ -295,10 +295,10 @@ class _HomeHeroCard extends StatelessWidget {
                   _AvatarCluster(categorias: featuredCategorias),
                 ],
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
               Wrap(
-                spacing: 10,
-                runSpacing: 10,
+                spacing: 12,
+                runSpacing: 12,
                 children: [
                   _HeroStatPill(label: 'Categorías', value: stats.totalCategorias.toString()),
                   _HeroStatPill(label: 'Abiertos', value: stats.torneosAbiertos.toString()),
@@ -318,7 +318,7 @@ class _HomeHeroCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
-                      child: const Text('Join Tournament'),
+                      child: const Text('Unirse a Torneo'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -331,7 +331,7 @@ class _HomeHeroCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
-                      child: const Text('Create Tournament'),
+                      child: const Text('Crear Torneo'),
                     ),
                   ),
                 ],
@@ -586,19 +586,18 @@ class _CategoryShowcaseCard extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white,
-                const Color(0xFFE9F6FF),
-                const Color(0xFFD8ECFF).withOpacity(0.88),
+                Theme.of(context).colorScheme.surface,
+                Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
               ],
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0F5A75).withOpacity(0.10),
+                color: Theme.of(context).shadowColor.withOpacity(0.1),
                 blurRadius: 18,
                 offset: const Offset(0, 10),
               ),
             ],
-            border: Border.all(color: Colors.white.withOpacity(0.9)),
+            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -615,14 +614,14 @@ class _CategoryShowcaseCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F5A75).withOpacity(0.10),
+                      color: Theme.of(context).colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
                       '${categoria.participantesPorPartida}v',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F5A75),
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
                       ),
                     ),
                   ),
@@ -699,11 +698,11 @@ class _TournamentCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(26),
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFFBFE3F5).withOpacity(0.8)),
+          color: theme.colorScheme.surface,
+          border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0F5A75).withOpacity(0.08),
+              color: theme.shadowColor.withOpacity(0.1),
               blurRadius: 22,
               offset: const Offset(0, 12),
             ),
@@ -744,14 +743,12 @@ class _TournamentCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF0F5A75), Color(0xFF4BC2D7)],
-                    ),
+                    color: theme.colorScheme.primaryContainer,
                   ),
                   child: Text(
                     torneo.estado?.replaceAll('_', ' ').toUpperCase() ?? 'ABIERTO',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: theme.colorScheme.onPrimaryContainer,
                       fontWeight: FontWeight.w700,
                       fontSize: 11,
                       letterSpacing: 0.5,
@@ -789,8 +786,8 @@ class _TournamentCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       minHeight: 10,
                       value: progress,
-                      backgroundColor: const Color(0xFFE6EEF3),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0F5A75)),
+                      backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                      valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
                     ),
                   ),
                 ),
@@ -799,7 +796,7 @@ class _TournamentCard extends StatelessWidget {
                   '${(progress * 100).round()}%',
                   style: theme.textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF0F5A75),
+                    color: theme.colorScheme.primary,
                   ),
                 ),
               ],
@@ -825,7 +822,7 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5FAFD),
+        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -833,7 +830,7 @@ class _InfoChip extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: const Color(0xFF0F5A75)),
+              Icon(icon, size: 16, color: theme.colorScheme.primary),
               const SizedBox(width: 6),
               Text(
                 label,
