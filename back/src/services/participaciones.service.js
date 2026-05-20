@@ -389,6 +389,184 @@ const decideSolicitud = async ({ idParticipacionEquipo, aceptar }) => {
   return getParticipacionById(idParticipacionEquipo);
 };
 
+// Elimina un equipo del torneo por acción del organizador
+// Maneja diferentes tipos de torneo (Liga, Eliminación Directa, etc.)
+const deleteEquipoByOrganizador = async (idTorneo, idEquipo) => {
+  const client = await pool.connect();
+  const resultado = {};
+
+  try {
+    await client.query("BEGIN");
+
+    // 1. Obtener la participacion del equipo en el torneo
+    const participacionRes = await client.query(
+      `SELECT id_participacion_equipo FROM participacion_torneo_equipo
+       WHERE id_torneo = $1 AND id_equipo = $2`,
+      [idTorneo, idEquipo],
+    );
+
+    if (!participacionRes.rowCount) {
+      await client.query("ROLLBACK");
+      throw new Error("El equipo no está participando en este torneo");
+    }
+
+    const idParticipacionEquipo = Number(participacionRes.rows[0].id_participacion_equipo);
+
+    // 2. Obtener tipo de torneo
+    const torneoRes = await client.query(
+      `SELECT tt.nombre AS tipo_torneo, t.estado FROM torneo t
+       JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
+       WHERE t.id_torneo = $1`,
+      [idTorneo],
+    );
+
+    if (!torneoRes.rowCount) {
+      await client.query("ROLLBACK");
+      throw new Error("Torneo no encontrado");
+    }
+
+    const { tipo_torneo: tipoTorneo, estado: estadoTorneo } = torneoRes.rows[0];
+    resultado.tipoTorneo = tipoTorneo;
+    resultado.estadoTorneo = estadoTorneo;
+
+    // 3. Obtener todos los partidos donde participa este equipo
+    const partidosRes = await client.query(
+      `SELECT DISTINCT p.id_partido, p.estado, p.id_partido_siguiente
+       FROM partido p
+       JOIN participacion_partido pp ON pp.id_partido = p.id_partido
+       WHERE pp.id_participacion_equipo = $1 AND p.id_torneo = $2`,
+      [idParticipacionEquipo, idTorneo],
+    );
+
+    resultado.partidosAfectados = [];
+    resultado.equiposAvanzados = [];
+
+    // 4. Procesar cada partido según el tipo de torneo
+    for (const partidoRow of partidosRes.rows) {
+      const idPartido = Number(partidoRow.id_partido);
+      const idPartidoSiguiente = partidoRow.id_partido_siguiente;
+      const estadoPartido = partidoRow.estado;
+
+      // Contar cuantos participantes quedan en el partido
+      const conteoRes = await client.query(
+        `SELECT COUNT(*) as count FROM participacion_partido WHERE id_partido = $1`,
+        [idPartido],
+      );
+
+      const totalParticipantes = Number(conteoRes.rows[0].count);
+
+      // Eliminar la participacion del equipo del partido
+      await client.query(
+        `DELETE FROM participacion_partido WHERE id_partido = $1 AND id_participacion_equipo = $2`,
+        [idPartido, idParticipacionEquipo],
+      );
+
+      const participantesRestantes = totalParticipantes - 1;
+
+      if (participantesRestantes === 0) {
+        // Sin participantes: eliminar partido
+        await client.query(`DELETE FROM arbitro_partido WHERE id_partido = $1`, [idPartido]);
+        await client.query(`DELETE FROM partido WHERE id_partido = $1`, [idPartido]);
+        resultado.partidosAfectados.push({
+          id_partido: idPartido,
+          accion: "eliminado",
+          razon: "sin_participantes",
+        });
+      } else if (
+        participantesRestantes === 1 &&
+        (tipoTorneo || "").toLowerCase().includes("elimin")
+      ) {
+        // En eliminacion: 1 participante avanza automáticamente
+        const ganadorRes = await client.query(
+          `SELECT id_participacion_equipo FROM participacion_partido WHERE id_partido = $1`,
+          [idPartido],
+        );
+
+        if (ganadorRes.rowCount) {
+          const idGanador = Number(ganadorRes.rows[0].id_participacion_equipo);
+
+          // Marcar partido como acabado con ganador
+          await client.query(
+            `UPDATE partido SET ganador_id_participacion_equipo = $1, estado = 'acabado' WHERE id_partido = $2`,
+            [idGanador, idPartido],
+          );
+
+          resultado.partidosAfectados.push({
+            id_partido: idPartido,
+            accion: "acabado",
+            razon: "ganador_automatico",
+            ganador_id_participacion_equipo: idGanador,
+          });
+
+          // Avanzar al siguiente si existe
+          if (idPartidoSiguiente) {
+            const existeRes = await client.query(
+              `SELECT 1 FROM participacion_partido WHERE id_partido = $1 AND id_participacion_equipo = $2`,
+              [idPartidoSiguiente, idGanador],
+            );
+
+            if (!existeRes.rowCount) {
+              await client.query(
+                `INSERT INTO participacion_partido (id_partido, id_participacion_equipo) VALUES ($1, $2)`,
+                [idPartidoSiguiente, idGanador],
+              );
+              resultado.equiposAvanzados.push({
+                id_participacion_equipo: idGanador,
+                desde_partido: idPartido,
+                hacia_partido: idPartidoSiguiente,
+              });
+            }
+          } else {
+            // No hay siguiente = final, marcar como campeón
+            await client.query(
+              `UPDATE torneo SET estado = 'acabado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
+              [idGanador, idTorneo],
+            );
+            resultado.campeón = {
+              id_participacion_equipo: idGanador,
+              razon: "ganador_automatico_por_eliminacion",
+            };
+          }
+        }
+      } else if ((tipoTorneo || "").toLowerCase().includes("liga")) {
+        // En Liga: cambiar estado a cancelado si está planificado
+        if (estadoPartido === "planificado") {
+          await client.query(
+            `UPDATE partido SET estado = 'cancelado' WHERE id_partido = $1`,
+            [idPartido],
+          );
+          resultado.partidosAfectados.push({
+            id_partido: idPartido,
+            accion: "cancelado",
+            razon: "liga_equipo_eliminado",
+          });
+        }
+      }
+      // Otros formatos: la lógica se comporta por defecto sin cambios especiales
+    }
+
+    // 5. Marcar participacion como eliminada
+    await client.query(
+      `UPDATE participacion_torneo_equipo SET estado = 'eliminado' WHERE id_participacion_equipo = $1`,
+      [idParticipacionEquipo],
+    );
+
+    resultado.equipoEliminado = {
+      id_participacion_equipo: idParticipacionEquipo,
+      id_equipo: idEquipo,
+      id_torneo: idTorneo,
+    };
+
+    await client.query("COMMIT");
+    return resultado;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   listParticipaciones,
   getParticipacionById,
@@ -399,4 +577,5 @@ module.exports = {
   createSolicitudByTorneo,
   decideSolicitud,
   deleteParticipacionAndConsequences,
+  deleteEquipoByOrganizador,
 };
