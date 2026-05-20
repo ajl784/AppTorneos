@@ -155,8 +155,26 @@ const deleteParticipacion = async (idParticipacionEquipo) => {
 // Elimina una participacion y aplica consecuencias en los partidos del torneo.
 // - Borra las filas de participacion_partido correspondientes
 // - Si un partido queda con 0 participantes: borra el partido
-// - Si un partido queda con 1 participante en torneo de eliminacion: se marca como ganador y
-//   se intenta avanzar la participacion al partido siguiente si existe
+// - Si un partido queda con 1 participante en torneo de eliminacion directa: se marca como ganador
+// - Para "Eliminación por serie": solo cancela si quedan menos equipos que los que clasifican
+const parseNormaConfig = (norma) => {
+  if (!norma || typeof norma !== "string") return {};
+  const config = {};
+  const parts = norma
+    .split(/[;,]/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  for (const part of parts) {
+    const sep = part.includes("=") ? "=" : part.includes(":") ? ":" : null;
+    if (!sep) continue;
+    const [k, v] = part.split(sep).map((x) => x.trim());
+    if (!k || !v) continue;
+    const maybeNumber = Number(v);
+    config[k] = Number.isNaN(maybeNumber) ? v : maybeNumber;
+  }
+  return config;
+};
+
 const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
   const client = await pool.connect();
   const partidosEliminados = [];
@@ -180,9 +198,9 @@ const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
 
     const { id_torneo: idTorneo } = pRes.rows[0];
 
-    // Obtener tipo de torneo
+    // Obtener tipo de torneo y parámetros
     const torneoRes = await client.query(
-      `SELECT tt.nombre AS tipo_torneo, t.norma_puntuacion
+      `SELECT tt.nombre AS tipo_torneo, t.norma_puntuacion, t.participantes_por_partido
        FROM torneo t
        JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
        WHERE t.id_torneo = $1`,
@@ -190,6 +208,13 @@ const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
     );
     const tipoTorneo = torneoRes.rows[0]?.tipo_torneo || null;
     const normaPuntuacion = torneoRes.rows[0]?.norma_puntuacion || null;
+    const participantesPorPartido = Number(torneoRes.rows[0]?.participantes_por_partido || 2);
+    
+    // Parsear norma para obtener clasifican_por_serie
+    const normaConfig = parseNormaConfig(normaPuntuacion);
+    const clasificanPorSerie = Number(
+      normaConfig.clasifican_por_serie || normaConfig.clasificados_por_serie || Math.ceil(participantesPorPartido / 2)
+    );
 
     const cancelarPartido = async (idPartido, ganadorIdParticipacionEquipo = null) => {
       await client.query(
@@ -232,8 +257,48 @@ const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
         continue;
       }
 
-      if ((tipoTorneo || "").toLowerCase().includes("elimin") && remRes.rowCount === 1) {
-        // En eliminacion, si queda 1 participante, lo tratamos como ganador administrativo
+      // Caso: Eliminación por serie
+      if (tipoTorneo === "Eliminación por serie") {
+        const equiposRestantes = remRes.rowCount;
+        // Solo cancelar si quedan menos equipos que los que pueden pasar a siguiente ronda
+        if (equiposRestantes <= clasificanPorSerie) {
+          // Cancelar el partido y avanzar automáticamente todos los equipos restantes
+          await cancelarPartido(idPartido);
+          partidosEliminados.push(idPartido);
+          
+          // Avanzar todos los equipos restantes al siguiente partido
+          if (idPartidoSiguiente) {
+            for (const participante of remRes.rows) {
+              const idParticipacionEquipoRestante = Number(participante.id_participacion_equipo);
+              const exists = await client.query(
+                `SELECT 1 FROM participacion_partido WHERE id_partido = $1 AND id_participacion_equipo = $2`,
+                [idPartidoSiguiente, idParticipacionEquipoRestante],
+              );
+              if (!exists.rowCount) {
+                await client.query(
+                  `INSERT INTO participacion_partido (id_partido, id_participacion_equipo) VALUES ($1, $2)`,
+                  [idPartidoSiguiente, idParticipacionEquipoRestante],
+                );
+                partidosAvanzados.push({ from: idPartido, to: idPartidoSiguiente, ganador: idParticipacionEquipoRestante });
+              }
+            }
+          } else {
+            // No hay siguiente = es el último partido (final), marcar ganador si queda 1
+            if (equiposRestantes === 1) {
+              const campeon = Number(remRes.rows[0].id_participacion_equipo);
+              await client.query(
+                `UPDATE torneo SET estado = 'acabado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
+                [campeon, idTorneo],
+              );
+            }
+          }
+        }
+        // Si remRes.rowCount >= clasificanPorSerie: no hacer nada, el partido sigue activo
+        continue;
+      }
+
+      // Caso: Eliminación directa - si queda 1 participante
+      if (tipoTorneo === "Eliminación directa" && remRes.rowCount === 1) {
         const ganador = Number(remRes.rows[0].id_participacion_equipo);
         await cancelarPartido(idPartido, ganador);
 
@@ -252,16 +317,16 @@ const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
           }
         } else {
           // No hay siguiente = es el último partido (final)
-          // Marcar torneo como acabado
           await client.query(
             `UPDATE torneo SET estado = 'acabado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
             [ganador, idTorneo],
           );
         }
-      } else {
-        // Liga y otros formatos sin bracket: el partido se invalida/cancela.
-        await cancelarPartido(idPartido);
+        continue;
       }
+
+      // Liga y otros formatos: el partido se cancela
+      await cancelarPartido(idPartido);
     }
 
     // Finalmente borrar la participacion del torneo

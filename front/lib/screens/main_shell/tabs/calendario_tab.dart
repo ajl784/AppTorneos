@@ -525,6 +525,9 @@ class _CalendarioTabState extends State<CalendarioTab> {
     }
 
     try {
+      final token = await JwtStorage.getToken();
+      if (token == null) throw Exception('No hay token de autenticación');
+
       final update = PartidoUpdate(
         estado: selectedEstado,
         fechaHora: fechaHoraISO,
@@ -534,6 +537,7 @@ class _CalendarioTabState extends State<CalendarioTab> {
       await _partidosApi.updatePartido(
         partido.idPartido,
         update,
+        token: token,
       );
 
       if (selectedEstado == 'acabado') {
