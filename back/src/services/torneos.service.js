@@ -253,38 +253,66 @@ const createTorneo = async (payload) => {
 };
 
 const updateTorneo = async (idTorneo, payload) => {
-  if (payload.estado !== undefined) {
-    const current = await pool.query(
-      `SELECT estado FROM torneo WHERE id_torneo = $1`,
-      [idTorneo],
+  // Obtener el torneo actual para validaciones de estado
+  const currentResult = await pool.query(
+    `SELECT estado, id_categoria FROM torneo WHERE id_torneo = $1`,
+    [idTorneo],
+  );
+
+  if (!currentResult.rowCount) {
+    return null; // El torneo no existe, lo maneja el que llama
+  }
+
+  const { estado: currentEstado, id_categoria: currentIdCategoria } = currentResult.rows[0];
+
+  // Validación 1: No se puede cambiar el nombre si el torneo está en 'en_curso'
+  if (payload.nombre !== undefined && currentEstado === "en_curso") {
+    throw new AppError(
+      400,
+      "No se puede modificar el nombre de un torneo cuando está en estado 'en_curso'",
     );
+  }
 
-    if (current.rowCount) {
-      const currentEstado = current.rows[0].estado;
-      const nextEstado = payload.estado;
+  // Validación 2: No se puede cambiar la categoría (determina participantes_por_partida)
+  if (payload.id_categoria !== undefined) {
+    throw new AppError(
+      400,
+      "No se puede modificar la categoría de un torneo después de su creación",
+    );
+  }
 
-      if (nextEstado === "en_curso") {
+  // Validación 3: No se puede modificar participantes_por_partida directamente
+  if (payload.participantes_por_partida !== undefined) {
+    throw new AppError(
+      400,
+      "El campo 'participantes_por_partida' es determinado por la categoría del torneo y no puede modificarse directamente",
+    );
+  }
+
+  if (payload.estado !== undefined) {
+    const nextEstado = payload.estado;
+
+    if (nextEstado === "en_curso") {
+      throw new AppError(
+        400,
+        "El estado 'en_curso' se establece automáticamente al generar enfrentamientos",
+      );
+    }
+
+    if (currentEstado === "inscripcion_abierta") {
+      const allowed = new Set([
+        "inscripcion_abierta",
+        "inscripcion_cerrada",
+        "inscripcion_terminada",
+        "cancelado",
+      ]);
+
+      if (!allowed.has(nextEstado)) {
         throw new AppError(
           400,
-          "El estado 'en_curso' se establece automáticamente al generar enfrentamientos",
+          "Desde 'inscripcion_abierta' solo puedes pasar a 'inscripcion_cerrada' o 'cancelado'",
+          { from: currentEstado, to: nextEstado },
         );
-      }
-
-      if (currentEstado === "inscripcion_abierta") {
-        const allowed = new Set([
-          "inscripcion_abierta",
-          "inscripcion_cerrada",
-          "inscripcion_terminada",
-          "cancelado",
-        ]);
-
-        if (!allowed.has(nextEstado)) {
-          throw new AppError(
-            400,
-            "Desde 'inscripcion_abierta' solo puedes pasar a 'inscripcion_cerrada' o 'cancelado'",
-            { from: currentEstado, to: nextEstado },
-          );
-        }
       }
     }
   }

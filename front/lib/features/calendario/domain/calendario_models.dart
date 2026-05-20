@@ -73,6 +73,7 @@ class CalendarioPartido {
   final List<CalendarioEquipo> equipos;
   final bool esJugador;
   final bool esArbitro;
+  final bool esOrganizador;
   final String? arbitroNombre;
   final int? miIdArbitroTorneo;
 
@@ -89,6 +90,7 @@ class CalendarioPartido {
     this.ordenRonda,
     this.esJugador = false,
     this.esArbitro = false,
+    this.esOrganizador = false,
     this.arbitroNombre,
     this.miIdArbitroTorneo,
   });
@@ -160,6 +162,7 @@ class CalendarioPartido {
       equipos: equipos,
       esJugador: _boolOrFalse(json['es_jugador'] ?? json['esJugador']),
       esArbitro: _boolOrFalse(json['es_arbitro'] ?? json['esArbitro']),
+      esOrganizador: _boolOrFalse(json['es_organizador'] ?? json['esOrganizador']),
       arbitroNombre: (json['arbitro_nombre'] ?? json['arbitroNombre'])?.toString(),
       miIdArbitroTorneo: _intOrNull(json['mi_id_arbitro_torneo'] ?? json['miIdArbitroTorneo']),
     );

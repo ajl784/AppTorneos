@@ -42,6 +42,21 @@ const createTorneo = asyncHandler(async (req, res) => {
 
 const updateTorneo = asyncHandler(async (req, res) => {
   const idTorneo = parsePositiveInt(req.params.id, "id");
+
+  // Verificar que el usuario autenticado sea el organizador del torneo
+  if (req.user) {
+    const torneo = await torneosService.getTorneoById(idTorneo);
+    if (!torneo) {
+      throw new AppError(404, "Torneo no encontrado");
+    }
+    if (torneo.id_organizador !== req.user.id_usuario) {
+      throw new AppError(
+        403,
+        "Solo el organizador del torneo puede modificarlo",
+      );
+    }
+  }
+
   const data = await torneosService.updateTorneo(idTorneo, req.body || {});
 
   if (!data) {

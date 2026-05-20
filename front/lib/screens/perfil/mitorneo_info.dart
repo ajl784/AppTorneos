@@ -91,12 +91,24 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
       if (token == null) {
         throw Exception('Token requerido');
       }
+
+      // Validación: no se puede cambiar nombre si el torneo está en 'en_curso'
+      final estadoActual = _torneo.estado ?? '';
+      if (estadoActual == 'en_curso' && _nombreController.text.trim() != _torneo.nombre) {
+        throw Exception('No se puede modificar el nombre de un torneo cuando está en estado \'en_curso\'');
+      }
+
       final api = TorneosApi(baseUrl: ApiConfig.baseUrl);
       final updated = await api.updateTorneo(
         _torneo.id,
         TorneoUpdate(
-          nombre: _nombreController.text.trim(),
-          descripcion: _descripcionController.text.trim(),
+          // Solo cambiar nombre si no es 'en_curso' y realmente cambió
+          nombre: estadoActual != 'en_curso' && _nombreController.text.trim() != _torneo.nombre
+              ? _nombreController.text.trim()
+              : null,
+          descripcion: _descripcionController.text.trim() != (_torneo.descripcion ?? '')
+              ? _descripcionController.text.trim()
+              : null,
           fechaInicio: _fechaInicioController.text.trim().isEmpty ? null : _fechaInicioController.text.trim(),
           fechaFin: _fechaFinController.text.trim().isEmpty ? null : _fechaFinController.text.trim(),
           // Regla: desde inscripcion_abierta solo se permite inscripcion_cerrada o cancelado.
@@ -104,7 +116,8 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
           estado: _puedeCambiarEstadoDesdeInscripcionAbierta
               ? (_estadoController.text.trim().isEmpty ? null : _estadoController.text.trim())
               : null,
-          limiteEquipos: int.tryParse(_participantesController.text.trim()),
+          // participantes_por_partida es determinado por la categoría y no se modifica aquí
+          limiteEquipos: null,
         ),
         token: token,
       );
@@ -276,13 +289,20 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
 
 
   Widget _buildEditForm() {
+    final estadoActual = _torneo.estado ?? '';
+    final nombreDisabled = estadoActual == 'en_curso';
+
     return Form(
       key: _formKey,
       child: ListView(
         children: [
           TextFormField(
             controller: _nombreController,
-            decoration: const InputDecoration(labelText: 'Nombre'),
+            readOnly: nombreDisabled,
+            decoration: InputDecoration(
+              labelText: 'Nombre',
+              helperText: nombreDisabled ? 'No se puede modificar cuando el torneo está en "en_curso"' : null,
+            ),
             validator: (v) => v == null || v.trim().isEmpty ? 'Obligatorio' : null,
           ),
           const SizedBox(height: 8),
@@ -353,7 +373,11 @@ class _MiTorneoInfoScreenState extends State<MiTorneoInfoScreen> {
           const SizedBox(height: 8),
           TextFormField(
             controller: _participantesController,
-            decoration: const InputDecoration(labelText: 'Participantes por partido'),
+            readOnly: true,
+            decoration: const InputDecoration(
+              labelText: 'Participantes por partido',
+              helperText: 'Este valor es determinado por la categoría del torneo',
+            ),
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 24),

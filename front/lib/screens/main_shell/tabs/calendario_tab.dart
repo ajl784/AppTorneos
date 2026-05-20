@@ -192,12 +192,14 @@ class _CalendarioTabState extends State<CalendarioTab> {
         '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year.toString().padLeft(4, '0')}';
     final horaLabel = TimeOfDay.fromDateTime(local).format(context);
 
-    final lugarLabel = (partido.lugar == null || partido.lugar!.trim().isEmpty)
-        ? '—'
-        : partido.lugar!.trim();
     final arbitroLabel = (partido.arbitroNombre == null || partido.arbitroNombre!.trim().isEmpty)
         ? '—'
         : partido.arbitroNombre!.trim();
+
+    // Controladores para editar fecha/hora y lugar
+    final fechaEditController = TextEditingController(text: fechaLabel);
+    final horaEditController = TextEditingController(text: horaLabel);
+    final lugarEditController = TextEditingController(text: partido.lugar ?? '');
 
     final shouldSave = await showDialog<bool>(
       context: context,
@@ -212,8 +214,55 @@ class _CalendarioTabState extends State<CalendarioTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Lugar: $lugarLabel'),
-                    Text('Hora: $fechaLabel · $horaLabel'),
+                    TextFormField(
+                      controller: fechaEditController,
+                      decoration: const InputDecoration(
+                        labelText: 'Fecha (DD/MM/YYYY)',
+                        hintText: '01/01/2026',
+                      ),
+                      readOnly: true,
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: local,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null) {
+                          final formatted =
+                              '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year.toString().padLeft(4, '0')}';
+                          fechaEditController.text = formatted;
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: horaEditController,
+                      decoration: const InputDecoration(
+                        labelText: 'Hora (HH:MM)',
+                        hintText: '14:30',
+                      ),
+                      readOnly: true,
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.fromDateTime(local),
+                        );
+                        if (picked != null) {
+                          horaEditController.text =
+                              '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: lugarEditController,
+                      decoration: const InputDecoration(
+                        labelText: 'Lugar (opcional)',
+                        hintText: 'Ej: Cancha 1',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Text('Árbitro: $arbitroLabel'),
                     Text('Estado: ${_prettyEstadoPartido(selectedEstado)}'),
                     DropdownButtonFormField<String>(
@@ -445,10 +494,46 @@ class _CalendarioTabState extends State<CalendarioTab> {
       c.dispose();
     }
 
+    // Construir la fecha_hora desde los campos editables
+    String? fechaHoraISO;
+    if (fechaEditController.text.isNotEmpty && horaEditController.text.isNotEmpty) {
+      try {
+        // Parsear DD/MM/YYYY
+        final parts = fechaEditController.text.split('/');
+        final day = int.parse(parts[0]);
+        final month = int.parse(parts[1]);
+        final year = int.parse(parts[2]);
+
+        // Parsear HH:MM
+        final timeParts = horaEditController.text.split(':');
+        final hour = int.parse(timeParts[0]);
+        final minute = int.parse(timeParts[1]);
+
+        final newDateTime = DateTime(year, month, day, hour, minute);
+        fechaHoraISO = newDateTime.toUtc().toIso8601String();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Fecha u hora inválida: $e')),
+          );
+        }
+        fechaEditController.dispose();
+        horaEditController.dispose();
+        lugarEditController.dispose();
+        return;
+      }
+    }
+
     try {
+      final update = PartidoUpdate(
+        estado: selectedEstado,
+        fechaHora: fechaHoraISO,
+        lugar: lugarEditController.text.trim().isEmpty ? null : lugarEditController.text.trim(),
+      );
+
       await _partidosApi.updatePartido(
         partido.idPartido,
-        PartidoUpdate(estado: selectedEstado),
+        update,
       );
 
       if (selectedEstado == 'acabado') {
@@ -475,6 +560,10 @@ class _CalendarioTabState extends State<CalendarioTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al guardar: $e')),
       );
+    } finally {
+      fechaEditController.dispose();
+      horaEditController.dispose();
+      lugarEditController.dispose();
     }
   }
 
@@ -596,7 +685,7 @@ class _CalendarioTabState extends State<CalendarioTab> {
                         .map(
                           (p) => _PartidoItem(
                             partido: p,
-                            onEditar: p.esArbitro
+                            onEditar: (p.esArbitro || p.esOrganizador)
                                 ? () => _openEditarPartidoDialog(p)
                                 : null,
                           ),
@@ -765,7 +854,7 @@ class _PartidoItem extends StatelessWidget {
             Text('Árbitro: $arbitroNombre', style: theme.textTheme.bodyMedium),
             Text('Estado: $estado', style: theme.textTheme.bodyMedium),
 
-            if (partido.esArbitro && onEditar != null) ...[
+            if ((partido.esArbitro || partido.esOrganizador) && onEditar != null) ...[
               const SizedBox(height: 10),
               Align(
                 alignment: Alignment.centerRight,

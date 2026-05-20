@@ -63,20 +63,21 @@ const getCalendarioUsuario = async ({
       WHERE p.id_torneo IN (SELECT id_torneo FROM my_organizador_torneos)
     ),
     my_roles AS (
-      SELECT id_partido, true AS es_jugador, false AS es_arbitro
+      SELECT id_partido, true AS es_jugador, false AS es_arbitro, false AS es_organizador
       FROM my_jugador_partidos
       UNION ALL
-      SELECT id_partido, false AS es_jugador, true AS es_arbitro
+      SELECT id_partido, false AS es_jugador, true AS es_arbitro, false AS es_organizador
       FROM my_arbitro_partidos
       UNION ALL
-      SELECT id_partido, false AS es_jugador, false AS es_arbitro
+      SELECT id_partido, false AS es_jugador, false AS es_arbitro, true AS es_organizador
       FROM my_organizador_partidos
     ),
     my_partidos AS (
       SELECT
         id_partido,
         bool_or(es_jugador) AS es_jugador,
-        bool_or(es_arbitro) AS es_arbitro
+        bool_or(es_arbitro) AS es_arbitro,
+        bool_or(es_organizador) AS es_organizador
       FROM my_roles
       GROUP BY id_partido
     )
@@ -92,6 +93,7 @@ const getCalendarioUsuario = async ({
       p.orden_ronda,
       mp.es_jugador,
       mp.es_arbitro,
+      mp.es_organizador,
       myat.id_arbitro_torneo AS mi_id_arbitro_torneo,
       ar.arbitro_nombre,
       json_agg(
@@ -139,6 +141,7 @@ const getCalendarioUsuario = async ({
       p.orden_ronda,
       mp.es_jugador,
       mp.es_arbitro,
+      mp.es_organizador,
       myat.id_arbitro_torneo,
       ar.arbitro_nombre
     ORDER BY p.fecha_hora ASC
