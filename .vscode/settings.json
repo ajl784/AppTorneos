@@ -3,5 +3,6 @@
 
   // Permite que Dart/Flutter encuentre proyectos (pubspec.yaml)
   // que no están en la raíz del workspace (p.ej. ./front).
-  "dart.projectSearchDepth": 4
+  "dart.projectSearchDepth": 4,
+  "cmake.sourceDirectory": "C:/Users/reyra/OneDrive/Escritorio/Github/AppTorneos/front/linux"
 }
