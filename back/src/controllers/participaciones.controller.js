@@ -113,6 +113,28 @@ const decidirSolicitud = asyncHandler(async (req, res) => {
   ok(res, data);
 });
 
+const deleteEquipoDelTorneo = asyncHandler(async (req, res) => {
+  const idTorneo = parsePositiveInt(req.params.idTorneo, "idTorneo");
+  const idEquipo = parsePositiveInt(req.params.idEquipo, "idEquipo");
+
+  // Verificar que el usuario autenticado es el organizador del torneo
+  const torneo = await require("../services/torneos.service").getTorneoById(idTorneo);
+  if (!torneo) {
+    throw new AppError(404, "Torneo no encontrado");
+  }
+
+  if (!req.user || torneo.id_organizador !== req.user.id_usuario) {
+    throw new AppError(403, "No tienes permiso para eliminar equipos de este torneo");
+  }
+
+  const result = await participacionesService.deleteEquipoByOrganizador(idTorneo, idEquipo);
+  if (!result) {
+    throw new AppError(404, "Equipo no encontrado en este torneo");
+  }
+
+  ok(res, result);
+});
+
 module.exports = {
   listParticipaciones,
   getParticipacionById,
@@ -122,4 +144,5 @@ module.exports = {
   listSolicitudesByTorneo,
   createSolicitudByTorneo,
   decidirSolicitud,
+  deleteEquipoDelTorneo,
 };

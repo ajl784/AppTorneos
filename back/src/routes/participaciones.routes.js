@@ -10,5 +10,6 @@ router.get("/:id", controller.getParticipacionById);
 router.post("/", controller.createParticipacion);
 router.put("/:id", controller.updateParticipacion);
 router.delete("/:id", authMiddleware, controller.deleteParticipacion);
+router.delete("/:idTorneo/equipo/:idEquipo", authMiddleware, controller.deleteEquipoDelTorneo);
 
 module.exports = router;

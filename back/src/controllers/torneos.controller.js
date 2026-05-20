@@ -42,6 +42,19 @@ const createTorneo = asyncHandler(async (req, res) => {
 
 const updateTorneo = asyncHandler(async (req, res) => {
   const idTorneo = parsePositiveInt(req.params.id, "id");
+  const torneo = await torneosService.getTorneoById(idTorneo);
+
+  if (!torneo) {
+    throw new AppError(404, "Torneo no encontrado");
+  }
+
+  // Si intenta cambiar el nombre, verificar que es organizador
+  if (req.body && req.body.nombre !== undefined && req.body.nombre !== torneo.nombre) {
+    if (!req.user || torneo.id_organizador !== req.user.id_usuario) {
+      throw new AppError(403, "No tienes permiso para cambiar el nombre de este torneo");
+    }
+  }
+
   const data = await torneosService.updateTorneo(idTorneo, req.body || {});
 
   if (!data) {

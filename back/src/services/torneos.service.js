@@ -253,6 +253,21 @@ const createTorneo = async (payload) => {
 };
 
 const updateTorneo = async (idTorneo, payload) => {
+  // Validar cambios a nombre: solo permitido en estado 'inscripcion_abierta'
+  if (payload.nombre !== undefined) {
+    const current = await pool.query(
+      `SELECT estado FROM torneo WHERE id_torneo = $1`,
+      [idTorneo],
+    );
+
+    if (current.rowCount && current.rows[0].estado !== "inscripcion_abierta") {
+      throw new AppError(
+        400,
+        "Solo se puede cambiar el nombre del torneo mientras está en estado 'inscripcion_abierta'",
+      );
+    }
+  }
+
   if (payload.estado !== undefined) {
     const current = await pool.query(
       `SELECT estado FROM torneo WHERE id_torneo = $1`,
