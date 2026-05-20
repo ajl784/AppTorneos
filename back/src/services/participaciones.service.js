@@ -200,15 +200,16 @@ const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
 
     // Obtener tipo de torneo y parámetros
     const torneoRes = await client.query(
-      `SELECT tt.nombre AS tipo_torneo, t.norma_puntuacion, t.participantes_por_partido
+      `SELECT tt.nombre AS tipo_torneo, t.norma_puntuacion, c.participantes_por_partida
        FROM torneo t
        JOIN tipo_torneo tt ON tt.id_tipo_torneo = t.id_tipo_torneo
+       JOIN categoria c ON c.id_categoria = t.id_categoria
        WHERE t.id_torneo = $1`,
       [idTorneo],
     );
     const tipoTorneo = torneoRes.rows[0]?.tipo_torneo || null;
     const normaPuntuacion = torneoRes.rows[0]?.norma_puntuacion || null;
-    const participantesPorPartido = Number(torneoRes.rows[0]?.participantes_por_partido || 2);
+    const participantesPorPartido = Number(torneoRes.rows[0]?.participantes_por_partida || 2);
     
     // Parsear norma para obtener clasifican_por_serie
     const normaConfig = parseNormaConfig(normaPuntuacion);
@@ -261,7 +262,7 @@ const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
       if (tipoTorneo === "Eliminación por serie") {
         const equiposRestantes = remRes.rowCount;
         // Solo cancelar si quedan menos equipos que los que pueden pasar a siguiente ronda
-        if (equiposRestantes <= clasificanPorSerie) {
+        if (equiposRestantes < clasificanPorSerie) {
           // Cancelar el partido y avanzar automáticamente todos los equipos restantes
           await cancelarPartido(idPartido);
           partidosEliminados.push(idPartido);
@@ -285,10 +286,9 @@ const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
           } else {
             // No hay siguiente = es el último partido (final), marcar ganador si queda 1
             if (equiposRestantes === 1) {
-              const campeon = Number(remRes.rows[0].id_participacion_equipo);
               await client.query(
-                `UPDATE torneo SET estado = 'acabado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
-                [campeon, idTorneo],
+                `UPDATE torneo SET estado = 'acabado' WHERE id_torneo = $1`,
+                [idTorneo],
               );
             }
           }
@@ -318,8 +318,8 @@ const deleteParticipacionAndConsequences = async (idParticipacionEquipo) => {
         } else {
           // No hay siguiente = es el último partido (final)
           await client.query(
-            `UPDATE torneo SET estado = 'acabado', id_campeon_participacion = $1 WHERE id_torneo = $2`,
-            [ganador, idTorneo],
+            `UPDATE torneo SET estado = 'acabado' WHERE id_torneo = $1`,
+            [idTorneo],
           );
         }
         continue;
